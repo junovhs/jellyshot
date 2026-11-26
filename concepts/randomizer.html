@@ -42,7 +42,7 @@ select { background: #fff8ec; color: #3a2547; }
 <div id="card"></div>
 <div id="ui">
   <button id="roll">Reroll all</button>
-  <div class="seg" id="mode"><button data-m="mix" class="on">Mix</button><button data-m="named">Named</button><button data-m="crowd">Crowd</button></div>
+  <div class="seg" id="mode"><button data-m="mix" class="on">Mix</button><button data-m="named">Named</button><button data-m="crowd">Crowd</button><button data-m="test">Review</button></div>
   <div class="seg" id="view"><button data-y="0" class="on">Front</button><button data-y="0.75">¾</button><button data-y="1.5708">Side</button><button data-y="3.1416">Back</button></div>
   <button id="labs">Labels</button>
   <select id="force"><option value="">Random behaviour</option></select>
@@ -181,36 +181,132 @@ const HAT_COLS = ['#2a2035', '#ff5a4e', '#4a8dff', '#ffd84a', '#8a5cff', '#3cc8a
 const HAIR_COLS = ['#3b2a2a', '#6b4226', '#f2c14e', '#efe6dc', '#ff7a3c', '#7a4cff', '#ff5aa0', '#2b2b2b', '#4fdcb9'];
 const GOLD = () => glossy('#ffcf3a', { roughness: .2, metalness: .6 });
 
+/* ---------- accessory helpers ---------- */
+const onFace = (x, y, lift = 0) => new THREE.Vector3(x, y, Math.sqrt(Math.max(0, rAt(y) ** 2 - x * x)) + lift);
+// a shell that follows the body's dome from height y0 up, pushed out by `off`: hats and caps never clip the head
+function domeShell(y0, off, lift = 1) {
+  return G(`dome${y0},${off},${lift}`, () => {
+    const src = [new THREE.Vector2(rAt(y0), y0), ...profPts.filter(p => p.y > y0 + 1e-3)];
+    const out = src.map((p, i) => {
+      const a = src[Math.max(0, i - 1)], b = src[Math.min(src.length - 1, i + 1)];
+      let tx = b.x - a.x, ty = b.y - a.y; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+      const [nx, ny] = i === src.length - 1 ? [0, 1] : [ty, -tx];
+      return new THREE.Vector2(Math.max(0, p.x + nx * off), y0 + (p.y + ny * off - y0) * lift);
+    });
+    out[out.length - 1].x = 0;
+    return new THREE.LatheGeometry(out, 56);
+  });
+}
+const shellTop = (y0, off, lift = 1) => y0 + (1.34 + off - y0) * lift;
+// a tube along a curve whose radius follows rFn(t), t = 0..1
+function taperTube(key, pts, rFn, seg = 48, rad = 14) {
+  return G(key, () => {
+    const curve = new THREE.CatmullRomCurve3(pts), g = new THREE.TubeGeometry(curve, seg, 1, rad, false);
+    const pos = g.attributes.position, c = new THREE.Vector3(), v = new THREE.Vector3();
+    for (let i = 0; i <= seg; i++) { curve.getPointAt(i / seg, c); const r = rFn(i / seg);
+      for (let j = 0; j <= rad; j++) { const k = i * (rad + 1) + j; v.fromBufferAttribute(pos, k).sub(c).multiplyScalar(r).add(c); pos.setXYZ(k, v.x, v.y, v.z); } }
+    g.computeVertexNormals(); g.userData.ends = [curve.getPointAt(0), curve.getPointAt(1)]; return g;
+  });
+}
+// squash a tube built on the face toward the face surface (k = how much depth to keep)
+function relief(geo, k) {
+  if (geo.userData.relief) return geo; const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), zs = onFace(x, y).z; p.setZ(i, zs + (z - zs) * k); }
+  geo.computeVertexNormals(); geo.userData.relief = true; return geo;
+}
+function roundRect(p, w, h, r) {
+  p.moveTo(-w / 2 + r, -h / 2); p.lineTo(w / 2 - r, -h / 2); p.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r);
+  p.lineTo(w / 2, h / 2 - r); p.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2); p.lineTo(-w / 2 + r, h / 2);
+  p.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r); p.lineTo(-w / 2, -h / 2 + r); p.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2);
+}
+// a lens frame: a flat ring with soft bevelled edges
+function frameGeo(kind) {
+  return G('frame' + kind, () => {
+    const sh = new THREE.Shape(), hole = new THREE.Path();
+    if (kind === 'round') { sh.absarc(0, 0, .245, 0, Math.PI * 2); hole.absarc(0, 0, .212, 0, Math.PI * 2); }
+    else { roundRect(sh, .5, .4, .13); roundRect(hole, .44, .34, .1); }
+    sh.holes.push(hole);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: .02, bevelEnabled: true, bevelThickness: .01, bevelSize: .008, bevelSegments: 3, curveSegments: 40 });
+    g.translate(0, 0, -.01); return g;
+  });
+}
+function lensGeo(kind) {
+  return G('lens' + kind, () => { const sh = new THREE.Shape(); if (kind === 'round') sh.absarc(0, 0, .215, 0, Math.PI * 2); else roundRect(sh, .45, .35, .1); return new THREE.ShapeGeometry(sh, 32); });
+}
+const LENS = new THREE.MeshPhysicalMaterial({ color: '#ffffff', transparent: true, opacity: .14, roughness: .05, clearcoat: 1, depthWrite: false });
+const GOLD2 = () => glossy('#ffcf3a', { roughness: .2, metalness: .6, side: THREE.DoubleSide });
+
+/* ---------- 2D art cards (cut-out paintings used on the 3D jellies) ---------- */
+const texLoader = new THREE.TextureLoader();
+const ART = { bow: .479, moustache: .312, lollipop: 1.477, cigarette: .341 };   // height / width
+const TEX2D = {};
+for (const n of Object.keys(ART)) { const t = texLoader.load(`assets/2d/${n}.png`); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; TEX2D[n] = t; }
+function cardMat(n) {
+  const k = 'card' + n;
+  if (!mats.has(k)) mats.set(k, new THREE.MeshStandardMaterial({ map: TEX2D[n], transparent: true, alphaTest: .3, roughness: .8, side: THREE.DoubleSide,
+    emissive: '#ffffff', emissiveMap: TEX2D[n], emissiveIntensity: .3 }));
+  return mats.get(k);
+}
+const cardGeo = (n, w, sx = 1, sy = 1) => G(`card${n}${w}${sx}${sy}`, () => new THREE.PlaneGeometry(w, w * ART[n], sx, sy));
+// a card bent onto the face like a sticker
+function faceDecal(n, w, y, lift = .012) {
+  return G(`decal${n}${w}${y}`, () => {
+    const g = new THREE.PlaneGeometry(w, w * ART[n], 40, 6), p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) { const v = onFace(p.getX(i), p.getY(i) + y, lift); p.setXYZ(i, v.x, v.y, v.z); }
+    g.computeVertexNormals(); return g;
+  });
+}
+
 /* ---------- accessory kit ---------- */
 const HEAD = {
   'top hat'(g) { const c = pick(['#2a2035', '#2a2035', '#7a3cff', '#3a7a4a']), hm = clay(c);
     mesh(cyl(.62, .62, .08, 28), hm, g, 0, 1.3); mesh(cyl(.4, .42, .72, 24), hm, g, 0, 1.68);
     mesh(cyl(.43, .43, .14, 24), clay(pick(['#ff5c9e', '#ffd84a', '#4fdcb9'])), g, 0, 1.42); },
-  bowler(g) { const m = clay(pick(['#2a2035', '#6b4226', '#3a3a50']));
-    mesh(G('bowl', () => new THREE.SphereGeometry(.5, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2)), m, g, 0, 1.2);
-    mesh(cyl(.72, .72, .05, 28), m, g, 0, 1.22); },
-  crown(g) { const m = GOLD();
-    mesh(cyl(.42, .38, .3, 6, true), m, g, 0, 1.42).material.side = THREE.DoubleSide;
-    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2 + Math.PI / 6; mesh(sph(.07), m, g, Math.sin(a) * .41, 1.6, Math.cos(a) * .41); }
-    mesh(sph(.08), glossy('#ff3a6e'), g, 0, 1.42, .4); },
-  cap(g) { const m = clay(pick(HAT_COLS)), back = chance(.4), cg = new THREE.Group(); g.add(cg); cg.rotation.y = back ? Math.PI : 0;
-    mesh(G('cap', () => new THREE.SphereGeometry(.6, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2)), m, cg, 0, 1.04);
-    mesh(G('bill', () => new THREE.CylinderGeometry(.48, .48, .06, 20, 1, false, -Math.PI / 2, Math.PI)), m, cg, 0, 1.1, .36);
-    mesh(sph(.07), m, cg, 0, 1.64); },
-  'chef hat'(g) { const w = clay('#fffaf2');
-    mesh(cyl(.46, .48, .3, 24), w, g, 0, 1.34);
-    for (const [x, y, z, r] of [[0, 1.78, 0, .34], [-.26, 1.64, 0, .27], [.26, 1.64, 0, .27], [0, 1.64, .24, .26], [0, 1.66, -.24, .27]]) mesh(sph(r), w, g, x, y, z); },
-  beanie(g) { const c = pick(HAT_COLS), m = clay(c);
-    mesh(G('bean', () => new THREE.SphereGeometry(.7, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2)), m, g, 0, .9).scale.y = 1.0;
-    const band = mesh(tor(.72, .11), clay(pick(HAT_COLS)), g, 0, 1.0); band.rotation.x = Math.PI / 2;
-    mesh(sph(.19), clay('#fffaf2'), g, 0, 1.64); },
+  bowler(g) { const m = clay(pick(['#2a2035', '#6b4226', '#3a3a50'])), y0 = 1.08, R = rAt(y0) + .06;
+    mesh(domeShell(y0, .06, 1.4), m, g);
+    mesh(cyl(R + .2, R + .2, .03, 48), m, g, 0, y0, 0);
+    mesh(tor(R + .2, .028), m, g, 0, y0 + .02, 0).rotation.x = Math.PI / 2;
+    mesh(G('bowlband', () => new THREE.CylinderGeometry(R - .005, R + .005, .09, 48, 1, true)), glossy('#1a1220', { side: THREE.DoubleSide }), g, 0, y0 + .06, 0); },
+  crown(g) { const m = GOLD2(), cg = new THREE.Group(); cg.position.y = 1.25; cg.rotation.z = pick([-1, 1]) * .12; g.add(cg);
+    const R = rAt(1.25) + .025;
+    const vel = mesh(sph(R * .92, 32, 16), clay('#c8264a'), cg, 0, 0, 0); vel.scale.y = .55;
+    mesh(G('crownband', () => new THREE.CylinderGeometry(R, R * .97, .17, 48, 1, true)), m, cg, 0, .085);
+    for (const y of [0, .17]) mesh(tor(R, .022), m, cg, 0, y, 0).rotation.x = Math.PI / 2;
+    for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2;
+      const k = mesh(cone(.075, .2, 18), m, cg, Math.sin(a) * R, .26, Math.cos(a) * R); k.rotation.set(Math.cos(a) * .18, 0, -Math.sin(a) * .18);
+      mesh(sph(.036), glossy('#fff6ee', { clearcoat: 1, roughness: .12 }), cg, Math.sin(a) * (R + .035), .38, Math.cos(a) * (R + .035));
+      const b = a + Math.PI / 5, gem = mesh(sph(.042), glossy(['#ff2a5e', '#2a7aff', '#22c46a'][i % 3], { clearcoat: 1, roughness: .08 }), cg, Math.sin(b) * (R + .01), .085, Math.cos(b) * (R + .01));
+      gem.scale.set(1, 1, .55); gem.rotation.y = b; } },
+  cap(g) { const m = clay(pick(HAT_COLS)), back = chance(.35), cg = new THREE.Group(); g.add(cg); cg.rotation.y = back ? Math.PI : 0;
+    const y0 = 1.04, off = .05, R = rAt(y0) + off;
+    mesh(domeShell(y0, off, 1.05), m, cg);
+    mesh(tor(R, .03), m, cg, 0, y0, 0).rotation.x = Math.PI / 2;
+    mesh(sph(.05), m, cg, 0, shellTop(y0, off, 1.05), 0);
+    const bill = mesh(G('bill', () => { const s = new THREE.Shape(); s.moveTo(-.44, 0); s.quadraticCurveTo(-.46, .44, 0, .46); s.quadraticCurveTo(.46, .44, .44, 0); s.lineTo(-.44, 0);
+      return new THREE.ExtrudeGeometry(s, { depth: .02, bevelEnabled: true, bevelThickness: .012, bevelSize: .012, bevelSegments: 3, curveSegments: 24 }).rotateX(Math.PI / 2); }), m, cg, 0, y0 + .02, R - .14);
+    bill.rotation.x = .14; },
+  'chef hat'(g) { const w = clay('#fffaf2', .7), y0 = 1.12, R = rAt(y0) + .03;
+    mesh(G('chefband', () => { const c = new THREE.CylinderGeometry(R, R * 1.02, .32, 64, 3, true), p = c.attributes.position;
+      for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), a = Math.atan2(x, z), k = 1 + .022 * Math.sin(a * 18); p.setX(i, x * k); p.setZ(i, z * k); }
+      c.computeVertexNormals(); return c; }), w, g, 0, y0 + .16, 0).material.side = THREE.DoubleSide;
+    mesh(tor(R, .03), w, g, 0, y0 + .01, 0).rotation.x = Math.PI / 2;
+    mesh(G('chefpuff', () => { const prof = [[R * .96, 0], [R * 1.2, .1], [R * 1.36, .28], [R * 1.3, .46], [R * 1.0, .6], [R * .5, .67], [0, .69]];
+      const pts = new THREE.SplineCurve(prof.map(([x, y]) => new THREE.Vector2(x, y))).getPoints(30); pts[pts.length - 1].x = 0;
+      const lg = new THREE.LatheGeometry(pts, 64), p = lg.attributes.position;
+      for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(x, z), lobe = Math.sin(Math.min(1, y / .5) * Math.PI) ;
+        const k = 1 + .075 * Math.pow(Math.abs(Math.sin(a * 3.5)), .6) * lobe - .03 * lobe; p.setX(i, x * k); p.setZ(i, z * k); p.setY(i, y + .03 * Math.cos(a * 7) * (y / .69)); }
+      lg.computeVertexNormals(); return lg; }), w, g, 0, y0 + .3, 0); },
+  beanie(g) { const m = clay(pick(HAT_COLS)), y0 = 1.06, off = .07, R = rAt(y0) + off;
+    mesh(domeShell(y0, off, 1.25), m, g);
+    mesh(tor(R, .075), clay(pick(HAT_COLS)), g, 0, y0 + .02, 0).rotation.x = Math.PI / 2;
+    mesh(sph(.17), clay('#fffaf2', .9), g, 0, shellTop(y0, off, 1.25) + .12, 0); },
   'party hat'(g) { const pg = new THREE.Group(); pg.position.set(.12, 1.25, 0); pg.rotation.z = -.25; g.add(pg);
     mesh(cone(.3, .78), clay(pick(HAT_COLS)), pg, 0, .38); const s = mesh(tor(.22, .04), clay('#fff4e6'), pg, 0, .2); s.rotation.x = Math.PI / 2;
     mesh(sph(.11), clay(pick(HAT_COLS)), pg, 0, .8); },
-  propeller(g) { const c = pick(HAT_COLS);
-    mesh(G('prop', () => new THREE.SphereGeometry(.56, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2)), clay(c), g, 0, 1.02);
-    mesh(cyl(.03, .03, .2), GOLD(), g, 0, 1.66);
-    const spin = new THREE.Group(); spin.position.y = 1.77; g.add(spin);
+  propeller(g) { const c = pick(HAT_COLS), y0 = 1.06, off = .045, top = shellTop(y0, off);
+    mesh(domeShell(y0, off), clay(c), g); mesh(tor(rAt(y0) + off, .025), clay(pick(HAT_COLS)), g, 0, y0, 0).rotation.x = Math.PI / 2;
+    mesh(cyl(.03, .03, .2), GOLD(), g, 0, top + .08, 0);
+    const spin = new THREE.Group(); spin.position.y = top + .19; g.add(spin);
     for (const s of [-1, 1]) { const b = mesh(sph(.12), clay(pick(['#ff5a4e', '#ffd84a', '#4a8dff'])), spin, s * .22, 0, 0); b.scale.set(2, .25, .8); }
     g.userData.spin = spin; },
   flower(g) { const fg = new THREE.Group(); fg.position.set(.4, 1.2, .36); fg.rotation.set(-.5, .4, -.5); g.add(fg);
@@ -220,42 +316,57 @@ const HEAD = {
   bow(g) { const c = clay(pick(['#ff5a9e', '#ff5a4e', '#a68cff', '#4fdcb9'])), bg = new THREE.Group(); bg.position.set(-.34, 1.24, .32); bg.rotation.set(-.4, -.3, .35); g.add(bg);
     for (const s of [-1, 1]) { const k = mesh(cone(.16, .32), c, bg, s * .17, 0, 0); k.rotation.z = s * Math.PI / 2; k.scale.z = .5; }
     mesh(sph(.08), c, bg); },
-  'judge wig'(g) { const w = clay(pick(['#f6efe4', '#efe6dc', '#e8dccb']));
-    for (const s of [-1, 1]) for (const [y, x] of [[.62, .96], [.86, .92], [1.1, .8]]) { const r = mesh(sph(.21), w, g, s * x, y, -.06); r.scale.z = 1.3; }
-    for (let i = -2; i <= 2; i++) mesh(sph(.24), w, g, i * .2, 1.36 + (2 - Math.abs(i)) * .05, -.08);
-    for (let i = -1; i <= 1; i++) mesh(sph(.22), w, g, i * .2, 1.66, -.12); mesh(sph(.2), w, g, 0, 1.9, -.14); },
-  quiff(g) { const m = clay(pick(HAIR_COLS));
-    for (const [y, z, r] of [[1.3, 0, .32], [1.5, .2, .25], [1.6, .42, .18], [1.56, .6, .11]]) mesh(sph(r), m, g, 0, y, z); },
-  mohawk(g) { const m = clay(pick(['#ff5aa0', '#4fdcb9', '#7a4cff', '#ff7a3c', '#2b2b2b']));
-    for (let i = -6; i <= 2; i++) { const a = i * .2, k = mesh(cone(.1, .42, 10), m, g, 0, .62 + .74 * Math.cos(a), .74 * Math.sin(a)); k.rotation.x = a; k.translateY(.12); } },
-  afro(g) { const m = clay(pick(HAIR_COLS), .9); mesh(sph(.62, 24, 16), m, g, 0, 1.3, -.08);
-    for (let i = 0; i < 18; i++) { const u = i / 18, th = Math.acos(1 - 1.2 * u), ph = i * 2.4;
-      mesh(sph(.24), m, g, Math.sin(th) * Math.cos(ph) * .6, 1.3 + Math.cos(th) * .55, Math.sin(th) * Math.sin(ph) * .55 - .1); } },
-  bun(g) { const m = clay(pick(HAIR_COLS)); mesh(sph(.6, 24, 16), m, g, 0, 1.0, -.08).scale.set(1.05, .65, 1.05);
-    mesh(sph(.28), m, g, 0, 1.5, -.12); const t = mesh(tor(.2, .05), clay(pick(HAT_COLS)), g, 0, 1.36, -.1); t.rotation.x = Math.PI / 2; },
+  'bow (2D)'(g) { const top = chance(.5), b = mesh(cardGeo('bow', top ? .72 : .5), cardMat('bow'), g);
+    if (top) b.position.set(0, 1.47, .02);                                  // standing on top of the head
+    else { const p = onFace(-.44, 1.12, .04); b.position.copy(p); b.rotation.set(-.2, -.55, .3); } },
+  'braided bun'(g, hair) { const m = clay(hair, .8), y0 = .99, off = .025, top = shellTop(y0, off);
+    mesh(domeShell(y0, off), m, g);
+    const bun = new THREE.Group(); bun.position.set(0, top - .02, -.12); bun.rotation.x = -.35; g.add(bun);
+    mesh(tor(.19, .095), m, bun, 0, .06, 0).rotation.x = Math.PI / 2;
+    mesh(tor(.1, .075), m, bun, 0, .16, 0).rotation.x = Math.PI / 2;
+    mesh(sph(.08), m, bun, 0, .22, 0);
+    mesh(tor(.24, .03), clay(pick(HAT_COLS)), bun, 0, .0, 0).rotation.x = Math.PI / 2;
+    for (let i = 0; i < 8; i++) { const y = 1.12 - i * .085, s = i % 2 ? 1 : -1, r = rAt(y) + .05 - i * .004;
+      const seg = mesh(sph(.085, 16, 12), m, g, s * .035, y, -r); seg.scale.set(1.05, 1.45, .75); seg.rotation.z = s * .55; }
+    mesh(sph(.06), clay(pick(HAT_COLS)), g, 0, 1.12 - 8 * .085 + .02, -(rAt(.45) + .06)); },
 };
 const EYEWEAR = {
   sunglasses(g) { const m = glossy(pick(['#1c1426', '#1c1426', '#ff3a8e', '#3a1c66']), { clearcoat: 1, roughness: .1 });
     for (const s of [-1, 1]) { const l = mesh(cyl(.22, .22, .05, 24), m, g, s * .25, .79, 1.04); l.rotation.x = Math.PI / 2; l.scale.z = .85; }
     const b = mesh(cyl(.025, .025, .16), m, g, 0, .82, 1.04); b.rotation.z = Math.PI / 2; },
-  glasses(g) { const m = clay(pick(['#2a2035', '#ff5a4e', '#4a8dff']));
-    for (const s of [-1, 1]) mesh(tor(.2, .032), m, g, s * .25, .79, 1.03);
-    const b = mesh(cyl(.025, .025, .12), m, g, 0, .82, 1.04); b.rotation.z = Math.PI / 2; },
-  monocle(g) { const s = pick([-1, 1]); mesh(tor(.21, .03), GOLD(), g, s * .25, .79, 1.04);
-    const ch = mesh(cyl(.012, .012, .5, 6), GOLD(), g, s * .4, .56, .98); ch.rotation.z = -s * .5; },
+  glasses(g, hair, o = {}) { const kind = o.style ?? pick(['round', 'rect']);
+    const fm = kind === 'round' && chance(.5) ? GOLD() : glossy(pick(['#241a2e', '#6b3420', '#ff5a6e', '#2a5acc']), { roughness: .3, clearcoat: .8 });
+    const hw = kind === 'round' ? .245 : .25;
+    for (const s of [-1, 1]) {
+      const f = mesh(frameGeo(kind), fm, g, s * .27, .79, 1.0); f.rotation.y = s * .25;
+      const l = mesh(lensGeo(kind), LENS, g, s * .27, .79, 1.0); l.rotation.y = s * .25; l.castShadow = false;
+      const ox = s * (.27 + hw * Math.cos(.25)), oz = 1.0 - hw * Math.sin(.25);
+      mesh(taperTube(`temple${kind}${s}`, [new THREE.Vector3(ox, .83, oz), new THREE.Vector3(s * .6, .85, .72), onFace(s * .74, .86, .01)], () => .011, 16, 6), fm, g);
+    }
+    const ix = .27 - hw * Math.cos(.25);
+    mesh(taperTube(`bridge${kind}`, [new THREE.Vector3(-ix, .82, 1.03), new THREE.Vector3(0, .86, 1.05), new THREE.Vector3(ix, .82, 1.03)], () => .013, 16, 6), fm, g); },
+  monocle(g) { const s = pick([-1, 1]), gm = GOLD();
+    const f = mesh(frameGeo('round'), gm, g, s * .25, .8, 1.01); f.rotation.y = s * .25;
+    const l = mesh(lensGeo('round'), LENS, g, s * .25, .8, 1.01); l.rotation.y = s * .25; l.castShadow = false;
+    // a fine gold chain of real links, drooping to the body
+    const a = new THREE.Vector3(s * .38, .66, .97), b = onFace(s * .62, .4, .03), n = 16, pts = [];
+    for (let i = 0; i <= n; i++) { const t = i / n, p = a.clone().lerp(b, t); p.y -= Math.sin(t * Math.PI) * .07; const sf = onFace(p.x, p.y, .025); if (p.z < sf.z) p.z = sf.z; pts.push(p); }
+    const Y = new THREE.Vector3(0, 1, 0);
+    for (let i = 0; i < n; i++) { const p = pts[i].clone().lerp(pts[i + 1], .5), k = mesh(tor(.016, .005), gm, g, p.x, p.y, p.z);
+      k.quaternion.setFromUnitVectors(Y, pts[i + 1].clone().sub(pts[i]).normalize()); if (i % 2) k.rotateY(Math.PI / 2);
+      k.scale.set(1, 1.5, 1); k.castShadow = false; } },
 };
 const FACIAL = {
-  moustache(g, hair) { const m = clay(hair);
-    for (const s of [-1, 1]) { const p = mesh(sph(.14), m, g, s * .13, .55, .97); p.scale.set(1.35, .55, .6); p.rotation.z = s * .3; } },
-  handlebar(g, hair) { const m = clay(hair);
-    for (const s of [-1, 1]) { const p = mesh(sph(.13), m, g, s * .13, .55, .97); p.scale.set(1.35, .5, .6); p.rotation.z = s * .15;
-      const c = mesh(tor(.07, .03, Math.PI * 1.3), m, g, s * .31, .62, .93); c.rotation.set(0, 0, s > 0 ? -1.2 : Math.PI + 1.2 - Math.PI * .3); } },
-  beard(g, hair) { const m = clay(hair, .9);
-    for (const [row, y0, n, rr] of [[0, .44, 6, .13], [1, .3, 5, .15], [2, .17, 3, .14]])
-      for (let i = -n; i <= n; i++) { const a = i * .16, y = y0 + Math.abs(i) * .025 * (row === 0 ? 1 : .6), r = rAt(y) + (row ? .05 : .02);
-        mesh(sph(rr - Math.abs(i) * .006), m, g, Math.sin(a) * r, y, Math.cos(a) * r); }
-    for (const s of [-1, 1]) { const p = mesh(sph(.13), m, g, s * .13, .56, .98); p.scale.set(1.3, .5, .6); } },
-  goatee(g, hair) { const m = clay(hair); for (const [x, y, z, r] of [[0, .36, .99, .1], [-.07, .3, .97, .08], [.07, .3, .97, .08], [0, .24, .97, .08]]) mesh(sph(r), m, g, x, y, z); },
+  moustache(g, hair) { const m = clay(hair, .8);
+    // bushy chevron: fat at the middle, sweeping out and up to soft tips
+    // two fat lobes with a cleft in the middle, sweeping out and curling up at the tips
+    for (const s of [-1, 1]) mesh(relief(taperTube(`mst${s}`, [[.015, .6], [.09, .575], [.19, .56], [.28, .575], [.35, .615], [.375, .665], [.35, .7], [.315, .69]].map(([x, y]) => onFace(s * x, y, .0)),
+      t => .012 + .085 * Math.pow(Math.sin(Math.min(1, (t + .08) * 1.15) * Math.PI / 2 + Math.PI / 2 * 0) * (1 - t) + .0001, .7), 64, 18), .55), m, g); },
+  handlebar(g, hair) { const m = clay(hair, .8);
+    for (const s of [-1, 1]) mesh(relief(taperTube(`hb${s}`, [[0, .58], [.1, .575], [.2, .55], [.28, .54], [.35, .565], [.385, .62], [.36, .665], [.315, .655], [.305, .62]].map(([x, y]) => onFace(s * x, y, .0)),
+      t => .012 + .068 * Math.pow(1 - t, 1.25), 64, 14), .6), m, g);
+    mesh(sph(.075, 20, 14), m, g, 0, .58, rAt(.58)).scale.set(1, .95, .45); },
+  'moustache (2D)'(g) { const d = mesh(faceDecal('moustache', .74, .56), cardMat('moustache'), g); d.castShadow = false; },
 };
 const BROWS = {
   'angry brows'(g, hair) { for (const s of [-1, 1]) { const b = mesh(G('brow', () => new THREE.CapsuleGeometry(.045, .2, 4, 10)), clay(hair), g, s * .25, 1.03, .8); b.rotation.set(-.6, 0, Math.PI / 2 - s * .4); } },
@@ -275,6 +386,8 @@ const PROPS = {
   cigar(h) { mesh(cyl(.04, .04, .34, 12), clay('#7a4426'), h, 0, 0, .14).rotation.x = Math.PI / 2;
     mesh(cyl(.041, .041, .05, 12), clay('#ff5a4e'), h, 0, 0, .06).rotation.x = Math.PI / 2;
     const tip = mesh(sph(.042, 10, 8), new THREE.MeshBasicMaterial({ color: '#ff8a3a' }), h, 0, 0, .31); h.userData.tip = tip; },
+  'cigarette (2D)'(h) { const c = mesh(cardGeo('cigarette', .62), cardMat('cigarette'), h, -.04, .03, .06); c.scale.x = -1;
+    const tip = new THREE.Object3D(); tip.position.set(.25, -.05, .06); h.add(tip); h.userData.tip = tip; },
   fork(h) { const m = glossy('#d8dde6', { metalness: .7, roughness: .2 }); mesh(cyl(.025, .025, .5, 8), m, h, 0, .16, 0);
     mesh(G('forkhead', () => new THREE.BoxGeometry(.16, .06, .03)), m, h, 0, .43, 0);
     for (const x of [-.06, 0, .06]) mesh(cyl(.013, .013, .16, 6), m, h, x, .54, 0);
@@ -296,13 +409,14 @@ const PROPS = {
   lollipop(h) { mesh(cyl(.02, .02, .45, 6), clay('#fffaf2'), h, 0, .18, 0);
     const d = mesh(cyl(.2, .2, .06, 24), clay(pick(['#ff86c4', '#a68cff', '#4fdcb9'])), h, 0, .5, 0); d.rotation.x = Math.PI / 2;
     const r = mesh(tor(.12, .03), clay('#fffaf2'), h, 0, .5, .035); },
+  'lollipop (2D)'(h) { const w = .5; mesh(cardGeo('lollipop', w), cardMat('lollipop'), h, 0, w * ART.lollipop / 2 - .06, .03); },
 };
 
 /* ---------- behaviours ---------- */
 const BEHAVIOURS = {
   idle: { label: 'loitering', props: [null, null, 'balloon', 'drink', 'gavel'] },
-  smoking: { label: 'smoking', props: ['cigar'] },
-  eating: { label: 'eating', props: ['ice cream', 'fork', 'lollipop', 'drink'] },
+  smoking: { label: 'smoking', props: ['cigar', 'cigarette (2D)'] },
+  eating: { label: 'eating', props: ['ice cream', 'fork', 'lollipop', 'lollipop (2D)', 'drink'] },
   dancing: { label: 'dancing', props: [null] },
   bathroom: { label: 'running to the bathroom', props: [null] },
   chatting: { label: 'chatting', props: [null, null, 'drink'] },
@@ -322,19 +436,19 @@ for (const k of NAMED_BEH) force.add(new Option(BEHAVIOURS[k].label, k));
 /* ---------- build one jelly ---------- */
 const labelsEl = document.getElementById('labels');
 const jellies = [];
-function makeJelly(home, tier) {
-  const col = pick(JELLY_COLS), hair = pick(HAIR_COLS);
-  const size = tier === 'named' ? rand(.62, .82) : rand(.5, .68);
-  const w = rand(.94, 1.1), h = rand(.92, 1.14);
+function makeJelly(home, tier, spec = null) {
+  const col = spec?.col ?? pick(JELLY_COLS), hair = spec?.hair ?? pick(HAIR_COLS);
+  const size = spec ? .78 : tier === 'named' ? rand(.62, .82) : rand(.5, .68);
+  const w = spec ? 1 : rand(.94, 1.1), h = spec ? 1 : rand(.92, 1.14);
   const root = new THREE.Group(); root.position.copy(home); root.rotation.y = 0; scene.add(root);
   const rig = new THREE.Group(); root.add(rig);
   const items = [];
-  const paints = tier === 'named' ? (chance(.75) ? shuffle(Object.keys(PAINT)).slice(0, chance(.3) ? 2 : 1) : []) : (chance(.3) ? [pick(Object.keys(PAINT))] : []);
+  const paints = spec ? [] : tier === 'named' ? (chance(.75) ? shuffle(Object.keys(PAINT)).slice(0, chance(.3) ? 2 : 1) : []) : (chance(.3) ? [pick(Object.keys(PAINT))] : []);
   const bodyMat = clay(col);
   const body = mesh(bodyGeo, bodyMaterial(col, paints), rig);
   const footMat = clay(new THREE.Color(col).offsetHSL(0, 0, -.12).getStyle());
   const feet = [-.42, .42].map(sx => { const f = mesh(sph(.3, 16, 10), footMat, rig, sx, .1, .18); f.scale.set(1, .55, 1.15); return f; });
-  const eyeStyle = tier === 'named' ? pick(EYE_STYLES) : chance(.8) ? 'normal' : pick(EYE_STYLES);
+  const eyeStyle = spec ? 'normal' : tier === 'named' ? pick(EYE_STYLES) : chance(.8) ? 'normal' : pick(EYE_STYLES);
   const pr = { normal: 19, 'small pupils': 11, 'big pupils': 27, 'sleepy lids': 19, mismatched: 19 }[eyeStyle];
   const lid = eyeStyle === 'sleepy lids' ? .44 : 0;
   const eyeMats = eyeStyle === 'mismatched' ? [eyeMaterial(col, 26), eyeMaterial(col, 10)] : [eyeMaterial(col, pr, lid)];
@@ -355,16 +469,17 @@ function makeJelly(home, tier) {
     const n = chance(.5) ? 2 : 3;
     slots = chance(.85) ? ['head', ...shuffle(['eyewear', 'facial', 'brows', 'earrings']).slice(0, n - 1)] : shuffle(['eyewear', 'facial', 'brows', 'earrings']).slice(0, n);
   } else slots = chance(.55) ? [chance(.5) ? 'head' : pick(['eyewear', 'facial', 'brows', 'earrings'])] : [];
-  for (const s of slots) { const kit = SLOTS[s], name = pick(Object.keys(kit)); kit[name](acc, hair); items.push(name); }
+  if (spec) for (const [s, name, o] of spec.items ?? []) { SLOTS[s][name](acc, hair, o ?? {}); items.push(name + (o?.style ? ` (${o.style})` : '')); }
+  else for (const s of slots) { const kit = SLOTS[s], name = pick(Object.keys(kit)); kit[name](acc, hair); items.push(name); }
   // behaviour and prop
-  const beh = force.value || (tier === 'named' ? pick(NAMED_BEH) : pick(CROWD_BEH));
-  const propName = pick(BEHAVIOURS[beh].props);
+  const beh = spec?.beh ?? (force.value || (tier === 'named' ? pick(NAMED_BEH) : pick(CROWD_BEH)));
+  const propName = spec ? spec.prop ?? null : pick(BEHAVIOURS[beh].props);
   if (propName) PROPS[propName](arms[1].hold);
   rig.scale.set(size * w, size * h, size * w);
   // contact shadow + label
   const lab = document.createElement('div'); lab.className = 'lab';
   const sayEl = document.createElement('span'); sayEl.className = 'say'; labelsEl.appendChild(sayEl);
-  lab.innerHTML = `${tier === 'named' ? `<b>${pick(FIRST)} ${pick(LAST)}</b>` : ''}<i>${BEHAVIOURS[beh].label}</i>`;
+  lab.innerHTML = spec ? `<b>${spec.label}</b>` : `${tier === 'named' ? `<b>${pick(FIRST)} ${pick(LAST)}</b>` : ''}<i>${BEHAVIOURS[beh].label}</i>`;
   labelsEl.appendChild(lab);
   const j = { root, rig, body, feet, eyes, eyeMats, arms, acc, home: home.clone(), size, w, h, col, hair, tier, items, beh, propName,
     ph: rand(0, 20), lab, say: sayEl, name: lab.querySelector('b')?.textContent ?? 'crowd jelly', nextFx: 0, sayT: 0, face0: 0 };
@@ -377,11 +492,11 @@ function disposeJelly(j) { scene.remove(j.root); j.lab.remove(); j.say.remove();
 let mode = 'mix', selected = null, focus = null, viewYaw = 0, grid = { cols: 4, rows: 3 };
 function setFocus(j) {
   focus = j;
-  if (j) { aim(j.home.x, j.home.y + .9, 1.5, 1.6); } else resize();
+  if (j) { aim(j.home.x, j.home.y + .95, 1.05, 1.1); } else resize();
   if (selected) select(selected);
 }
 function layout() {
-  const portrait = innerWidth < innerHeight, cols = portrait ? 3 : 4, rows = portrait ? 4 : 3;
+  const portrait = innerWidth < innerHeight, cols = mode === 'test' ? 4 : portrait ? 3 : 4, rows = mode === 'test' ? Math.ceil(TEST.length / 4) : portrait ? 4 : 3;
   const pts = [];
   shelves.clear();
   for (let r = 0; r < rows; r++) {
@@ -392,15 +507,38 @@ function layout() {
   grid = { cols, rows };
   return pts;
 }
+// side-by-side review shelves: 2D art cards against their 3D versions, then the reworked presets
+const TEST = [
+  { label: 'bow (2D)', items: [['head', 'bow (2D)']], beh: 'idle', col: '#4fdcb9' },
+  { label: 'moustache (2D)', items: [['facial', 'moustache (2D)']], beh: 'idle', col: '#ffd84a' },
+  { label: 'lollipop (2D)', beh: 'eating', prop: 'lollipop (2D)', col: '#a68cff' },
+  { label: 'cigarette (2D)', beh: 'smoking', prop: 'cigarette (2D)', col: '#ff86c4' },
+  { label: 'bow (3D)', items: [['head', 'bow']], beh: 'idle', col: '#4fdcb9' },
+  { label: 'moustache (3D)', items: [['facial', 'moustache']], beh: 'idle', col: '#ffd84a', hair: '#7a3a20' },
+  { label: 'lollipop (3D)', beh: 'eating', prop: 'lollipop', col: '#a68cff' },
+  { label: 'cigar (3D)', beh: 'smoking', prop: 'cigar', col: '#ff86c4' },
+  { label: 'crown', items: [['head', 'crown']], beh: 'idle', col: '#a68cff' },
+  { label: 'cap', items: [['head', 'cap']], beh: 'idle', col: '#4a8dff' },
+  { label: 'chef hat', items: [['head', 'chef hat']], beh: 'idle', col: '#ff9a3c' },
+  { label: 'braided bun', items: [['head', 'braided bun']], beh: 'idle', col: '#ff86c4', hair: '#6b4226' },
+  { label: 'bowler', items: [['head', 'bowler']], beh: 'idle', col: '#3cc8e0' },
+  { label: 'beanie', items: [['head', 'beanie']], beh: 'idle', col: '#8ad84a' },
+  { label: 'propeller', items: [['head', 'propeller']], beh: 'idle', col: '#ff5a6e' },
+  { label: 'handlebar', items: [['facial', 'handlebar']], beh: 'idle', col: '#4fdcb9', hair: '#3b2a2a' },
+  { label: 'glasses (round)', items: [['eyewear', 'glasses', { style: 'round' }]], beh: 'idle', col: '#ffd84a' },
+  { label: 'glasses (rect)', items: [['eyewear', 'glasses', { style: 'rect' }]], beh: 'idle', col: '#4a8dff' },
+  { label: 'monocle', items: [['eyewear', 'monocle']], beh: 'idle', col: '#8ad84a' },
+  { label: 'sunglasses', items: [['eyewear', 'sunglasses']], beh: 'idle', col: '#ff9a3c' },
+];
 function tierFor(i) { return mode === 'mix' ? (i % 3 === 0 ? 'named' : 'crowd') : mode; }
 function rollAll() {
   jellies.splice(0).forEach(disposeJelly); if (focus) { focus = null; resize(); }
-  layout().forEach((p, i) => jellies.push(makeJelly(p, tierFor(i))));
+  layout().forEach((p, i) => { if (mode !== 'test') jellies.push(makeJelly(p, tierFor(i))); else if (TEST[i]) jellies.push(makeJelly(p, 'named', TEST[i])); });
   select(jellies.find(j => j.tier === 'named') ?? jellies[0]);
 }
 function rerollOne(j) {
   const i = jellies.indexOf(j); disposeJelly(j);
-  const nj = makeJelly(j.home, j.tier); jellies[i] = nj; if (focus === j) focus = nj; select(nj); if (focus) setFocus(nj);
+  const nj = makeJelly(j.home, j.tier, mode === 'test' ? TEST[i] : null); jellies[i] = nj; if (focus === j) focus = nj; select(nj); if (focus) setFocus(nj);
 }
 const card = document.getElementById('card');
 function select(j) {
@@ -417,7 +555,7 @@ function select(j) {
 }
 document.getElementById('roll').onclick = rollAll;
 for (const b of document.querySelectorAll('#mode button')) b.onclick = () => {
-  mode = b.dataset.m; document.querySelectorAll('#mode button').forEach(x => x.classList.toggle('on', x === b)); rollAll();
+  mode = b.dataset.m; document.querySelectorAll('#mode button').forEach(x => x.classList.toggle('on', x === b)); rollAll(); resize();
 };
 force.onchange = rollAll;
 
@@ -538,7 +676,7 @@ function aim(x, y, halfH, halfW = 0) {
 }
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
-  if (focus) return aim(focus.home.x, focus.home.y + .9, 1.5, 1.6);
+  if (focus) return aim(focus.home.x, focus.home.y + .95, 1.05, 1.1);
   aim(0, (grid.rows - 1) * ROW_H / 2 + .7, (grid.rows * ROW_H + .2) / 2, (grid.cols * COL_W + .7) / 2);
   key.target.position.set(0, (grid.rows - 1) * ROW_H / 2, 0); key.target.updateMatrixWorld();
 }
@@ -548,14 +686,16 @@ for (const b of document.querySelectorAll('#view button')) b.onclick = () => {
   viewYaw = +b.dataset.y; document.querySelectorAll('#view button').forEach(x => x.classList.toggle('on', x === b));
 };
 document.getElementById('labs').onclick = () => document.body.classList.toggle('nolabels');
-layout(); resize(); rollAll();
+{ const qm = new URLSearchParams(location.search).get('mode');
+  if (qm) { mode = qm; document.querySelectorAll('#mode button').forEach(x => x.classList.toggle('on', x.dataset.m === qm)); } }
+rollAll(); resize();
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
   for (const j of jellies) animate(j, t, dt);
   tickPuffs(dt); controls.update(); renderer.render(scene, camera); placeLabels();
 });
-window.__jellies = jellies; window.__cam = { camera, controls };
+window.__jellies = jellies; window.__cam = { camera, controls }; window.__focus = i => setFocus(i == null ? null : jellies[i]);
 </script>
 </body>
 </html>
