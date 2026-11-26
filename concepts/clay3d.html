@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Jellyshot · clay 3D concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<style>
+/* Concept: the Jubilee as a soft clay diorama in Three.js, seen through the scope.
+   Sizes are cqw of the phone frame (941 x 1672 reference, 1cqw = 9.41px). */
+:root { --ink: #4a3560; --font: 'Baloo 2', 'Fredoka', ui-rounded, system-ui, sans-serif;
+  /* fingerprinty clay grain, laid over every chrome surface */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .4 0 0 0 0 .5 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #14122a; overflow: hidden; }
+body { display: grid; place-items: center; font-family: var(--font); color: var(--ink); }
+.phone { container-type: inline-size; position: relative; overflow: hidden; width: min(100vw, calc(100vh * 941 / 1672)); aspect-ratio: 941 / 1672; background: #1d1a33; touch-action: none; }
+canvas#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.hud { position: absolute; inset: 0; pointer-events: none; }
+
+/* ---- clay: lit from the top-left like the scene, soft contact shadow below, grain on top ----
+   --c = base colour, --hi = highlight, --lo = shade (set per element) */
+.clay {
+  position: absolute; background: radial-gradient(130% 120% at 30% 22%, var(--hi) 0%, var(--c) 46%, var(--lo) 100%);
+  box-shadow:
+    inset .7cqw .8cqw 1.1cqw rgba(255, 255, 255, .55),
+    inset -.9cqw -1.1cqw 1.6cqw color-mix(in srgb, var(--lo) 80%, #000 20%),
+    0 1.3cqw 2cqw rgba(24, 14, 46, .38), 0 .35cqw .5cqw rgba(24, 14, 46, .3);
+  isolation: isolate;
+}
+.clay::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--grain); background-size: 24cqw; mix-blend-mode: soft-light; opacity: .8; z-index: -1; pointer-events: none; }
+.emboss { text-shadow: 0 .22cqw 0 rgba(255, 255, 255, .7), 0 -.12cqw .1cqw rgba(60, 30, 70, .25); }
+.groove { width: .9cqw; align-self: stretch; border-radius: 1cqw; background: rgba(90, 60, 80, .18); box-shadow: inset .25cqw .3cqw .4cqw rgba(60, 30, 60, .35), .2cqw .1cqw .2cqw rgba(255, 255, 255, .6); }
+svg.puffy { filter: drop-shadow(0 .6cqw .7cqw rgba(30, 16, 50, .35)); overflow: visible; }
+
+/* ---- top bar ---- */
+.logo { position: absolute; left: 4cqw; top: 2.4cqw; width: 12.4cqw; }
+.label { --c: #fff2cf; --hi: #fffdf4; --lo: #efd29a; left: 15.6cqw; top: 5cqw; padding: .6cqw 3cqw .1cqw 2.6cqw; border-radius: 3cqw; font-weight: 800; font-size: 3.6cqw; letter-spacing: .02em; transform: rotate(-3deg); }
+.timer { --c: #fff4d8; --hi: #ffffff; --lo: #ecd6a8; left: 41.6cqw; top: 2.4cqw; width: 21.4cqw; height: 9.6cqw; border-radius: 5cqw; display: grid; place-items: center; font-weight: 800; font-size: 7cqw; padding-top: 1cqw; }
+.btn { --c: #ffeaa0; --hi: #fffbe6; --lo: #e9c360; top: 2.6cqw; width: 9cqw; height: 9cqw; border-radius: 50%; display: grid; place-items: center; }
+.btn svg { width: 4.4cqw; height: 4.4cqw; }
+.b1 { left: 66.2cqw; } .b2 { left: 77cqw; } .b3 { left: 87.6cqw; }
+
+/* ---- event ribbon: a pressed clay strip with folded-back tails ---- */
+.tail { --c: #f2c53a; --hi: #f9d968; --lo: #c99a20; top: 19.2cqw; width: 10cqw; height: 7.4cqw; border-radius: 1.6cqw; }
+.tail.l { left: 7.6cqw; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 34% 50%); transform: rotate(-4deg); }
+.tail.r { right: 7.6cqw; clip-path: polygon(0 0, 100% 0, 66% 50%, 100% 100%, 0 100%); transform: rotate(4deg); }
+.ribbon { --c: #ffe263; --hi: #fff6b8; --lo: #f0bb2c; left: 10.4cqw; right: 10.4cqw; top: 13.6cqw; height: 11.2cqw; border-radius: 3.4cqw; display: flex; align-items: center; gap: 3cqw; padding-left: 4.6cqw; transform: rotate(-.6deg); }
+.ribbon .cake { width: 12cqw; margin-top: -1.4cqw; flex: none; }
+.ribbon .groove { margin: 2.4cqw 0; }
+.ribbon h2 { margin: 0; white-space: nowrap; font-weight: 800; font-size: 4.25cqw; letter-spacing: .02em; line-height: 1; padding-top: .9cqw; color: #5a3a2a; }
+
+/* ---- scope (glass + clay ring are rendered in WebGL; only the etched reticle is SVG) ---- */
+/* scope housing: clean render (assets/scope-housing.png + .json, 1078 x 1221).
+   Drawn at 98cqw wide, so 1 asset px = 98/1078 cqw. Glass centre (533.2, 600.1)px sits at (50cqw, 80.3cqw);
+   glass radius ~436px -> 39.7cqw. */
+.housing { position: absolute; left: 1.53cqw; top: 25.75cqw; width: 98cqw; height: auto; pointer-events: none; filter: drop-shadow(0 1.4cqw 2.2cqw rgba(24, 14, 46, .45)); }
+/* reticle box: the SVG's 433-unit glass radius = the 38.95cqw horizontal glass radius */
+.scope { position: absolute; left: 50cqw; top: 80.3cqw; width: 89.95cqw; height: 89.95cqw; transform: translate(-50%, -50%); }
+.scope svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+/* ---- speech bubbles: little cream clay pillows ---- */
+.bubble { --c: #fffaec; --hi: #ffffff; --lo: #eadfc6; position: absolute; transform: translate(-50%, -100%); white-space: nowrap; padding: .7cqw 2.4cqw .2cqw; border-radius: 3cqw; font-weight: 700; font-size: 3cqw; transition: opacity .25s;
+  box-shadow: inset .4cqw .5cqw .7cqw rgba(255,255,255,.7), inset -.5cqw -.6cqw .9cqw rgba(170, 140, 110, .45), 0 .8cqw 1.2cqw rgba(24, 14, 46, .35); }
+.bubble::after { content: ''; position: absolute; left: 50%; bottom: -1.4cqw; width: 2.4cqw; height: 2.4cqw; background: #f1e6cd; border-radius: 0 0 .7cqw 0; transform: translateX(-50%) rotate(45deg); box-shadow: .5cqw .5cqw .7cqw rgba(24, 14, 46, .25); z-index: -2; }
+
+/* ---- cards ---- */
+.card { left: 7.4cqw; right: 7.4cqw; border-radius: 4.4cqw; display: flex; align-items: center; }
+.target { --c: #fff0c4; --hi: #fffcef; --lo: #ecd396; top: 128cqw; height: 15cqw; padding-left: 4cqw; }
+.target .portrait { width: 15cqw; flex: none; margin-top: -.6cqw; }
+.card .groove { margin: 2.6cqw 3.4cqw; }
+.target h3 { margin: 0; font-weight: 800; font-size: 5.6cqw; line-height: 1; letter-spacing: .03em; }
+.role { --c: #b496e6; --hi: #d8c4fb; --lo: #8a68c2; background: radial-gradient(130% 120% at 30% 22%, var(--hi), var(--c) 46%, var(--lo)); position: relative; display: inline-block; margin-top: 1cqw; padding: .4cqw 4.2cqw 0; border-radius: 3cqw; color: #fff8ff; font-weight: 800; font-size: 3.6cqw; letter-spacing: .05em; text-shadow: 0 .2cqw .2cqw rgba(70, 40, 110, .45);
+  box-shadow: inset .4cqw .5cqw .6cqw rgba(255,255,255,.45), inset -.4cqw -.5cqw .7cqw rgba(70, 40, 120, .45), 0 .5cqw .8cqw rgba(24, 14, 46, .25); }
+.handler { --c: #e2cff8; --hi: #f6eeff; --lo: #b99fe0; top: 146cqw; height: 13.4cqw; padding-left: 4.6cqw; gap: 3.4cqw; }
+.handler svg { width: 10.6cqw; flex: none; }
+.handler b { display: block; font-weight: 800; font-size: 4.6cqw; line-height: 1; letter-spacing: .03em; }
+.handler span { display: block; margin-top: .6cqw; font-weight: 600; font-size: 3.4cqw; }
+.ammo { --c: #3a3260; --hi: #5c5290; --lo: #221d40; left: 50%; top: 161.6cqw; transform: translateX(-50%); width: 34cqw; height: 9.8cqw; border-radius: 5cqw; display: flex; align-items: center; justify-content: center; gap: 1.2cqw; }
+.ammo i { width: 2.8cqw; height: 5.4cqw; border-radius: 1.4cqw; background: radial-gradient(120% 90% at 35% 25%, #fffbd0, #ffd84a 55%, #d9a224); box-shadow: inset -.25cqw -.35cqw .4cqw rgba(150, 90, 10, .45), 0 .35cqw .5cqw rgba(0, 0, 0, .4); }
+.ammo em { margin-left: 2.2cqw; font-style: normal; font-weight: 700; font-size: 4.2cqw; color: #f4f0ff; padding-top: .6cqw; text-shadow: 0 .25cqw .3cqw rgba(0,0,0,.4); }
+.hint { position: absolute; left: 0; right: 0; bottom: 1.2cqw; text-align: center; font-size: 2.4cqw; font-weight: 600; color: #e8e2ff; opacity: .55; }
+</style>
+</head>
+<body>
+<!-- "puff": inflates any flat SVG shape into soft clay, lit from the top-left like the scene -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <filter id="puff" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3.2" result="b"/>
+      <feDiffuseLighting in="b" surfaceScale="4.5" diffuseConstant="1.18" lighting-color="#fff" result="dif"><feDistantLight azimuth="225" elevation="48"/></feDiffuseLighting>
+      <feSpecularLighting in="b" surfaceScale="4.5" specularConstant=".5" specularExponent="16" lighting-color="#fff" result="spec"><feDistantLight azimuth="225" elevation="52"/></feSpecularLighting>
+      <feComposite in="SourceGraphic" in2="dif" operator="arithmetic" k1="1.12" k2="0" k3="0" k4="0" result="lit"/>
+      <feComposite in="lit" in2="SourceAlpha" operator="in" result="litIn"/>
+      <feComposite in="spec" in2="SourceAlpha" operator="in" result="specIn"/>
+      <feMerge><feMergeNode in="litIn"/><feMergeNode in="specIn"/></feMerge>
+    </filter>
+  </defs>
+</svg>
+<main class="phone" id="phone">
+  <canvas id="gl"></canvas>
+  <div class="hud">
+    <!-- top bar -->
+    <svg class="logo puffy" viewBox="0 0 110 86"><g filter="url(#puff)">
+      <circle cx="32" cy="20" r="13" fill="#ff8cc6"/><circle cx="78" cy="20" r="13" fill="#ff8cc6"/>
+      <path d="M10 64C8 36 28 18 55 18s47 18 45 46c-1 14-20 18-45 18S11 78 10 64Z" fill="#ff8cc6"/>
+      <ellipse cx="40" cy="47" rx="5" ry="6.4" fill="#3a2440"/><ellipse cx="68" cy="47" rx="5" ry="6.4" fill="#3a2440"/>
+      <path d="M45 59q9 10 18 0z" fill="#b8286a"/></g></svg>
+    <div class="clay label emboss">JELLYSHOT</div>
+    <div class="clay timer emboss">3:39</div>
+    <div class="clay btn b1"><svg viewBox="0 0 24 24"><g filter="url(#puff)"><rect x="6" y="4.5" width="4.2" height="15" rx="2" fill="#6a4a7a"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="2" fill="#6a4a7a"/></g></svg></div>
+    <div class="clay btn b2"><svg viewBox="0 0 24 24"><g filter="url(#puff)"><rect x="4.5" y="5" width="15" height="3.4" rx="1.7" fill="#6a4a7a"/><rect x="4.5" y="10.3" width="15" height="3.4" rx="1.7" fill="#6a4a7a"/><rect x="4.5" y="15.6" width="15" height="3.4" rx="1.7" fill="#6a4a7a"/></g></svg></div>
+    <div class="clay btn b3"><svg viewBox="0 0 24 24"><g filter="url(#puff)"><path d="M3.5 9.2v5.6h4l4.8 4.2V5l-4.8 4.2h-4Z" fill="#6a4a7a"/><path d="M15 8.6a4.6 4.6 0 0 1 0 6.8l-1.2-1.4a2.8 2.8 0 0 0 0-4Z M17.6 6a8.2 8.2 0 0 1 0 12l-1.2-1.4a6.4 6.4 0 0 0 0-9.2Z" fill="#6a4a7a"/></g></svg></div>
+
+    <!-- event ribbon -->
+    <div class="clay tail l"></div><div class="clay tail r"></div>
+    <div class="clay ribbon">
+      <svg class="cake puffy" viewBox="0 0 110 100"><g filter="url(#puff)">
+        <path d="M22 56h70v26c0 6-16 9-35 9s-35-3-35-9Z" fill="#fff1f4"/>
+        <path d="M22 66c8 5 14 5 18 0 5 5 12 5 17 0 5 5 12 5 17 0 5 5 13 5 18 0v8c-6 4-12 2-18 0-5 4-12 4-17 0-5 4-12 4-17 0-4 4-12 4-18 0Z" fill="#ff8fb5"/>
+        <ellipse cx="57" cy="56" rx="35" ry="8" fill="#fff8f2"/>
+        <circle cx="45" cy="44" r="8.4" fill="#ff3b55"/><circle cx="69" cy="44" r="8.4" fill="#ff3b55"/><circle cx="57" cy="37" r="8.4" fill="#ff4a62"/>
+        <path d="M56 30c2-8 6-12 12-14l1 2.4c-5 2-8 6-10 12.4z" fill="#5aa64a"/></g></svg>
+      <span class="groove"></span>
+      <h2 class="emboss">THE BIG CAKE CEREMONY</h2>
+    </div>
+
+    <!-- scope: etched Hitman-style reticle (no post above centre) -->
+    <img class="housing" src="assets/scope-housing.png" alt="">
+    <div class="scope" id="scope">
+      <svg viewBox="-500 -500 1000 1000">
+        <g stroke="#2a2140" stroke-linecap="butt">
+          <line x1="-433" y1="0" x2="-245" y2="0" stroke-width="11"/><line x1="245" y1="0" x2="433" y2="0" stroke-width="11"/>
+          <line x1="-245" y1="0" x2="-14" y2="0" stroke-width="2.6"/><line x1="14" y1="0" x2="245" y2="0" stroke-width="2.6"/>
+          <line x1="0" y1="16" x2="0" y2="190" stroke-width="2.6"/>
+          <g stroke-width="2.4" id="ticks"></g>
+          <line x1="-186" y1="-20" x2="-186" y2="20" stroke-width="2.8"/><line x1="-142" y1="-14" x2="-142" y2="14" stroke-width="2.8"/>
+          <line x1="142" y1="-14" x2="142" y2="14" stroke-width="2.8"/><line x1="186" y1="-20" x2="186" y2="20" stroke-width="2.8"/>
+        </g>
+        <path d="M-1.4 182 L1.4 182 L5 198 L5 433 L-5 433 L-5 198 Z" fill="#2a2140"/>
+        <circle r="13" fill="none" stroke="#ff3b5c" stroke-width="3.6"/><circle r="2.6" fill="#ff3b5c"/>
+        <!-- glass glare (the cut-out can't keep the art's glare, it was blended into the scene) -->
+        <defs><filter id="glareBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="9"/></filter>
+          <filter id="glareSoft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter></defs>
+        <g style="mix-blend-mode: screen" pointer-events="none">
+          <path d="M-330 -150 A362 362 0 0 1 -175 -316" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="44" stroke-linecap="round" filter="url(#glareBlur)"/>
+          <path d="M-318 -168 A350 350 0 0 1 -196 -296" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="12" stroke-linecap="round" filter="url(#glareSoft)"/>
+          <ellipse cx="-118" cy="-338" rx="18" ry="10" transform="rotate(-28 -118 -338)" fill="#fff" fill-opacity=".55" filter="url(#glareSoft)"/>
+        </g>
+      </svg>
+    </div>
+    <div id="bubbles"></div>
+
+    <!-- cards -->
+    <div class="clay card target">
+      <svg class="portrait puffy" viewBox="0 0 140 110"><g filter="url(#puff)">
+        <circle cx="52" cy="22" r="11" fill="#ff8cc6"/><circle cx="92" cy="22" r="11" fill="#ff8cc6"/>
+        <path d="M28 76C26 46 46 26 72 26s46 20 44 50c-1 18-20 24-44 24S29 94 28 76Z" fill="#ff8cc6"/>
+        <ellipse cx="60" cy="58" rx="5" ry="6.4" fill="#3a2440"/><ellipse cx="86" cy="58" rx="5" ry="6.4" fill="#3a2440"/>
+        <path d="M64 71q9 11 18 0z" fill="#b8286a"/></g></svg>
+      <span class="groove"></span>
+      <div><h3 class="emboss">TESS TWIRL</h3><span class="role">DANCER</span></div>
+    </div>
+    <div class="clay card handler">
+      <svg class="puffy" viewBox="0 0 100 80"><g filter="url(#puff)"><path d="M50 6C25 6 6 20 6 38c0 10 6 19 15 24-1 6-6 11-12 14 12 1 22-3 28-8 4 1 9 2 13 2 25 0 44-14 44-32S75 6 50 6Z" fill="#fffaf0"/>
+        <circle cx="32" cy="38" r="5.4" fill="#7a5a8a"/><circle cx="50" cy="38" r="5.4" fill="#7a5a8a"/><circle cx="68" cy="38" r="5.4" fill="#7a5a8a"/></g></svg>
+      <div><b class="emboss">CEREMONY IS ON.</b><span>All targets are on that stage.</span></div>
+    </div>
+    <div class="clay ammo"><i></i><i></i><i></i><i></i><i></i><em>5/5</em></div>
+    <div class="hint">drag to aim · scroll / pinch to zoom</div>
+  </div>
+</main>
+
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
+import { RoundedBoxGeometry } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/geometries/RoundedBoxGeometry.js';
+
+/* ======================================================================
+   Renderer: one canvas, two cameras.
+   - scope camera (narrow FOV) renders sharp into a square target → the glass
+   - eye camera (wide FOV) renders tiny into a second target → blurred periphery
+   A fullscreen composite pass stitches them under the HUD.
+   ====================================================================== */
+const phone = document.getElementById('phone');
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;   // VSM + radius = very soft, clay-studio shadows
+renderer.shadowMap.autoUpdate = false;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#bfe0f4');
+scene.fog = new THREE.Fog('#cde6f2', 80, 150);
+
+/* ---------- clay: matte, soft sheen, fingerprint-y bumps ---------- */
+function clayNoise() {
+  const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d'), img = g.createImageData(S, S);
+  // layered value noise + a few thumb-press swirls
+  const rnd = (x, y) => { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s); };
+  const smooth = (x, y, f) => { const xi = Math.floor(x * f), yi = Math.floor(y * f), xf = x * f - xi, yf = y * f - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = f;
+    const a = rnd(xi % w, yi % w), b = rnd((xi + 1) % w, yi % w), c2 = rnd(xi % w, (yi + 1) % w), d = rnd((xi + 1) % w, (yi + 1) % w);
+    return a + (b - a) * u + (c2 - a) * v + (a - b - c2 + d) * u * v; };
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const nx = x / S, ny = y / S;
+    let n = smooth(nx, ny, 4) * .5 + smooth(nx, ny, 9) * .3 + smooth(nx, ny, 23) * .2;
+    n += Math.sin((nx * 3 + ny * 2) * 18 + smooth(nx, ny, 5) * 6) * .04; // faint smear lines
+    const v = Math.max(0, Math.min(255, n * 255)), i = (y * S + x) * 4;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+const BUMP = clayNoise();
+const mats = new Map();
+function clay(hex, opts = {}) {
+  const key = hex + JSON.stringify(opts);
+  if (mats.has(key)) return mats.get(key);
+  const col = new THREE.Color(hex);
+  const m = new THREE.MeshPhysicalMaterial({
+    color: col, roughness: .82, metalness: 0,
+    sheen: .55, sheenRoughness: .7, sheenColor: col.clone().lerp(new THREE.Color('#ffffff'), .55),
+    bumpMap: BUMP, bumpScale: opts.bump ?? .9, ...opts.extra
+  });
+  if (opts.map) m.map = opts.map;
+  mats.set(key, m); return m;
+}
+const glossy = hex => new THREE.MeshPhysicalMaterial({ color: hex, roughness: .25, clearcoat: .6, clearcoatRoughness: .3 });
+
+/* ---------- lighting: warm key, cool sky fill, bounce from the grass ---------- */
+scene.add(new THREE.HemisphereLight('#d8ecff', '#8fb86a', 1.35));
+const key = new THREE.DirectionalLight('#fff1dc', 2.7);
+key.position.set(-14, 26, 14);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -26; key.shadow.camera.right = 26; key.shadow.camera.top = 26; key.shadow.camera.bottom = -26;
+key.shadow.camera.near = 1; key.shadow.camera.far = 70;
+key.shadow.radius = 9; key.shadow.blurSamples = 20; key.shadow.bias = -.0006;
+scene.add(key);
+const rim = new THREE.DirectionalLight('#ffd6ec', .7); rim.position.set(12, 8, -18); scene.add(rim);
+
+/* ---------- helpers ---------- */
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+function add(mesh, parent = scene) { mesh.castShadow = true; mesh.receiveShadow = true; parent.add(mesh); return mesh; }
+function contactShadowTex() {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(40,30,60,.55)'); gr.addColorStop(.6, 'rgba(40,30,60,.2)'); gr.addColorStop(1, 'rgba(40,30,60,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c);
+}
+const CS_MAT = new THREE.MeshBasicMaterial({ map: contactShadowTex(), transparent: true, depthWrite: false });
+const CS_GEO = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+function contact(x, z, w, d = w, y = .02) { const m = new THREE.Mesh(CS_GEO, CS_MAT); m.scale.set(w, 1, d); m.position.set(x, y, z); scene.add(m); return m; }
+function stripes(cols, n, w = 256, h = 64, diag = false) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+  const s = w / n;
+  for (let i = 0; i < n + 2; i++) { g.fillStyle = cols[i % cols.length]; if (diag) { g.beginPath(); g.moveTo(i * s, 0); g.lineTo(i * s + s, 0); g.lineTo(i * s, h); g.lineTo(i * s - s, h); g.fill(); } else g.fillRect(i * s, 0, s, h); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+
+/* ---------- ground ---------- */
+const ground = new THREE.Mesh(new THREE.CircleGeometry(80, 64).rotateX(-Math.PI / 2), clay('#94d26a', { bump: 1.4 }));
+BUMP.repeat.set(1, 1);
+ground.receiveShadow = true; scene.add(ground);
+// soft lighter meadow patches
+for (let i = 0; i < 14; i++) { const p = new THREE.Mesh(new THREE.CircleGeometry(rand(3, 7), 32).rotateX(-Math.PI / 2), clay('#a4dc78')); p.position.set(rand(-24, 24), .005, rand(-26, 18)); p.receiveShadow = true; scene.add(p); }
+// grass tufts: little clay "v"s, instanced
+{
+  const blade = new THREE.ConeGeometry(.06, .38, 5).translate(0, .19, 0);
+  const inst = new THREE.InstancedMesh(blade, clay('#5fae4e'), 900);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+  let k = 0;
+  for (let i = 0; i < 450; i++) {
+    const x = rand(-26, 26), z = rand(-28, 20);
+    if (Math.abs(x) < 2.2 && z > -11 && z < 6) continue;           // path
+    if (Math.hypot(x, z - 13) < 10.5) continue;                     // plaza
+    if (Math.abs(x) < 8.5 && z > -16.5 && z < -10) continue;        // stage
+    for (const s of [-1, 1]) { e.set(0, rand(0, 3), s * .35); q.setFromEuler(e); m4.compose(new THREE.Vector3(x + s * .06, 0, z), q, new THREE.Vector3(1, rand(.8, 1.3), 1)); if (k < 900) inst.setMatrixAt(k++, m4); }
+  }
+  inst.count = k; inst.castShadow = false; inst.receiveShadow = true; scene.add(inst);
+}
+// path to the stage
+{
+  const shape = new THREE.Shape(); shape.moveTo(-1.6, 6); shape.lineTo(1.6, 6); shape.lineTo(1.25, -11); shape.lineTo(-1.25, -11); shape.lineTo(-1.6, 6);
+  const path = new THREE.Mesh(new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2), clay('#f4dc9e'));
+  path.rotation.y = 0; path.position.y = .012; path.receiveShadow = true; scene.add(path);
+}
+// pink plaza with a raised lip
+{
+  const plaza = new THREE.Mesh(new THREE.CylinderGeometry(10, 10.2, .25, 64), clay('#ffb8da'));
+  plaza.position.set(0, .12, 13.5); plaza.receiveShadow = true; scene.add(plaza);
+  const lip = new THREE.Mesh(new THREE.TorusGeometry(10.05, .22, 12, 80).rotateX(Math.PI / 2), clay('#ff9ccb')); lip.position.set(0, .26, 13.5); add(lip);
+  // the bench / fountain table
+  const wood = clay('#9a5b35'), woodHi = clay('#b8743f');
+  const top = add(new THREE.Mesh(new RoundedBoxGeometry(3.2, .35, 1.4, 3, .12), woodHi)); top.position.set(0, 1.25, 7.4);
+  for (const [x, z] of [[-1.2, -.45], [1.2, -.45], [-1.2, .45], [1.2, .45]]) { const l = add(new THREE.Mesh(new RoundedBoxGeometry(.28, 1.1, .28, 2, .08), wood)); l.position.set(x, .6, 7.4 + z); }
+  const stick = add(new THREE.Mesh(new THREE.CylinderGeometry(.08, .08, 1, 12), wood)); stick.position.set(0, 1.9, 7.4);
+  const ball = add(new THREE.Mesh(new THREE.SphereGeometry(.38, 24, 16), clay('#c0702e'))); ball.position.set(0, 2.5, 7.4);
+  contact(0, 7.4, 4.4, 2.4);
+}
+
+/* ---------- the stage ---------- */
+const STAGE_Z = -13.2;
+{
+  const pink = clay('#ff9ccb'), pinkDeep = clay('#f27ab2'), cream = clay('#fff4dc');
+  const deck = add(new THREE.Mesh(new RoundedBoxGeometry(17, 1.1, 5.4, 4, .25), pink)); deck.position.set(0, .55, STAGE_Z);
+  const skirt = add(new THREE.Mesh(new RoundedBoxGeometry(17.2, .35, 5.6, 3, .15), pinkDeep)); skirt.position.set(0, 1.12, STAGE_Z);
+  // striped backdrop with a scalloped awning
+  const stripeTex = stripes(['#ff8cc3', '#ffd1e6'], 14, 512, 64); stripeTex.repeat.set(1, 1);
+  const back = add(new THREE.Mesh(new RoundedBoxGeometry(14, 6.4, .6, 4, .25), [clay('#ff9ccb'), clay('#ff9ccb'), clay('#ff9ccb'), clay('#ff9ccb'), clay('#ffffff', { map: stripeTex, bump: .5 }), clay('#ff9ccb')]));
+  back.position.set(0, 4.3, STAGE_Z - 2.2);
+  const frame = add(new THREE.Mesh(new RoundedBoxGeometry(14.8, 7, .4, 4, .2), pinkDeep)); frame.position.set(0, 4.25, STAGE_Z - 2.55);
+  for (let i = 0; i < 11; i++) { const s = add(new THREE.Mesh(new THREE.SphereGeometry(.62, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(Math.PI), cream)); s.position.set(-6.2 + i * 1.24, 6.2, STAGE_Z - 1.85); }
+  const awning = add(new THREE.Mesh(new RoundedBoxGeometry(14.2, .5, 1.2, 3, .2), cream)); awning.position.set(0, 6.4, STAGE_Z - 1.9);
+  // JUBILEE! sign
+  const sc = document.createElement('canvas'); sc.width = 512; sc.height = 128; const sg = sc.getContext('2d');
+  sg.fillStyle = '#fff2c6'; sg.fillRect(0, 0, 512, 128);
+  sg.font = '800 78px "Baloo 2", "Fredoka", system-ui, sans-serif'; sg.textAlign = 'center'; sg.textBaseline = 'middle';
+  sg.fillStyle = '#ffc93c'; sg.fillText('★', 62, 68); sg.fillText('★', 450, 68); sg.fillStyle = '#e0457a'; sg.fillText('JUBILEE!', 256, 70);
+  const signTex = new THREE.CanvasTexture(sc); signTex.colorSpace = THREE.SRGBColorSpace;
+  const signMat = clay('#fff2c6', { bump: .3 }); const signFace = clay('#ffffff', { map: signTex, bump: .3 });
+  const sign = add(new THREE.Mesh(new RoundedBoxGeometry(6.4, 1.6, .5, 4, .22), [signMat, signMat, signMat, signMat, signFace, signMat])); sign.position.set(0, 8.25, STAGE_Z - 1.6);
+  for (const x of [-3.6, 3.6]) { const b = add(new THREE.Mesh(new THREE.SphereGeometry(.32, 20, 14), glossy('#7fd9ff'))); b.position.set(x, 8.9, STAGE_Z - 1.6); }
+  // podium
+  const pod = add(new THREE.Mesh(new RoundedBoxGeometry(2.2, 1.6, 1.3, 4, .25), clay('#ffd54a'))); pod.position.set(.3, 1.9, STAGE_Z + .3);
+  const podTop = add(new THREE.Mesh(new RoundedBoxGeometry(2.5, .3, 1.5, 3, .12), clay('#ffb93a'))); podTop.position.set(.3, 2.75, STAGE_Z + .3);
+  // corner posts with candy balls
+  for (const x of [-8, 8]) for (const z of [STAGE_Z + 2.4]) {
+    const p = add(new THREE.Mesh(new THREE.CylinderGeometry(.16, .18, 3.8, 14), cream)); p.position.set(x, 3, z);
+    const b = add(new THREE.Mesh(new THREE.SphereGeometry(.34, 20, 14), glossy('#ff6fa8'))); b.position.set(x, 5, z);
+  }
+  contact(0, STAGE_Z + 2.9, 19, 2.2);
+}
+/* ---------- candy-cane crane ---------- */
+{
+  const caneTex = stripes(['#ff5c9e', '#fff3e4'], 8, 256, 256, true); caneTex.repeat.set(1, 6);
+  const cane = clay('#ffffff', { map: caneTex, bump: .5 });
+  const pole = add(new THREE.Mesh(new THREE.CylinderGeometry(.32, .38, 11, 18), cane)); pole.position.set(7.4, 5.5, STAGE_Z + 1.2);
+  const arm = add(new THREE.Mesh(new THREE.CylinderGeometry(.24, .24, 9.4, 16).rotateZ(Math.PI / 2), clay('#ff5c9e'))); arm.position.set(3, 10.6, STAGE_Z + 1.2);
+  const brace = add(new THREE.Mesh(new THREE.CylinderGeometry(.12, .12, 4.4, 10), clay('#ff5c9e'))); brace.position.set(5.9, 9.2, STAGE_Z + 1.2); brace.rotation.z = -.95;
+  const knob = add(new THREE.Mesh(new THREE.SphereGeometry(.5, 20, 14), glossy('#7fd9ff'))); knob.position.set(7.4, 11, STAGE_Z + 1.2);
+  const tip = add(new THREE.Mesh(new THREE.SphereGeometry(.3, 16, 12), glossy('#ff5c9e'))); tip.position.set(-1.7, 10.6, STAGE_Z + 1.2);
+  const rope = add(new THREE.Mesh(new THREE.CylinderGeometry(.04, .04, 3.4, 6), clay('#fff3e4'))); rope.position.set(-1.5, 8.9, STAGE_Z + 1.2);
+  const base = add(new THREE.Mesh(new RoundedBoxGeometry(1.4, .6, 1.4, 3, .2), clay('#ffd54a'))); base.position.set(7.4, .3, STAGE_Z + 1.2);
+}
+
+/* ---------- trees & bushes ---------- */
+function lollipopTree(x, z, s = 1, col = '#7bd36a') {
+  const trunk = add(new THREE.Mesh(new THREE.CylinderGeometry(.22 * s, .3 * s, 3.2 * s, 12), clay('#fff1dc'))); trunk.position.set(x, 1.6 * s, z);
+  const top = add(new THREE.Mesh(new THREE.SphereGeometry(2 * s, 32, 24), clay(col))); top.position.set(x, 4.3 * s, z); top.scale.y = .92;
+  const swirl = add(new THREE.Mesh(new THREE.TorusGeometry(1.15 * s, .26 * s, 12, 40, Math.PI * 1.6), clay(new THREE.Color(col).offsetHSL(0, -.05, .14).getStyle())));
+  swirl.position.set(x, 4.35 * s, z + 1.78 * s); swirl.rotation.z = .6;
+  contact(x, z, 4.6 * s);
+}
+function bush(x, z, s = 1, col = '#5ebd5b') {
+  const m = clay(col), hi = clay(new THREE.Color(col).offsetHSL(0, 0, .08).getStyle());
+  [[0, .9, 0, 1.25], [-1.2, .7, .2, 1], [1.2, .7, .1, 1.05], [-.5, 1.4, -.2, .9], [.6, 1.5, -.1, .85]].forEach(([dx, dy, dz, r], i) => {
+    const b = add(new THREE.Mesh(new THREE.SphereGeometry(r * s, 24, 16), i > 2 ? hi : m)); b.position.set(x + dx * s, dy * s, z + dz * s);
+  });
+  contact(x, z, 4.4 * s, 2.6 * s);
+}
+lollipopTree(-11.5, -17.5, 1.15, '#82d86e'); lollipopTree(12, -18.5, 1.05, '#6fcf6a'); lollipopTree(-16, -6, 1, '#8fdc78');
+lollipopTree(16.5, -7, 1.1, '#78d46a'); lollipopTree(-19, 6, 1.2, '#7bd36a'); lollipopTree(19, 7, 1.1, '#86da70');
+lollipopTree(-4, -24, 1.3, '#74cf66'); lollipopTree(6, -25, 1.2, '#82d86e');
+bush(-10.5, -9, 1, '#5ebd5b'); bush(11, -10, .95); bush(-13, 1.5, 1.1, '#56b553'); bush(13.5, 2.5, 1.05); bush(-6, -18.5, .9); bush(9.5, 4.5, .85, '#56b553');
+
+/* ---------- bunting ---------- */
+function bunting(ax, az, bx, bz, h = 3.2) {
+  const post = clay('#fff1dc');
+  for (const [x, z] of [[ax, az], [bx, bz]]) {
+    const p = add(new THREE.Mesh(new THREE.CylinderGeometry(.13, .16, h + .2, 12), post)); p.position.set(x, (h + .2) / 2, z);
+    const b = add(new THREE.Mesh(new THREE.SphereGeometry(.3, 18, 12), glossy('#ff6fa8'))); b.position.set(x, h + .35, z);
+    contact(x, z, 1);
+  }
+  const cols = ['#ffd84a', '#ff6fb5', '#8f7cff', '#3ab8ff', '#7fdc6a', '#ff8a4a'];
+  const n = 9, pts = [];
+  for (let i = 0; i <= n; i++) { const t = i / n; pts.push(new THREE.Vector3(ax + (bx - ax) * t, h - Math.sin(t * Math.PI) * .9, az + (bz - az) * t)); }
+  const string = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, .03, 6), clay('#fff8ee')); add(string);
+  const flag = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-.32, 0, 0), new THREE.Vector3(.32, 0, 0), new THREE.Vector3(0, -.7, 0)]); flag.computeVertexNormals();
+  for (let i = 1; i < n; i++) {
+    const t = i / n, p = new THREE.CatmullRomCurve3(pts).getPoint(t);
+    const f = add(new THREE.Mesh(flag, new THREE.MeshPhysicalMaterial({ color: cols[i % cols.length], roughness: .8, sheen: .4, side: THREE.DoubleSide })));
+    f.position.copy(p); f.lookAt(p.x + (bz - az), p.y, p.z - (bx - ax)); f.userData.flag = Math.random() * 6; flags.push(f);
+  }
+}
+const flags = [];
+bunting(-11, 3, -2.8, -.6); bunting(2.8, -.6, 11, 3); bunting(-8, STAGE_Z + 2.4, 8, STAGE_Z + 2.4, 4.6);
+
+/* ---------- jellies ---------- */
+const JELLY_COLS = ['#ff86c4', '#4fdcb9', '#ff9a3c', '#a68cff', '#4a8dff', '#ffd84a', '#ff5a6e', '#3cc8e0', '#8ad84a', '#ff7aa8'];
+const bodyGeo = (() => {
+  // gumdrop profile: flat-ish base, soft belly, domed top
+  const pts = [];
+  const prof = [[0, 0], [.78, 0], [.95, .1], [1.0, .3], [.96, .62], [.84, .92], [.62, 1.16], [.34, 1.3], [0, 1.34]];
+  const curve = new THREE.SplineCurve(prof.map(([x, y]) => new THREE.Vector2(x, y)));
+  for (const p of curve.getPoints(28)) pts.push(new THREE.Vector2(Math.max(0, p.x), p.y));
+  pts[pts.length - 1].x = 0;
+  const g = new THREE.LatheGeometry(pts, 40); g.computeVertexNormals(); return g;
+})();
+const earGeo = new THREE.SphereGeometry(.26, 18, 12);
+const eyeGeo = new THREE.SphereGeometry(.2, 18, 12);
+const pupilGeo = new THREE.SphereGeometry(.105, 14, 10);
+const footGeo = new THREE.SphereGeometry(.3, 16, 10);
+const EYE = new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: .35, clearcoat: .5 });
+const PUPIL = new THREE.MeshPhysicalMaterial({ color: '#241a2e', roughness: .25, clearcoat: 1 });
+const jellies = [];
+function jelly(x, z, opts = {}) {
+  const col = opts.col ?? pick(JELLY_COLS), s = opts.s ?? rand(.48, .6);
+  const g = new THREE.Group(); g.position.set(x, opts.y ?? 0, z); g.rotation.y = opts.face ?? rand(-.5, .5);
+  const bodyMat = clay(col, { bump: .55 });
+  const body = add(new THREE.Mesh(bodyGeo, bodyMat), g);
+  const footMat = clay(new THREE.Color(col).offsetHSL(0, 0, -.12).getStyle(), { bump: .5 });
+  for (const sx of [-.42, .42]) { const f = add(new THREE.Mesh(footGeo, footMat), g); f.position.set(sx, .1, .18); f.scale.set(1, .55, 1.15); }
+  if (opts.ears !== false) for (const sx of [-.36, .36]) { const e = add(new THREE.Mesh(earGeo, bodyMat), g); e.position.set(sx, 1.25, -.05); }
+  for (const sx of [-.24, .24]) {
+    const e = add(new THREE.Mesh(eyeGeo, EYE), g); e.position.set(sx, .78, .8); e.scale.set(1, 1.15, .6);
+    const p = add(new THREE.Mesh(pupilGeo, PUPIL), g); p.position.set(sx + .03, .76, .92);
+  }
+  if (opts.hat === 'top') {
+    const hm = clay('#2a2035'); const brim = add(new THREE.Mesh(new THREE.CylinderGeometry(.62, .62, .08, 24), hm), g); brim.position.y = 1.34;
+    const crown = add(new THREE.Mesh(new THREE.CylinderGeometry(.4, .42, .7, 24), hm), g); crown.position.y = 1.72;
+    const band = add(new THREE.Mesh(new THREE.CylinderGeometry(.43, .43, .14, 24), clay('#ff5c9e')), g); band.position.y = 1.46;
+  } else if (opts.hat === 'crown') {
+    const c = add(new THREE.Mesh(new THREE.CylinderGeometry(.42, .38, .34, 6, 1, true), glossy('#ffd54a')), g); c.position.y = 1.46;
+  } else if (opts.hat === 'cap') {
+    const cap = add(new THREE.Mesh(new THREE.SphereGeometry(.58, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), clay('#ff5a4e')), g); cap.position.y = 1.08;
+    const bill = add(new THREE.Mesh(new THREE.CylinderGeometry(.45, .45, .06, 20, 1, false, -Math.PI / 2, Math.PI), clay('#ff5a4e')), g); bill.position.set(0, 1.1, .35);
+  }
+  g.scale.setScalar(s); scene.add(g);
+  const sh = contact(x, z, 1.9 * s, 1.5 * s, (opts.y ?? 0) + .02);
+  const j = { g, body, base: opts.y ?? 0, s, ph: rand(0, 6), hop: opts.hop ?? rand(.5, 1.6), dance: !!opts.dance, sh, line: opts.line };
+  jellies.push(j); return j;
+}
+// the Syndicate and friends on stage
+jelly(.3, STAGE_Z + 1.2, { y: 1.1, col: '#7fdc6a', hat: 'top', s: .7, hop: .4, line: 'Citizens of Gumdrop Hollow!' });
+jelly(-2.6, STAGE_Z + .8, { y: 1.1, col: '#b38cff', hat: 'crown', s: .66, hop: .5 });
+jelly(3.4, STAGE_Z + .9, { y: 1.1, col: '#ff9a5c', s: .66, hop: .6 });
+jelly(-5.4, STAGE_Z + 1.3, { y: 1.1, col: '#ff7aa8', s: .62, line: 'Give it up for the Mayor!' });
+jelly(5.9, STAGE_Z + 1.4, { y: 1.1, col: '#4a8dff', hat: 'cap', s: .62, line: '...Mayor! Iding... probably.' });
+jelly(-7.1, STAGE_Z + 1.9, { y: 1.1, col: '#ffd84a', s: .6 });
+// the crowd
+const LINES = ['Speech! Speech!', 'Wheee!', 'Hold my tentacle.', 'Cake! Cake! Cake!', 'Woo!', 'I can’t see!', 'Bravo!', 'Move your head, Gerald.'];
+for (let i = 0; i < 62; i++) {
+  let x, z, ok = false;
+  for (let t = 0; t < 30 && !ok; t++) {
+    x = rand(-9.5, 9.5); z = rand(-9.6, 1.5);
+    ok = !(Math.abs(x) < 1.5 && Math.random() < .7) && jellies.every(j => Math.hypot(j.g.position.x - x, j.g.position.z - z) > 1.05);
+  }
+  const face = Math.atan2(-x * .2, 1) + rand(-.4, .4) + Math.PI * 0; // roughly toward the camera / stage mix
+  jelly(x, z, { face, dance: Math.random() < .25, hat: Math.random() < .12 ? 'cap' : undefined, line: Math.random() < .2 ? pick(LINES) : undefined });
+}
+// a few on the plaza
+jelly(6.5, 12, { col: '#4a8dff' }); jelly(-7, 15, {}); jelly(3, 17.5, {});
+
+/* ---------- cameras ---------- */
+const EYE_POS = new THREE.Vector3(0, 34, 58);
+const aim = { yaw: 0, pitch: -.455, fov: 17 };   // rifle direction; fov = scope magnification
+const scopeCam = new THREE.PerspectiveCamera(aim.fov, 1, 1, 400);
+const eyeCam = new THREE.PerspectiveCamera(44, 1, 1, 400);
+function point(cam, yaw, pitch) {
+  cam.position.copy(EYE_POS);
+  const d = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
+  cam.lookAt(EYE_POS.clone().add(d));
+}
+
+/* ---------- render targets + composite ---------- */
+let W = 0, H = 0, DPR = 1, scopePx = { x: 0, y: 0, r: 0 };
+const rtScope = new THREE.WebGLRenderTarget(16, 16, { samples: 4, type: THREE.HalfFloatType });
+const rtEye = new THREE.WebGLRenderTarget(16, 16, { type: THREE.HalfFloatType });
+const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const compMat = new THREE.ShaderMaterial({
+  uniforms: { tScope: { value: rtScope.texture }, tEye: { value: rtEye.texture }, res: { value: new THREE.Vector2() }, eyeRes: { value: new THREE.Vector2() }, center: { value: new THREE.Vector2() }, R: { value: 1 }, time: { value: 0 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }`,
+  fragmentShader: `
+    uniform sampler2D tScope, tEye; uniform vec2 res, eyeRes, center; uniform float R, time; varying vec2 vUv;
+    vec3 blurEye(vec2 uv){
+      vec2 px = 1. / eyeRes; vec3 s = vec3(0.); float w = 0.;
+      for (int i = -3; i <= 3; i++) for (int j = -3; j <= 3; j++) {
+        float k = exp(-float(i*i + j*j) / 6.); s += texture2D(tEye, uv + vec2(i, j) * px * 1.4).rgb * k; w += k; }
+      return s / w;
+    }
+    void main(){
+      vec2 p = vUv * res; float d = length(p - center);
+      vec3 col;
+      if (d < R) {
+        vec2 uv = (p - center) / (2. * R) + .5;
+        col = texture2D(tScope, uv).rgb;
+        // soft lens falloff and a warm bloom leaking in from the top-left
+        float e = smoothstep(R * .7, R, d);
+        col *= 1. - .28 * e;
+        vec2 q = (p - center) / R;
+        col += vec3(1., .86, .74) * .10 * smoothstep(.2, -.9, q.x - q.y) * e;
+      } else {
+        col = blurEye(vUv);
+        // the naked-eye view sits in the tube's shade: darker and deeper, not hazy
+        col = mix(col, vec3(.05, .07, .12), .2) * .86;
+        col = mix(vec3(dot(col, vec3(.299, .587, .114))), col, 1.12);   // keep the colour rich
+        float v = smoothstep(R, R * 2.2, d); col *= 1. - .28 * v;
+        float ds = length(p - (center + vec2(.0, -.045 * R)));
+        col *= 1. - .5 * smoothstep(R * 1.34, R * 1.08, ds);   // the clay ring's soft shadow
+      }
+      gl_FragColor = vec4(col, 1.);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+  toneMapped: true, depthTest: false, depthWrite: false
+});
+const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), compMat);
+const quadScene = new THREE.Scene(); quadScene.add(quad);
+
+/* ---------- the scope ring: a real clay torus, lit like the diorama ---------- */
+const USE_3D_RING = false;   // the cut-out housing art replaces the clay torus
+const ringScene = new THREE.Scene();
+ringScene.add(new THREE.HemisphereLight('#e8f0ff', '#3c2c60', .55));
+const ringKey = new THREE.DirectionalLight('#fff1dc', 3.4); ringKey.position.set(-1.1, 1.3, .9); ringScene.add(ringKey);
+const ringRim = new THREE.DirectionalLight('#ffb8e0', 1.1); ringRim.position.set(1.2, -1.1, .35); ringScene.add(ringRim);
+const ringCam = new THREE.OrthographicCamera(-1, 1, 1, -1, -4000, 4000);
+const ringTex = BUMP.clone(); ringTex.repeat.set(10, 1); ringTex.needsUpdate = true;
+const ringMat = new THREE.MeshPhysicalMaterial({ color: '#9470dc', roughness: .74, sheen: .7, sheenRoughness: .65, sheenColor: '#efe2ff', bumpMap: ringTex, bumpScale: 1.2 });
+let ringMesh = null;
+function buildRing(R) {
+  if (ringMesh) { ringScene.remove(ringMesh); ringMesh.geometry.dispose(); }
+  const tube = R * .088;
+  ringMesh = new THREE.Mesh(new THREE.TorusGeometry(R + tube * .82, tube, 48, 240), ringMat);
+  ringMesh.scale.z = .9;             // a touch squashed, like it was pressed onto the screen
+  ringScene.add(ringMesh);
+}
+
+function resize() {
+  const r = phone.getBoundingClientRect(); W = r.width; H = r.height; DPR = Math.min(devicePixelRatio, 2);
+  renderer.setPixelRatio(DPR); renderer.setSize(W, H, false);
+  const s = document.getElementById('scope').getBoundingClientRect();
+  const R = s.width / 2 * (39.9 / 44.975);            // glass radius of the housing art, plus a hair so no gap shows
+  scopePx = { x: s.left - r.left + s.width / 2, y: s.top - r.top + s.height / 2, r: R };
+  const side = Math.round(R * 2 * DPR); rtScope.setSize(side, side);
+  rtEye.setSize(Math.max(8, Math.round(W * DPR / 6)), Math.max(8, Math.round(H * DPR / 6)));
+  compMat.uniforms.res.value.set(W * DPR, H * DPR);
+  compMat.uniforms.eyeRes.value.set(rtEye.width, rtEye.height);
+  compMat.uniforms.center.value.set(scopePx.x * DPR, (H - scopePx.y) * DPR);
+  compMat.uniforms.R.value = R * DPR;
+  eyeCam.aspect = W / H; eyeCam.updateProjectionMatrix();
+  Object.assign(ringCam, { left: -W / 2, right: W / 2, top: H / 2, bottom: -H / 2 }); ringCam.updateProjectionMatrix();
+  buildRing(R); ringMesh.position.set(scopePx.x - W / 2, H / 2 - scopePx.y, 0);
+}
+new ResizeObserver(resize).observe(phone);
+
+/* ---------- input: drag to aim, wheel / pinch to zoom ---------- */
+const ptrs = new Map(); let drag = null;
+phone.addEventListener('pointerdown', e => { phone.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); drag = { x: e.clientX, y: e.clientY, yaw: aim.yaw, pitch: aim.pitch, fov: aim.fov, d: null }; });
+phone.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId) || !drag) return;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const p = [...ptrs.values()];
+  if (p.length >= 2) { const d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y); drag.d ??= d; aim.fov = THREE.MathUtils.clamp(drag.fov * drag.d / d, 7, 34); return; }
+  const k = aim.fov / 19 * .0021;
+  aim.yaw = THREE.MathUtils.clamp(drag.yaw - (e.clientX - drag.x) * k, -.35, .35);
+  aim.pitch = THREE.MathUtils.clamp(drag.pitch + (e.clientY - drag.y) * k, -.9, -.22);
+});
+const up = e => { ptrs.delete(e.pointerId); if (!ptrs.size) drag = null; };
+phone.addEventListener('pointerup', up); phone.addEventListener('pointercancel', up);
+phone.addEventListener('wheel', e => { e.preventDefault(); aim.fov = THREE.MathUtils.clamp(aim.fov * Math.exp(e.deltaY * .001), 7, 34); }, { passive: false });
+
+/* ---------- speech bubbles, projected through the scope camera ---------- */
+const bubbleLayer = document.getElementById('bubbles');
+const talkers = jellies.filter(j => j.line).map(j => { const el = document.createElement('div'); el.className = 'clay bubble'; el.textContent = j.line; bubbleLayer.appendChild(el); return { j, el, t: rand(0, 4) }; });
+const v3 = new THREE.Vector3();
+function placeBubbles(t) {
+  // project every talker, then show at most a handful that don't overlap (stage first)
+  const shown = [], MAX = 5;
+  const cands = talkers.map((b, i) => {
+    b.j.g.getWorldPosition(v3); v3.y += 1.75 * b.j.g.scale.y;
+    v3.project(scopeCam);
+    const px = scopePx.x + v3.x * scopePx.r, py = scopePx.y - v3.y * scopePx.r;
+    const inside = v3.z < 1 && Math.hypot(px - scopePx.x, py - scopePx.y) < scopePx.r * .84;
+    const talking = ((t + b.t) % 9) < 4;
+    return { b, px, py, ok: inside && talking, pri: b.j.base > 0 ? 0 : 1 + i * .001 };
+  }).sort((a, b) => a.pri - b.pri);
+  for (const c of cands) {
+    const w = c.b.el.offsetWidth, h = c.b.el.offsetHeight;
+    const r = { l: c.px - w / 2, r: c.px + w / 2, t: c.py - h - 8, b: c.py + 6 };
+    const clear = c.ok && shown.length < MAX && shown.every(o => r.r < o.l - 4 || r.l > o.r + 4 || r.b < o.t - 2 || r.t > o.b + 2);
+    if (clear) shown.push(r);
+    c.b.el.style.opacity = clear ? 1 : 0;
+    c.b.el.style.left = c.px + 'px'; c.b.el.style.top = c.py + 'px';
+  }
+}
+
+/* ---------- loop ---------- */
+document.querySelector('#ticks').innerHTML = Array.from({ length: 21 }, (_, i) => -120 + i * 12).filter(x => Math.abs(x) > 18).map(x => `<line x1="${x}" y1="-7" x2="${x}" y2="7"/>`).join('');
+const clock = new THREE.Clock();
+function frame() {
+  const t = clock.getElapsedTime();
+  // jellies: squash-and-stretch hops, dancers sway
+  for (const j of jellies) {
+    const ph = t * (j.dance ? 7 : 4.2) * j.hop + j.ph;
+    const h = Math.max(0, Math.sin(ph)) * (j.dance ? .5 : .14) * j.s;
+    const sq = 1 + Math.sin(ph * 2) * (j.dance ? .07 : .035);
+    j.g.position.y = j.base + h;
+    j.g.scale.set(j.s / Math.sqrt(sq), j.s * sq, j.s / Math.sqrt(sq));
+    j.g.rotation.z = j.dance ? Math.sin(ph * .5) * .16 : 0;
+    j.sh.scale.set(1.9 * j.s * (1 - h * .5), 1, 1.5 * j.s * (1 - h * .5));
+  }
+  for (const f of flags) f.rotation.x = Math.sin(t * 2.4 + f.userData.flag) * .18;
+  // the rifle breathes
+  const sway = { yaw: Math.sin(t * .83) * .0025 + Math.sin(t * 1.97) * .0015, pitch: Math.sin(t * 1.13) * .002 };
+  point(scopeCam, aim.yaw + sway.yaw, aim.pitch + sway.pitch); scopeCam.fov = aim.fov; scopeCam.updateProjectionMatrix();
+  point(eyeCam, aim.yaw * .9, aim.pitch * .9 - .04);
+
+  renderer.shadowMap.needsUpdate = true;
+  renderer.setRenderTarget(rtEye); renderer.render(scene, eyeCam);
+  renderer.setRenderTarget(rtScope); renderer.render(scene, scopeCam);
+  renderer.setRenderTarget(null); renderer.render(quadScene, quadCam);
+  if (USE_3D_RING) { renderer.autoClear = false; renderer.clearDepth(); renderer.render(ringScene, ringCam); renderer.autoClear = true; }
+  placeBubbles(t);
+  requestAnimationFrame(frame);
+}
+resize();
+document.fonts.ready.then(() => { resize(); });
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

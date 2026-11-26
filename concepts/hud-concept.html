@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jellyshot · HUD concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Isolated UI concept for the Jellyshot portrait HUD.
+   All sizes are in cqw of the phone frame (reference art is 941px wide, so 1cqw = 9.41px). */
+:root {
+  --ink: #fff4fb;
+  --muted: #dde0f6;
+  --pink: #ff8fc8;
+  --pink-hot: #ff6fb6;
+  --gold-a: #fff1a8;
+  --gold-b: #f9c95a;
+  --panel: linear-gradient(180deg, rgba(150, 162, 255, .17), rgba(118, 128, 240, .09));
+  --panel-edge: rgba(200, 210, 255, .3);
+  --font: 'Fredoka', ui-rounded, 'SF Pro Rounded', 'Avenir Next', system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #0f1028; }
+body { display: grid; place-items: center; font-family: var(--font); color: var(--ink); }
+
+.phone {
+  container-type: inline-size;
+  position: relative; overflow: hidden;
+  width: min(100vw, calc(100vh * 941 / 1672));
+  aspect-ratio: 941 / 1672;
+  background:
+    radial-gradient(60% 30% at 50% 44%, #383e8c 0%, transparent 70%),
+    radial-gradient(120% 60% at 50% 0%, #2c3170 0%, transparent 70%),
+    linear-gradient(180deg, #22265a 0%, #1d2050 45%, #15173a 100%);
+}
+/* out-of-focus festival behind everything */
+.bokeh { position: absolute; inset: 0; filter: blur(2.2cqw); opacity: .55; pointer-events: none; }
+.bokeh i { position: absolute; border-radius: 50%; }
+
+/* ---------- top bar ---------- */
+.top { position: absolute; left: 0; right: 0; top: 2.7cqw; height: 9cqw; }
+.brand { position: absolute; left: 4.4cqw; top: 1.2cqw; display: flex; align-items: center; gap: 1.6cqw; }
+.brand svg { width: 7.4cqw; height: auto; filter: drop-shadow(0 .4cqw .8cqw rgba(0,0,0,.35)); }
+.brand b { font-weight: 700; font-size: 3.3cqw; letter-spacing: .06em; }
+.timer {
+  position: absolute; left: 50%; top: 0; transform: translateX(-50%);
+  width: 23.9cqw; height: 9cqw; border-radius: 5cqw;
+  display: grid; place-items: center;
+  background: linear-gradient(180deg, rgba(50, 56, 122, .92), rgba(32, 36, 86, .92));
+  border: .25cqw solid rgba(190, 200, 255, .24);
+  box-shadow: inset 0 .3cqw .6cqw rgba(255,255,255,.08), 0 .6cqw 1.6cqw rgba(0,0,0,.35);
+  font-weight: 600; font-size: 6.4cqw; letter-spacing: .01em; font-variant-numeric: tabular-nums;
+  color: #fff7e8; text-shadow: 0 .3cqw .5cqw rgba(0,0,0,.35);
+}
+.round {
+  position: absolute; top: 0; width: 9cqw; height: 9cqw; border-radius: 50%;
+  display: grid; place-items: center; color: var(--ink);
+  background: linear-gradient(180deg, rgba(52, 58, 126, .92), rgba(34, 38, 90, .92));
+  border: .25cqw solid rgba(190, 200, 255, .24);
+  box-shadow: inset 0 .3cqw .6cqw rgba(255,255,255,.08), 0 .6cqw 1.4cqw rgba(0,0,0,.35);
+}
+.round svg { width: 3.6cqw; height: 3.6cqw; }
+.pause { left: 75.4cqw; }
+.sound { left: 86.9cqw; }
+
+/* ---------- glass panels ---------- */
+.panel {
+  position: absolute; border-radius: 4.4cqw;
+  background: var(--panel);
+  border: .3cqw solid var(--panel-edge);
+  box-shadow: inset 0 .4cqw .8cqw rgba(255,255,255,.14), inset 0 -.6cqw 1.4cqw rgba(10, 12, 50, .3), 0 1cqw 2.4cqw rgba(6, 8, 30, .45);
+  backdrop-filter: blur(1.4cqw); -webkit-backdrop-filter: blur(1.4cqw);
+}
+.divider { width: .3cqw; align-self: stretch; margin: 1.6cqw 0; background: rgba(210, 220, 255, .38); border-radius: 1cqw; }
+
+/* event banner */
+.event { left: 5.5cqw; right: 5.6cqw; top: 14.4cqw; height: 14.1cqw; display: flex; align-items: center; gap: 2.6cqw; padding: 0 3cqw 0 8.2cqw; }
+.event .cake { position: absolute; left: 7.6cqw; top: 1.6cqw; width: 11cqw; }
+.event .divider { margin-left: 13.6cqw; }
+.event h2 {
+  margin: 0; font-weight: 700; font-size: 4.65cqw; line-height: 1; letter-spacing: .005em;
+  background: linear-gradient(180deg, var(--gold-a) 10%, var(--gold-b) 95%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 .25cqw .25cqw rgba(10, 12, 50, .55));
+}
+.event p { margin: 1.2cqw 0 0 .6cqw; font-size: 3.05cqw; color: var(--muted); }
+.sparkle { position: absolute; color: #ffe9a6; }
+.sparkle.l { left: 3.6cqw; top: 6.3cqw; width: 2.6cqw; }
+.sparkle.r { right: 3.4cqw; top: 4.8cqw; width: 2.2cqw; }
+.sparkle.t { left: 15cqw; top: 1.6cqw; width: 1.6cqw; }
+
+/* ---------- scope ----------
+   A rounded candy tube seen from slightly above, lit from the top-left.
+   Measured from the reference: the glass and the tube's hole sit LOWER than the
+   tube's centre, so the tube is ~2x thicker at the top than the bottom and the dark
+   groove is widest at the top. That offset is what reads as depth.
+   Ring radius R = 48.5cqw (97% of the screen width). Lengths below are in cqw. */
+.scope {
+  --R: 48.5cqw;
+  --hole: 45.1cqw; --hole-dy: 1.07cqw;     /* inner opening of the tube */
+  --glass: 44.04cqw; --glass-dy: 1.36cqw;  /* the lens */
+  position: absolute; left: 50%; top: 76.5cqw; width: calc(var(--R) * 2); height: calc(var(--R) * 2); transform: translate(-50%, -50%);
+}
+.scope > * { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; }
+/* concentric band (about the tube centre) between radii --a and --b, feathered by --f */
+.band { --f: .25cqw;
+  -webkit-mask: radial-gradient(circle, transparent calc(var(--a) - var(--f)), #000 var(--a), #000 var(--b), transparent calc(var(--b) + var(--f)));
+          mask: radial-gradient(circle, transparent calc(var(--a) - var(--f)), #000 var(--a), #000 var(--b), transparent calc(var(--b) + var(--f))); }
+
+/* depth: heavy shadow under the ring, pink-violet bloom off the lit 10–12 o'clock arc */
+.scope .shade { box-shadow: 0 3.2cqw 5cqw rgba(5, 6, 28, .72), 0 1cqw 1.8cqw rgba(5, 6, 28, .48); }
+.scope .bloom { --a: 48cqw; --b: 50.2cqw; --f: .9cqw; inset: -4cqw; filter: blur(.9cqw);
+  background: conic-gradient(from 0deg, rgba(140, 160, 255, .45) 0deg, rgba(120, 140, 240, .18) 35deg, transparent 70deg, transparent 280deg, rgba(150, 165, 255, .3) 305deg, rgba(170, 186, 255, .6) 330deg, rgba(140, 160, 255, .45) 360deg); }
+
+/* tube body: colour around the ring (conic 0deg = 12 o'clock, clockwise), with the offset hole cut out */
+.scope .tube {
+  background: conic-gradient(from 0deg,
+    #4a56c8 0deg, #404bb4 30deg, #2f378a 60deg, #2a317c 90deg, #3a3f98 120deg, #5f56c0 150deg, #444db2 180deg,
+    #3a429e 210deg, #363d94 240deg, #383f98 270deg, #434cb0 300deg, #5866d6 330deg, #4a56c8 360deg);
+  -webkit-mask: radial-gradient(circle at 50% calc(50% + var(--hole-dy)), transparent calc(var(--hole) - .05cqw), #000 calc(var(--hole) + .1cqw));
+          mask: radial-gradient(circle at 50% calc(50% + var(--hole-dy)), transparent calc(var(--hole) - .05cqw), #000 calc(var(--hole) + .1cqw)); }
+/* the outer face turns away from the light on the right and bottom: darken toward the outside edge */
+.scope .falloff { --a: 46.4cqw; --b: 48.5cqw; --f: .6cqw;
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 35deg, rgba(8, 10, 40, .5) 75deg, rgba(8, 10, 40, .55) 105deg, rgba(8, 10, 40, .22) 135deg,
+    transparent 155deg, rgba(8, 10, 40, .28) 195deg, rgba(8, 10, 40, .32) 240deg, rgba(8, 10, 40, .14) 275deg, transparent 300deg); }
+
+/* 12 o'clock: the outer half of the tube catches the light */
+.scope .crown { --a: 46.6cqw; --b: 48.2cqw; --f: .5cqw; filter: blur(.25cqw);
+  background: conic-gradient(from 0deg, rgba(126, 146, 255, .85) 0deg, rgba(104, 124, 236, .55) 30deg, transparent 58deg, transparent 262deg, rgba(120, 136, 250, .55) 298deg, rgba(140, 160, 255, .85) 335deg, rgba(126, 146, 255, .85) 360deg); }
+/* 11 o'clock: saturated magenta through the inner half… */
+.scope .flare { --a: 44.6cqw; --b: 47cqw; --f: .5cqw; filter: blur(.3cqw);
+  background: conic-gradient(from 0deg, rgba(130, 150, 255, .35) 0deg, transparent 18deg, transparent 288deg, rgba(118, 134, 250, .55) 306deg, rgba(150, 172, 255, .9) 326deg, rgba(134, 154, 255, .65) 345deg, rgba(130, 150, 255, .35) 360deg); }
+/* …and a white-hot specular on the outer half */
+.scope .hot { --a: 47cqw; --b: 47.95cqw; --f: .3cqw; filter: blur(.2cqw);
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 306deg, rgba(214, 226, 255, .7) 318deg, rgba(248, 250, 255, 1) 330deg, rgba(236, 242, 255, .9) 342deg, rgba(200, 212, 255, .45) 354deg, rgba(200, 212, 255, .15) 360deg); }
+/* thin bright lip on the outer edge across the top */
+.scope .lip { --a: 47.9cqw; --b: 48.35cqw; --f: .12cqw;
+  background: conic-gradient(from 0deg, rgba(236, 242, 255, .9) 0deg, rgba(170, 186, 255, .7) 28deg, transparent 55deg, transparent 290deg, rgba(190, 204, 255, .55) 312deg, rgba(236, 242, 255, .9) 340deg, rgba(236, 242, 255, .9) 360deg); }
+
+/* 5 o'clock: magenta bounce light across the whole tube, and a lit inner edge along the bottom */
+.scope .bounce { --a: 45.9cqw; --b: 47.9cqw; --f: .5cqw; filter: blur(.3cqw);
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 108deg, rgba(222, 104, 168, .55) 132deg, rgba(246, 128, 186, .8) 150deg, rgba(222, 104, 168, .45) 172deg, transparent 200deg); }
+.scope .underlip { --a: 46.1cqw; --b: 46.75cqw; --f: .15cqw;
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 140deg, rgba(160, 176, 255, .6) 165deg, rgba(150, 166, 255, .7) 185deg, rgba(130, 146, 240, .4) 210deg, transparent 230deg); }
+
+/* recessed groove: the tube's inner wall, dark, wider at the top because the opening sits low */
+.scope .groove { inset: auto; left: calc(var(--R) - var(--hole)); top: calc(var(--R) - var(--hole) + var(--hole-dy)); width: calc(var(--hole) * 2); height: calc(var(--hole) * 2);
+  background: linear-gradient(180deg, #0d0f2e 0%, #13163c 40%, #1f2458 85%, #2a3070 100%); }
+
+/* the lens, sitting lower still; pink edge all round, brightest bottom-right, tube shadow at the top */
+.scope .glass, .scope .lens, .scope .reticle, .scope .breath {
+  inset: auto; left: calc(var(--R) - var(--glass)); top: calc(var(--R) - var(--glass) + var(--glass-dy)); width: calc(var(--glass) * 2); height: calc(var(--glass) * 2); }
+.scope .glass { overflow: hidden; background: #f6cfe6; }
+.scope .glass svg.scene { width: 100%; height: 100%; display: block; }
+.scope .lens { box-shadow:
+    inset 0 0 0 .42cqw rgba(232, 128, 196, .95),
+    inset -.35cqw -.45cqw .4cqw rgba(255, 170, 222, .55),
+    inset 0 1.4cqw 1.6cqw rgba(30, 34, 100, .38),
+    inset 0 -.8cqw 1.4cqw rgba(255, 150, 215, .18); }
+
+/* ---------- target card ---------- */
+.target { left: 6.7cqw; right: 6.7cqw; top: 127.4cqw; height: 16.2cqw; display: flex; align-items: center; padding-left: 6cqw; }
+.target .portrait { width: 14.6cqw; margin-top: 1cqw; }
+.target .divider { margin: 2.4cqw 3.6cqw 2.4cqw 3.4cqw; }
+.target h3 { margin: 0; font-weight: 700; font-size: 5.1cqw; line-height: 1; color: #fff8fd; text-shadow: 0 .3cqw .4cqw rgba(40, 10, 50, .4); }
+.target .role { display: inline-block; margin-top: 1.4cqw; padding: .5cqw 2.8cqw .4cqw; border-radius: 3cqw; background: rgba(160, 172, 255, .24); font-weight: 600; font-size: 2.7cqw; letter-spacing: .22em; color: #eef0ff; }
+
+/* handler line */
+.handler { left: 6.1cqw; right: 6cqw; top: 145.8cqw; height: 13.6cqw; display: flex; align-items: center; gap: 3.6cqw; padding-left: 4.6cqw; }
+.handler svg { width: 9.4cqw; flex: none; }
+.handler b { display: block; font-weight: 700; font-size: 4.05cqw; line-height: 1; color: var(--pink); }
+.handler span { display: block; margin-top: 1cqw; font-size: 3.05cqw; color: #f6eaf8; }
+
+/* ammo */
+.ammo { left: 5.8cqw; top: 163.2cqw; width: 28.3cqw; height: 9.4cqw; border-radius: 5cqw; display: flex; align-items: center; gap: 1cqw; padding-left: 3.4cqw;
+  background: linear-gradient(180deg, rgba(48, 54, 118, .92), rgba(31, 35, 84, .92)); }
+.ammo i { width: 2.05cqw; height: 4.2cqw; border-radius: 1cqw; background: linear-gradient(180deg, #fff2a0, #f6c449 70%, #dba233); box-shadow: inset 0 .25cqw 0 rgba(255,255,255,.6), 0 .2cqw .3cqw rgba(0,0,0,.3); }
+.ammo em { margin-left: 2.4cqw; font-style: normal; font-weight: 500; font-size: 3.05cqw; color: #e8eaff; }
+</style>
+</head>
+<body>
+<main class="phone" aria-label="Jellyshot HUD concept">
+
+  <!-- blurred festival lights behind the UI -->
+  <div class="bokeh" aria-hidden="true">
+    <i style="left:2cqw;top:36cqw;width:14cqw;height:8cqw;background:#c25a7a"></i>
+    <i style="left:16cqw;top:34cqw;width:10cqw;height:6cqw;background:#9a6a3a"></i>
+    <i style="left:72cqw;top:33cqw;width:12cqw;height:7cqw;background:#6a3fa0"></i>
+    <i style="left:86cqw;top:35cqw;width:10cqw;height:7cqw;background:#a0466a"></i>
+    <i style="left:84cqw;top:52cqw;width:12cqw;height:7cqw;background:#3f8a4a"></i>
+    <i style="left:0;top:100cqw;width:12cqw;height:12cqw;background:#5a3a78"></i>
+    <i style="left:88cqw;top:104cqw;width:12cqw;height:12cqw;background:#5a3a78"></i>
+  </div>
+
+  <!-- ===== top bar ===== -->
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 80 60" aria-hidden="true">
+        <defs><radialGradient id="bb" cx="40%" cy="30%" r="80%"><stop offset="0" stop-color="#ffd2ea"/><stop offset=".55" stop-color="#ff9ccc"/><stop offset="1" stop-color="#e9629f"/></radialGradient></defs>
+        <circle cx="26" cy="12" r="8" fill="url(#bb)"/><circle cx="50" cy="12" r="8" fill="url(#bb)"/>
+        <path d="M6 44C4 22 20 10 40 10s36 12 34 34c-1 10-16 14-34 14S7 54 6 44Z" fill="url(#bb)"/>
+        <ellipse cx="29" cy="34" rx="4.2" ry="5" fill="#5a2246"/><ellipse cx="51" cy="34" rx="4.2" ry="5" fill="#5a2246"/>
+        <ellipse cx="28" cy="20" rx="8" ry="3.5" fill="#fff" opacity=".55"/>
+      </svg>
+      <b>JELLYSHOT</b>
+    </div>
+    <div class="timer">4:09</div>
+    <button class="round pause" aria-label="Pause"><svg viewBox="0 0 24 24"><rect x="6" y="4.5" width="4" height="15" rx="1.6" fill="currentColor"/><rect x="14" y="4.5" width="4" height="15" rx="1.6" fill="currentColor"/></svg></button>
+    <button class="round sound" aria-label="Sound"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9.5v5h3.8l4.7 4V5.5l-4.7 4H3.5Z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>
+  </header>
+
+  <!-- ===== event banner ===== -->
+  <section class="panel event">
+    <svg class="sparkle l" viewBox="0 0 20 20"><path d="M10 0c1 6 4 9 10 10-6 1-9 4-10 10-1-6-4-9-10-10 6-1 9-4 10-10Z" fill="currentColor"/></svg>
+    <svg class="sparkle t" viewBox="0 0 20 20"><path d="M10 0c1 6 4 9 10 10-6 1-9 4-10 10-1-6-4-9-10-10 6-1 9-4 10-10Z" fill="currentColor"/></svg>
+    <svg class="sparkle r" viewBox="0 0 20 20"><path d="M10 0c1 6 4 9 10 10-6 1-9 4-10 10-1-6-4-9-10-10 6-1 9-4 10-10Z" fill="currentColor"/></svg>
+    <svg class="cake" viewBox="0 0 110 100" aria-hidden="true">
+      <ellipse cx="55" cy="90" rx="50" ry="8" fill="#f2d3c8"/>
+      <ellipse cx="55" cy="88" rx="46" ry="6" fill="#fff4ec"/>
+      <path d="M16 54h78v26c0 6-17 9-39 9s-39-3-39-9Z" fill="#ffd2dc"/>
+      <path d="M16 66c8 4 16 4 20 0s14 4 19 0 14 4 20 0 12 4 19 0v6c-7 4-12 1-19 0-6 4-14 4-20 0-5 4-14 4-19 0-4 4-12 4-20 0Z" fill="#ff8fb0"/>
+      <ellipse cx="55" cy="54" rx="39" ry="9" fill="#fff6f0"/>
+      <path d="M16 54c4 6 8 8 10 4s6 6 9 2 6 6 10 2 6 6 10 2 6 6 10 2 6 6 10 2 6 4 9-4" fill="none" stroke="#fff6f0" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="44" cy="42" r="8" fill="#e8264f"/><circle cx="62" cy="40" r="8.5" fill="#e8264f"/><circle cx="54" cy="30" r="8" fill="#ee3a5c"/>
+      <circle cx="41" cy="39" r="2.4" fill="#fff" opacity=".7"/><circle cx="59" cy="37" r="2.4" fill="#fff" opacity=".7"/><circle cx="51" cy="27" r="2.2" fill="#fff" opacity=".7"/>
+      <path d="M54 22c2-6 6-9 10-10" stroke="#5aa64a" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+      <circle cx="24" cy="18" r="1.8" fill="#fff"/><circle cx="34" cy="10" r="1.2" fill="#fff"/><circle cx="80" cy="14" r="1.6" fill="#fff"/>
+    </svg>
+    <span class="divider"></span>
+    <div>
+      <h2>The Big Cake Ceremony</h2>
+      <p>The Mayor speaks at the stage.</p>
+    </div>
+  </section>
+
+  <!-- ===== scope ===== -->
+  <section class="scope" aria-label="Scope">
+    <div class="bloom band"></div>
+    <div class="shade"></div>
+    <div class="tube"></div>
+    <div class="falloff band"></div>
+    <div class="crown band"></div>
+    <div class="flare band"></div>
+    <div class="bounce band"></div>
+    <div class="underlip band"></div>
+    <div class="hot band"></div>
+    <div class="lip band"></div>
+    <div class="groove"></div>
+    <div class="glass">
+      <!-- STUB: the game renders the magnified world here -->
+      <svg class="scene" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <rect width="400" height="400" fill="#f8d2e8"/>
+        <path d="M0 230 L400 120 L400 400 L0 400Z" fill="#f4bcd9"/>
+        <path d="M0 270 L400 170 L400 400 L0 400Z" fill="#cdeeb0"/>
+        <path d="M300 400 L400 260 L400 190 L250 400Z" fill="#f7e3bf"/>
+        <path d="M0 140 Q200 120 420 70" stroke="#fff3f8" stroke-width="2" fill="none"/>
+        <g fill-opacity=".95">
+          <path d="M40 135l20 0-12 22Z" fill="#5fb6ff"/><path d="M95 131l24-2-10 26Z" fill="#ffd13a"/><path d="M155 124l26-2-12 26Z" fill="#ff5fb8"/><path d="M222 112l26-4-10 26Z" fill="#b48cf5"/><path d="M285 98l26-4-8 26Z" fill="#7fdc6a"/>
+          <path d="M60 85l20 6-16 8Z" fill="#ff5f9e"/>
+        </g>
+        <g opacity=".9">
+          <ellipse cx="200" cy="198" rx="36" ry="30" fill="#ff8fc8"/><circle cx="188" cy="180" r="7" fill="#ff7ab8"/><circle cx="210" cy="180" r="7" fill="#ff7ab8"/>
+          <circle cx="193" cy="196" r="7" fill="#fff"/><circle cx="210" cy="196" r="7" fill="#fff"/><circle cx="195" cy="197" r="3.4" fill="#3a1a30"/><circle cx="212" cy="197" r="3.4" fill="#3a1a30"/>
+          <ellipse cx="200" cy="232" rx="30" ry="5" fill="#b37aa0" opacity=".35"/>
+        </g>
+        <text x="200" y="330" font-family="Fredoka, sans-serif" font-size="13" text-anchor="middle" fill="#a6688e" opacity=".7">game scene renders here</text>
+      </svg>
+    </div>
+    <div class="lens"></div>
+    <!-- reticle -->
+    <svg class="reticle" viewBox="0 0 400 400" aria-hidden="true">
+      <!-- no post above centre: the top half of the glass stays clear -->
+      <g stroke="#1b1e4a" stroke-linecap="butt">
+        <line x1="0" y1="200" x2="88" y2="200" stroke-width="5.5"/>
+        <line x1="312" y1="200" x2="400" y2="200" stroke-width="5.5"/>
+        <line x1="88" y1="200" x2="193" y2="200" stroke-width="1.3"/>
+        <line x1="207" y1="200" x2="312" y2="200" stroke-width="1.3"/>
+        <line x1="200" y1="208" x2="200" y2="292" stroke-width="1.3"/>
+        <!-- …then steps up into a heavy post, like the side posts -->
+        <path d="M199.35 288 L200.65 288 L202.2 296 L202.2 400 L197.8 400 L197.8 296 Z" fill="#1b1e4a" stroke="none"/>
+        <g stroke-width="1.1"><line x1="140" y1="197" x2="140" y2="203"/><line x1="146" y1="197" x2="146" y2="203"/><line x1="152" y1="197" x2="152" y2="203"/><line x1="158" y1="197" x2="158" y2="203"/><line x1="164" y1="197" x2="164" y2="203"/><line x1="170" y1="197" x2="170" y2="203"/><line x1="176" y1="197" x2="176" y2="203"/><line x1="182" y1="197" x2="182" y2="203"/><line x1="188" y1="197" x2="188" y2="203"/><line x1="212" y1="197" x2="212" y2="203"/><line x1="218" y1="197" x2="218" y2="203"/><line x1="224" y1="197" x2="224" y2="203"/><line x1="230" y1="197" x2="230" y2="203"/><line x1="236" y1="197" x2="236" y2="203"/><line x1="242" y1="197" x2="242" y2="203"/><line x1="248" y1="197" x2="248" y2="203"/><line x1="254" y1="197" x2="254" y2="203"/><line x1="260" y1="197" x2="260" y2="203"/></g>
+        <g stroke-width="1.3">
+          <line x1="114" y1="190" x2="114" y2="210"/><line x1="134" y1="193" x2="134" y2="207"/>
+          <line x1="266" y1="193" x2="266" y2="207"/><line x1="286" y1="190" x2="286" y2="210"/>
+        </g>
+      </g>
+      <!-- aim ring: red when a target is under it -->
+      <circle cx="200" cy="200" r="6.5" fill="none" stroke="#ff3b5c" stroke-width="1.8"/>
+      <circle cx="200" cy="200" r="1.2" fill="#ff3b5c"/>
+    </svg>
+    <!-- breath gauge -->
+    <svg class="breath" viewBox="0 0 400 400" aria-hidden="true">
+      <path d="M22 248 A182 182 0 0 0 104 356" fill="none" stroke="#bfeee8" stroke-opacity=".85" stroke-width="5" stroke-linecap="round"/>
+    </svg>
+  </section>
+
+  <!-- ===== target card ===== -->
+  <section class="panel target">
+    <svg class="portrait" viewBox="0 0 120 100" aria-hidden="true">
+      <defs><radialGradient id="tp" cx="38%" cy="30%" r="80%"><stop offset="0" stop-color="#ffc4e2"/><stop offset=".55" stop-color="#ff7fbd"/><stop offset="1" stop-color="#e2509a"/></radialGradient></defs>
+      <ellipse cx="34" cy="86" rx="13" ry="9" fill="#e4559c"/><ellipse cx="84" cy="86" rx="13" ry="9" fill="#e4559c"/>
+      <circle cx="44" cy="17" r="9.5" fill="url(#tp)"/><circle cx="70" cy="15" r="9.5" fill="url(#tp)"/>
+      <path d="M10 62C10 34 30 18 58 18s50 16 50 44c0 18-22 26-50 26S10 80 10 62Z" fill="url(#tp)"/>
+      <ellipse cx="44" cy="30" rx="14" ry="5" fill="#fff" opacity=".45"/>
+      <ellipse cx="64" cy="54" rx="9.5" ry="10.5" fill="#fff"/><ellipse cx="88" cy="54" rx="9.5" ry="10.5" fill="#fff"/>
+      <circle cx="67" cy="56" r="5" fill="#3a1a30"/><circle cx="91" cy="56" r="5" fill="#3a1a30"/>
+      <circle cx="69" cy="53.5" r="1.6" fill="#fff"/><circle cx="93" cy="53.5" r="1.6" fill="#fff"/>
+      <path d="M71 69q6 6 12 0" fill="#8a2250" stroke="#8a2250" stroke-width="2" stroke-linecap="round"/>
+      <ellipse cx="52" cy="68" rx="5" ry="3" fill="#ff5aa0" opacity=".45"/><ellipse cx="101" cy="67" rx="4.5" ry="3" fill="#ff5aa0" opacity=".45"/>
+    </svg>
+    <span class="divider"></span>
+    <div>
+      <h3>Tess Twirl</h3>
+      <span class="role">DANCER</span>
+    </div>
+  </section>
+
+  <!-- ===== handler ===== -->
+  <section class="panel handler">
+    <svg viewBox="0 0 90 70" aria-hidden="true">
+      <defs><linearGradient id="hb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd8ec"/><stop offset="1" stop-color="#f6a8d0"/></linearGradient></defs>
+      <path d="M45 4C22 4 4 16 4 32c0 9 5 16 13 21-1 6-5 11-11 14 10 1 19-2 25-7 4 1 9 2 14 2 23 0 41-12 41-30S68 4 45 4Z" fill="url(#hb)"/>
+      <circle cx="29" cy="32" r="4.6" fill="#7a3a6a"/><circle cx="45" cy="32" r="4.6" fill="#7a3a6a"/><circle cx="61" cy="32" r="4.6" fill="#7a3a6a"/>
+    </svg>
+    <div>
+      <b>Ceremony is on.</b>
+      <span>All targets are on that stage.</span>
+    </div>
+  </section>
+
+  <!-- ===== ammo ===== -->
+  <section class="panel ammo" aria-label="Ammo 5 of 5">
+    <i></i><i></i><i></i><i></i><i></i>
+    <em>5/5</em>
+  </section>
+</main>
+</body>
+</html>

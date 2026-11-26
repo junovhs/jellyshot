@@ -1,0 +1,15 @@
+{
+  "source": "clean housing render (1254x1254, transparent)",
+  "size": {
+    "w": 1078,
+    "h": 1221
+  },
+  "glass": {
+    "cx": 533.2,
+    "cy": 600.1,
+    "rx": 428.4,
+    "ry": 436.5,
+    "rotationDeg": 72.59,
+    "note": "Transparent glass ellipse in asset pixels: render the scope view under it, centred on cx,cy."
+  }
+}
