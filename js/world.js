@@ -55,7 +55,6 @@ function buildDecor() {
   S.push({ y: 1050, draw: () => stall(770, 1050, '#ffe15c', '#fffbd1', 'LEMONADE') });
   S.push({ y: 1050, draw: () => stall(1232, 1050, '#ff8fc8', '#ffe1f0', 'FLOSS') });
   S.push({ y: 1210, draw: carriage });
-  S.push({ y: 1278, draw: gate });
   S.push({ y: 252, draw: shed });
   S.push({ y: 716, draw: bench });
   // bunting posts around the plaza
@@ -765,6 +764,107 @@ function makeProps() {
       rrect(x - 10, y - 10, 20, 5, 2, '#a8608d');
       if (this.state === 'blown') for (let i = 0; i < 3; i++) circ(x - 6 + i * 6, y - 40 - ((G.clock * 20 + i * 7) % 20), 4, '#ffffff55');
       g.restore();
+    }
+  });
+
+  /* ---- WELCOME SIGN over the exit gate ---- */
+  P.push({
+    id: 'sign', opp: 'sign', x: 1000, y: 1280, h: 104, vy: 0, state: 'hang', dx: 1000, dy: 1150, dr: 60,
+    hit(px, py) {
+      if (this.state !== 'hang') return null;
+      for (const cx of [948, 1052]) if (Math.abs(px - cx) < 7 && py > 1096 && py < 1152) return { kind: 'chain', precise: true };
+      if (px > 930 && px < 1070 && py > 1148 && py < 1180) return { kind: 'sign' };
+      return null;
+    },
+    shot(hit, ammo) {
+      if (hit.kind === 'sign' && ammo !== 'bomb') { sfx('boing'); startle(1000, 1260, 120, 'Did the sign just wobble?'); return 'lure'; }
+      this.state = 'fall'; sfx('snap'); discover('sign'); return 'prop';
+    },
+    update(dt) {
+      if (this.state === 'fall') {
+        this.vy += 1600 * dt; this.h -= this.vy * dt;
+        if (this.h <= 0) {
+          this.h = 0; this.state = 'down'; shake(14); sfx('thud'); sfx('crack');
+          spray(1000, 1270, ['#fff0cc', '#ff7fb2', '#c9966b'], 50, 1);
+          const vic = npcsIn(1000, 1274, 86, 38);
+          const ev = ++G.eventId;
+          for (const n of vic) killNPC(n, { cause: 'sign', accident: true, ev });
+          if ((G.evKills[ev] || []).some(id => G.byId[id].kind === 'target')) { award('sign'); handler(pick(HANDLER.accident)); }
+          G.flags.gateBlocked = true;
+        }
+      }
+    },
+    draw() {
+      const x = 1000, y = 1278;
+      ln(x - 80, y, x - 80, y - 110, '#ff7fb2', 12); ln(x + 80, y, x + 80, y - 110, '#ff7fb2', 12);
+      g.beginPath(); g.arc(x, y - 110, 80, Math.PI, 0); g.strokeStyle = '#ff7fb2'; g.lineWidth = 12; g.stroke();
+      for (let i = 0; i < 5; i++) circ(x - 80 + i * 40, y - 110 - Math.sin(i / 4 * Math.PI) * 80, 5, ['#ffe066', '#7fd9ff', '#ffffff'][i % 3]);
+      const by = y - this.h;
+      if (this.state === 'hang') { ln(948, 1100, 948, by - 26, '#8a7a92', 2.5); ln(1052, 1100, 1052, by - 26, '#8a7a92', 2.5); for (let k = 1104; k < by - 26; k += 7) { ellS(948, k, 2, 3, '#b8a8c0', 1); ellS(1052, k, 2, 3, '#b8a8c0', 1); } }
+      if (this.state === 'down') { g.save(); g.translate(x, y - 6); g.rotate(.06); rrect(-70, -14, 140, 26, 10, '#e8d3a8'); txt('GUMDROP HOLLOW', 0, -1, 12, '#a3477f'); g.restore(); return; }
+      if (this.h < 100) ell(x, y, 70 * (1 - this.h / 160), 10, '#5a3f6a30');
+      rrect(x - 70, by - 30, 140, 30, 12, '#fff0cc'); rrect(x - 70, by - 30, 140, 6, 6, '#ffffff');
+      txt('GUMDROP HOLLOW', x, by - 14, 12, '#c2407f');
+    }
+  });
+
+  /* ---- THE HERMIT'S DOORBELL (easter egg) ---- */
+  P.push({
+    id: 'hut', x: 104, y: 876, state: 'shut',
+    hit(px, py) { if (this.state !== 'shut') return null; return dist(px, py, 140, 826) < 8 ? { kind: 'bell', precise: true } : null; },
+    shot() {
+      this.state = 'open'; sfx('ding'); sfx('chime', .5);
+      const n = mkNPC({ id: 'hermit', kind: 'civ', name: 'Hermit Humbug', role: 'Recluse · first outing since 1994', col: 'cocoa', hat: 'beanie', r: 14, speed: 30, lines: 'hermit',
+        plan: [{ t: 0, hot: 'plaza', act: 'wander', label: 'Socializing for the first time in 30 years' }] });
+      n.x = 108; n.y = 892; G.npcs.push(n); G.byId.hermit = n;
+      say(n, 'Visitors?! For ME?', 3); award('hermit');
+      floater(110, 820, 'DING DONG!', '#ffe066');
+      return 'prop';
+    },
+    draw() {
+      const x = 104, y = 876;
+      ell(x + 4, y + 4, 44, 12, '#5a3f6a30');
+      rrect(x - 30, y - 44, 60, 44, 10, '#fff3df');
+      g.beginPath(); g.ellipse(x, y - 46, 50, 34, 0, Math.PI, 0); g.fillStyle = '#e0457a'; g.fill();
+      for (const [a, b] of [[-26, -58], [8, -70], [28, -52], [-6, -54]]) circ(x + a, y + b, 5, '#ffffff');
+      rrect(x - 10, y - 30, 20, 30, 8, this.state === 'open' ? '#3a2a3a' : '#a8704f');
+      circ(x + 18, y - 30, 6, '#7fd9ff'); ringS(x + 18, y - 30, 6, '#fff', 1.5);
+      ln(x + 30, y - 36, x + 36, y - 54, '#a8704f', 2);
+      circ(140, 826, 6, '#ffd36b'); circ(138, 824, 2, '#fff');
+      if (this.state === 'shut' && Math.sin(G.clock * .7) > .6) txt('z', x + 20 + Math.sin(G.clock) * 3, y - 90, 12, '#7a5a8a');
+    }
+  });
+
+  /* ---- SPRINKLE SACK on the pie tent (easter egg) ---- */
+  P.push({
+    id: 'sack', x: 618, y: 452, state: 'ok', birds: [], t: 0,
+    hit(px, py) { if (this.state !== 'ok') return null; return dist(px, py, 618, 372) < 11 ? { kind: 'sack', precise: true } : null; },
+    shot() {
+      this.state = 'spilt'; this.t = 0; sfx('splat', .4); award('birds');
+      for (let i = 0; i < 60; i++) G.parts.push({ type: 'spark', x: 618 + rand(-6, 6), y: 372, vx: rand(-40, 40), vy: rand(0, 60), r: 1.6, c: pick(['#ff599c', '#ffe066', '#7fd9ff', '#83dc65', '#fff']), life: rand(.6, 1.2), g: 300 });
+      for (let i = 0; i < 12; i++) this.birds.push({ x: rand(-200, 0) + 300, y: rand(80, 200), tx: 470 + rand(0, 200), ty: 560 + rand(0, 70), c: PAL_KEYS[i % PAL_KEYS.length], st: 'in', ph: rand(0, TAU) });
+      handler('Gummy birds. You summoned gummy birds. Why.');
+      return 'prop';
+    },
+    update(dt) {
+      if (this.state !== 'spilt') return;
+      this.t += dt;
+      for (const b of this.birds) {
+        if (this.t > 45 && b.st !== 'out') { b.st = 'out'; b.tx = b.x + 400; b.ty = -200; }
+        const sp = b.st === 'peck' ? 0 : 160, dx = b.tx - b.x, dy = b.ty - b.y, d = Math.hypot(dx, dy);
+        if (d > 3) { b.x += dx / d * Math.min(d, sp * dt); b.y += dy / d * Math.min(d, sp * dt); } else if (b.st === 'in') b.st = 'peck';
+        if (b.st === 'peck' && Math.random() < dt * .4) { b.tx = b.x + rand(-30, 30); b.ty = b.y + rand(-14, 14); b.st = 'in'; }
+      }
+    },
+    draw() {
+      if (this.state === 'ok') { ell(618, 376, 9, 11, '#e8d3a8'); rrect(612, 362, 12, 4, 2, '#c9966b'); txt('✦', 618, 378, 8, '#ff599c'); }
+      for (const b of this.birds) {
+        const fly = b.st !== 'peck', fl = Math.sin(G.clock * 20 + b.ph) * 4;
+        if (!fly) ell(b.x, b.y + 2, 6, 2, '#5a3f6a30');
+        const by = b.y - (fly ? 0 : Math.abs(Math.sin(G.clock * 6 + b.ph)) * 2);
+        ell(b.x, by - 4, 6, 5, PAL[b.c][0]); circ(b.x + 4, by - 8, 3.5, PAL[b.c][0]); poly([b.x + 7, by - 8, b.x + 10, by - 7, b.x + 7, by - 6], '#ffb84c'); circ(b.x + 5, by - 9, .9, '#50334f');
+        if (fly) { poly([b.x - 2, by - 5, b.x + 3, by - 5, b.x, by - 10 - fl], PAL[b.c][2]); }
+      }
     }
   });
 

@@ -501,7 +501,6 @@ function timeline() {
   cue('mcFire', 268, () => { const m = A('sprinkles'); if (m) say(m, G.flags.shedGone ? 'The fireworks... already happened. Early.' : 'Fireworks in thirty seconds, folks!', 3.5); });
   cue('show', 286, () => { const f = G.props.find(p => p.id === 'fireworks'); if (f.state === 'ok') f.show(); });
   // carriage departure
-  if (G.T >= MISSION_LEN - 4) for (const id of ['mayor', 'judge', 'baroness']) { const n = G.byId[id]; if (n.alive && !n.inBalloon && dist(n.x, n.y, 1000, 1205) < 60) escapeTarget(n); }
   if (G.T >= MISSION_LEN) { for (const id of ['mayor', 'judge', 'baroness']) if (G.byId[id].alive) escapeTarget(G.byId[id]); endMission(); }
   // quiet tips
   G.quietT += 1 / 60;

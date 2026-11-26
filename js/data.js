@@ -144,6 +144,7 @@ const LINES = {
   shocked: ['WHERE\'D SHE GO?', 'THE CAKE!', 'Is that... frosting?', 'Oh dear.'],
   meeting_reroute: ['The shed is GONE. Garden bench.', 'Bench. Now.', 'This is a sign.'],
   balloonGone: ['My balloon! Carriage it is.'],
+  hermit: ['Visitors?!', 'Is this... a party?', 'I haven’t been out since 1994.', 'Hello, people!', 'So many faces.', 'What is a jubilee?'],
   vendorChase: ['MY BALLOONS!', 'Come back!', 'That\'s my whole stock!']
 };
 
@@ -163,7 +164,7 @@ const HANDLER = {
   maypole: 'Maypole time. The Baroness is dancing. The Mayor and the Judge are ogling that gumball machine on the hill.',
   meeting: 'They\'re meeting in private by the fireworks shed. Fireworks are famously stable.',
   meetingAlt: 'Shed\'s gone, so they\'ve moved to the garden bench. Under the beehive. Of course they have.',
-  farewell: 'They\'re leaving. Baroness to her balloon, the rest to the carriage at the south gate. Last chance.',
+  farewell: 'They\'re leaving. Baroness to her balloon, the rest out through the south gate. That gate sign looks heavy.',
   lockdown: 'They know. Lockdown — the marks are running for the exits. Stop them.',
   suspicious: 'People are getting twitchy. Ease off for a bit.',
   accident: ['Tragic. Truly. Nobody will suspect a thing.', 'An accident. How unfortunate.', 'Lovely work. Very... sticky.'],
@@ -214,6 +215,7 @@ const OPPS = {
   bobber: { name: 'The Fishing Bobber', hint: 'Old Finnegan has been waiting all day for a bite.' },
   bunch: { name: 'The Balloon Bunch', hint: 'Bubbles the vendor holds an entire bouquet of balloons.' },
   pump: { name: 'Fountain Pump', hint: 'The chocolate fountain’s pump is over-pressurised. Shoot it and anyone at the rim gets fondue’d. The Mayor and the Baroness chat there until 4:10 is left.' },
+  sign: { name: 'The Welcome Sign', hint: 'A heavy sign hangs over the south gate by two chains. Everyone leaving walks right under it, even targets fleeing a lockdown.' },
   fountain: { name: 'The Chocolate Fountain', hint: 'Anything popped in the chocolate is hidden from view. Same goes for ponds and bushes.' }
 };
 
@@ -281,6 +283,7 @@ const CHALLENGES = [
   { id: 'balloon', group: 'Assassinations', name: 'What Goes Up', desc: 'Pop the Baroness\'s balloon in mid-air.' },
   { id: 'fireworks', group: 'Assassinations', name: 'Grand Finale', desc: 'Pop all three targets with the fireworks.' },
   { id: 'benchbees', group: 'Assassinations', name: 'Plan Bee', desc: 'Blow the shed early, then bee the rerouted meeting.' },
+  { id: 'sign', group: 'Assassinations', name: 'Welcome to Gumdrop Hollow', desc: 'Pop a target with the gate sign on their way out.' },
   { id: 'accidents', group: 'Mastery', name: 'Clean Hands', desc: 'Pop all three targets with accidents.' },
   { id: 'ghost', group: 'Mastery', name: 'Sugar Ghost', desc: 'Finish the contract with no lockdown and no open puddles discovered.' },
   { id: 'heads', group: 'Mastery', name: 'Sharpshooter', desc: 'Pop all three targets with headshots.' },
@@ -294,6 +297,8 @@ const CHALLENGES = [
   { id: 'coldfeet', group: 'Diabolical', name: 'Cold Feet', desc: 'Pop Dmitri in the middle of his proposal.' },
   { id: 'fizz', group: 'Diabolical', name: 'Dunk Tank', desc: 'Shove a jelly into water with a fizz round.' },
   { id: 'bomb', group: 'Diabolical', name: 'Overkill', desc: 'Pop 4 jellies with a single sugar bomb.' },
+  { id: 'hermit', group: 'Feats', name: 'Social Butterfly', desc: 'Ring the hermit’s doorbell.' },
+  { id: 'birds', group: 'Feats', name: 'Bird Brain', desc: 'Spill the sprinkle sack on the pie tent.' },
   { id: 'scoop', group: 'Feats', name: 'Scooped', desc: 'Shoot a kid\'s ice cream cone.' },
   { id: 'banjo', group: 'Feats', name: 'Tough Crowd', desc: 'Snap Banjo Bill\'s banjo.' },
   { id: 'fish', group: 'Feats', name: 'Fish Story', desc: 'Shoot Old Finnegan\'s bobber.' },

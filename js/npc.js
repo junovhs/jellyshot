@@ -38,7 +38,8 @@ function targetPlans() {
       { t: 100, at: [598, 905], act: 'feed', label: 'Feeding the ducks on the dock' },
       { t: 160, at: [334, 262], act: 'admire', label: 'Admiring the gumball machine' },
       { t: 220, at: meet(0), act: 'whisper', label: 'At a secret Syndicate meeting' },
-      { t: 270, at: [976, 1196], act: 'leave', label: 'Waiting for the carriage' }
+      { t: 270, at: [976, 1196], act: 'leave', label: 'Waiting for the carriage' },
+      { t: 288, at: [990, 1302], act: 'leave', exit: true, label: 'Leaving through the gate' }
     ],
     baroness: [
       { t: 0, at: [1665, 284], act: 'idle', label: 'Arriving by balloon' },
@@ -47,7 +48,8 @@ function targetPlans() {
       { t: 100, at: [1598, 692], act: 'sniff', label: 'Smelling the flowers' },
       { t: 160, circle: true, act: 'dance', label: 'Dancing round the maypole' },
       { t: 220, at: meet(1), act: 'whisper', label: 'At a secret Syndicate meeting' },
-      { t: 270, at: () => G.flags.balloonGone ? [1026, 1200] : [1665, 280], act: 'leave', label: () => G.flags.balloonGone ? 'Waiting for the carriage' : 'Heading to her balloon' }
+      { t: 270, at: () => G.flags.balloonGone ? [1026, 1200] : [1665, 280], act: 'leave', label: () => G.flags.balloonGone ? 'Waiting for the carriage' : 'Heading to her balloon' },
+      { t: 289, at: () => G.flags.balloonGone ? [1012, 1302] : [1665, 280], act: 'leave', exit: true, label: () => G.flags.balloonGone ? 'Leaving through the gate' : 'Boarding her balloon' }
     ],
     judge: [
       { t: 0, hot: { x: 590, y: 540, rx: 60, ry: 20 }, act: 'inspect', label: 'Inspecting the pie tent' },
@@ -55,7 +57,8 @@ function targetPlans() {
       { t: 100, at: [606, 478], act: 'taste', label: 'Tasting pies' },
       { t: 160, at: [270, 262], act: 'admire', label: 'Admiring the gumball machine' },
       { t: 220, at: meet(2), act: 'whisper', label: 'At a secret Syndicate meeting' },
-      { t: 270, at: [1024, 1212], act: 'leave', label: 'Waiting for the carriage' }
+      { t: 270, at: [1024, 1212], act: 'leave', label: 'Waiting for the carriage' },
+      { t: 290, at: [1010, 1302], act: 'leave', exit: true, label: 'Leaving through the gate' }
     ]
   };
 }
@@ -271,6 +274,7 @@ function updateNPC(n, dt) {
       if (dist(n.x, n.y, ...goal) < 6) { n.pause += dt; act = s.act === 'wander' ? 'idle' : s.act; if (n.pause > (n.pauseLen ||= rand(2, 6))) { n.pause = 0; n.pauseLen = 0; n.wander = pointIn(h); } }
     } else {
       goal = val(s.at);
+      if (s.exit) { spd = 28; if (n.kind === 'target' && n.y > 1288) return escapeTarget(n); }
       if (s.act === 'buy' && dist(n.x, n.y, ...goal) < 8) { n.pause += dt; if (n.pause > 2.4 && !n.hasCone) { n.hasCone = true; say(n, pick(LINES.kidCone), 2); } }
     }
     // dancers boo when the banjo is broken

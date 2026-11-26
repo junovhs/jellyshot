@@ -8,7 +8,7 @@ A cute sniper game about horrible things. Peer down a scope at the **Gumdrop Jub
 
 - **Second to second** — drag to aim, scope sway, hold breath to steady, lead moving targets, headshots, combos, juicy pops, hide puddles in water/bushes/chocolate, keep suspicion down.
 - **Minute to minute** — a 5-minute festival timeline (arrivals → Big Cake Ceremony → Pie Judging → Maypole → Syndicate Meeting → Farewells). Each phase moves the targets next to a different lethal "accident" opportunity. Witnesses, mourning partners, guards, lures and lockdowns react to everything you do. Some opportunities reroute the schedule.
-- **Hour to hour** — 30 challenges (assassinations, mastery, diabolical, feats, collectibles), a challenge multiplier up to 3×, rifle XP levels that unlock zoom, magazine, fizz rounds, sugar bombs and more.
+- **Hour to hour** — 35 challenges, randomized side jobs every contract, PRO mode, (assassinations, mastery, diabolical, feats, collectibles), a challenge multiplier up to 3×, rifle XP levels that unlock zoom, magazine, fizz rounds, sugar bombs and more.
 
 ## Run locally
 
