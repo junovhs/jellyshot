@@ -490,7 +490,7 @@ function drawHat(type, r, col, ox = 0, oy = null, s = 1) {
 function drawBubble(n, S) {
   const b = n.bubble; if (!b) return;
   const lift = n.inBalloon ? G.props.find(p => p.id === 'balloon').h + 6 : 0;
-  const fs = 11 / S, pad = 5 / S;
+  const fs = 12 / S, pad = 5 / S;
   g.font = `800 ${fs}px ui-rounded, "Avenir Next", system-ui, sans-serif`;
   const w = g.measureText(b.t).width + pad * 2, h = fs + pad * 1.6;
   const x = n.x, y = n.y - lift - n.r * 2.3 - (n.hat === 'tophat' || n.hat === 'chef' ? n.r * .9 : 0) - 10 / S;

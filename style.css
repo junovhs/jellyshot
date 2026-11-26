@@ -235,3 +235,7 @@ canvas#world:active { cursor: grabbing; }
 .jobs li.done { color: #83dc65; text-decoration: line-through; }
 #jobs li::before { content: '○ '; color: #ffe066; }
 .ghost.pro.on { background: #ff2d6326; border-color: var(--hot); color: #ffb3c4; }
+
+.combo { position: absolute; left: 50%; top: var(--scopeBottom); transform: translate(-50%, -120%); pointer-events: none; font-size: 26px; font-weight: 1000; letter-spacing: -.03em; color: #ffe066; text-shadow: 0 3px 0 #a33f83, 0 0 20px #ff79c180; opacity: 0; white-space: nowrap; }
+.combo.show { animation: combo 1.1s ease-out forwards; }
+@keyframes combo { 0% { opacity: 0; transform: translate(-50%, -100%) scale(.5) rotate(-6deg); } 15% { opacity: 1; transform: translate(-50%, -130%) scale(1.15) rotate(-3deg); } 70% { opacity: 1; transform: translate(-50%, -140%) scale(1) rotate(-3deg); } 100% { opacity: 0; transform: translate(-50%, -160%) scale(.95) rotate(-3deg); } }

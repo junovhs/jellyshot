@@ -135,7 +135,7 @@ function killNPC(n, info = {}) {
   if (concealed) { pts += T ? 300 : 50; parts.push('CONCEALED'); G.stats.concealed++; }
   if (G.clock - G.lastKill < 2.5) G.combo++; else G.combo = 1;
   G.lastKill = G.clock;
-  if (G.combo > 1) { pts += (G.combo - 1) * 100; parts.push(`COMBO ×${G.combo}`); }
+  if (G.combo > 1) { pts += (G.combo - 1) * 100; parts.push(`COMBO ×${G.combo}`); comboCall(G.combo); }
   addScore(pts, null);
   floater(n.x, by - 22, `+${pts}`, T ? '#ffe066' : '#fff7cb', T ? 1.5 : 1);
   feed(`${T ? '◆ ' : ''}${n.name}`, parts.join(' · '), pts, T);
@@ -293,6 +293,10 @@ function feed(name, detail, pts, big) {
   while (f.children.length > 4) f.lastChild.remove();
   setTimeout(() => li.classList.add('fade'), 4200);
   setTimeout(() => li.remove(), 5000);
+}
+function comboCall(n) {
+  const el = $('combo'); el.textContent = ['', '', 'DOUBLE POP!', 'TRIPLE POP!', 'QUAD SQUISH!', 'JELLYPOCALYPSE!'][n] || 'UNSTOPPABLE GOO!';
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
 }
 function floater(x, y, t, c = '#fff7cb', s = 1) { G.floaters.push({ x, y, t, c, s, life: 1.2 }); }
 function blobs(x, y, col, n) {
@@ -965,10 +969,9 @@ for (const type of ['pointerup', 'pointercancel']) canvas.addEventListener(type,
 canvas.addEventListener('lostpointercapture', e => { pointers.delete(e.pointerId); startGesture(); });
 canvas.addEventListener('wheel', e => { e.preventDefault(); setZoom(G.zoom * Math.exp(-e.deltaY * .0015)); }, { passive: false });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
-mini.addEventListener('pointerdown', e => {
-  const r = mini.getBoundingClientRect();
-  G.cam.x = (e.clientX - r.left) / r.width * WORLD.w; G.cam.y = (e.clientY - r.top) / r.height * WORLD.h; bound(); e.preventDefault();
-});
+const miniJump = e => { const r = mini.getBoundingClientRect(); G.cam.x = (e.clientX - r.left) / r.width * WORLD.w; G.cam.y = (e.clientY - r.top) / r.height * WORLD.h; bound(); };
+mini.addEventListener('pointerdown', e => { e.preventDefault(); mini.setPointerCapture(e.pointerId); miniJump(e); });
+mini.addEventListener('pointermove', e => { if (mini.hasPointerCapture(e.pointerId)) miniJump(e); });
 window.addEventListener('keydown', e => {
   if (e.code === 'Escape' || e.code === 'Tab' || e.code === 'KeyI') { e.preventDefault(); if (!$('intel').hidden) closeIntel(); else openIntel(); return; }
   if (G.paused || !G.started || G.ended) { if (e.code === 'Enter' && !$('brief').hidden) startMission(); return; }
