@@ -156,7 +156,7 @@ function killNPC(n, info = {}) {
     const left = ['mayor', 'baroness', 'judge'].filter(id => G.byId[id].alive);
     if (!left.length) {
       setTimeout(() => handler(HANDLER.allDown), 900);
-      $('extract').hidden = false;
+      $('extract').hidden = false; $('susp').hidden = true;
       const tk = G.stats.kills.filter(k => k.kind === 'target');
       if (tk.every(k => k.accident)) award('accidents');
       if (tk.every(k => k.head)) award('heads');
@@ -286,11 +286,11 @@ function toast(a, b = '') {
 }
 function feed(name, detail, pts, big) {
   const li = document.createElement('div');
-  li.className = 'feedrow' + (big ? ' big' : '');
+  li.className = 'feedrow' + (big ? ' tgt' : '');
   li.innerHTML = `<b></b><span></span><i></i>`;
   li.children[0].textContent = name; li.children[1].textContent = detail; li.children[2].textContent = pts ? `+${pts}` : '';
   const f = $('feed'); f.prepend(li);
-  while (f.children.length > 4) f.lastChild.remove();
+  while (f.children.length > 3) f.lastChild.remove();
   setTimeout(() => li.classList.add('fade'), 4200);
   setTimeout(() => li.remove(), 5000);
 }
@@ -849,7 +849,7 @@ function renderChallenges(el, done) {
 function startMission() {
   initAudio();
   newMission();
-  $('brief').hidden = true; $('end').hidden = true; $('intel').hidden = true; $('hudwrap').hidden = false; $('extract').hidden = true;
+  $('brief').hidden = true; $('end').hidden = true; $('intel').hidden = true; $('hudwrap').hidden = false; $('extract').hidden = true; $('susp').hidden = false;
   $('hint').classList.remove('hidden');
   music.setMood('festive');
   canvas.focus({ preventScroll: true });

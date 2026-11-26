@@ -68,7 +68,7 @@ canvas#world:active { cursor: grabbing; }
 .feedrow b { font-weight: 900; }
 .feedrow span { grid-column: 1; color: var(--muted); font-size: 8.5px; font-weight: 800; letter-spacing: .05em; }
 .feedrow i { grid-row: 1 / 3; grid-column: 2; align-self: center; font-style: normal; font-weight: 950; color: #ffe066; }
-.feedrow.big { border-color: var(--hot); }
+.feedrow.tgt { border-color: var(--hot); background: #3a1530d8; }
 .feedrow.fade { opacity: 0; transform: translateX(-12px); }
 @keyframes slidein { from { transform: translateX(-20px); opacity: 0; } }
 
@@ -112,7 +112,7 @@ canvas#world:active { cursor: grabbing; }
 .fire.pressed { transform: scale(.93); background: #ff8bc5a0; }
 .fire svg { width: 44%; height: 44%; fill: none; stroke: currentColor; stroke-width: 1.7; }
 
-.extract { pointer-events: auto; position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--sab) + 190px); padding: 12px 22px; border-radius: 24px; background: #83dc65; color: #193a12; font-weight: 1000; letter-spacing: .06em; font-size: 13px; box-shadow: 0 4px 0 #409c49, 0 0 24px #83dc6577; animation: bob 1s infinite alternate; }
+.extract { pointer-events: auto; position: absolute; left: 50%; transform: translateX(-50%); top: calc(var(--sat) + 100px); padding: 9px 18px; border-radius: 24px; background: #83dc65; color: #193a12; font-weight: 1000; letter-spacing: .06em; font-size: 13px; box-shadow: 0 4px 0 #409c49, 0 0 24px #83dc6577; animation: bob 1s infinite alternate; }
 @keyframes bob { to { transform: translate(-50%, -4px); } }
 
 .hint { position: absolute; left: 50%; top: var(--scopeBottom); transform: translate(-50%, 8px); white-space: nowrap; font-size: 9.5px; font-weight: 800; letter-spacing: .07em; color: #f3ddf4a8; text-align: center; transition: opacity .4s; }
@@ -213,7 +213,7 @@ canvas#world:active { cursor: grabbing; }
   .handler.show { transform: translate(-50%, 0); }
   .aimtag { top: auto; bottom: calc(var(--sab) + 110px); transform: translate(-50%, 0); }
   .hint { top: auto; bottom: calc(var(--sab) + 90px); }
-  .extract { bottom: calc(var(--sab) + 170px); }
+  .extract { top: calc(var(--sat) + 118px); }
   .fire { width: 104px; }
   .breath { width: 74px; height: 74px; }
 }

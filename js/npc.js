@@ -337,6 +337,9 @@ function linePool(n) {
     if (t === 'sad' || t === 'lost') return n.kind === 'kid' ? LINES.mournKid : LINES.sad;
     if (t === 'dazed') return LINES.dazed;
     if (t === 'chase') return LINES.vendorChase;
+    if (t === 'look') return LINES.shocked;
+    if (t === 'bees') return LINES.bees;
+    if (t === 'fall') return null;
     return LINES.panic;
   }
   const s = n.step; const l = s && val(s.lines);
