@@ -268,7 +268,8 @@ function drawPuddle(p) {
   // the sad leftover eyes
   if (p.eyes) { circ(-4, -1, 3.2, '#fffaf7'); circ(5, 1, 3.2, '#fffaf7'); circ(-4, -.5, 1.4, '#50334f'); circ(5, 1.5, 1.4, '#50334f'); }
   if (p.hat) drawHat(p.hat, p.r * .7, p.c, 9, 4, .7);
-  if (p.found && !p.accident) { g.globalAlpha = .9; ellS(0, 0, p.r * 1.6, p.r * .9, '#ff4d6d', 1.5); g.globalAlpha = 1; }
+  if (p.secured) { g.setLineDash([5, 4]); ellS(0, 0, p.r * 2, p.r * 1.1, '#ffcc4c', 2); g.setLineDash([]); poly([p.r * 1.7 - 5, 2, p.r * 1.7 + 5, 2, p.r * 1.7, -12], '#ff7a3a'); rrect(p.r * 1.7 - 4, -6, 8, 2.5, 1, '#fff'); }
+  else if (p.found && !p.accident) { g.globalAlpha = .9; ellS(0, 0, p.r * 1.6, p.r * .9, '#ff4d6d', 1.5); g.globalAlpha = 1; }
   g.restore();
 }
 

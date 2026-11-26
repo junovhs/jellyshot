@@ -308,7 +308,8 @@ const DUCKS = [[330, 900], [470, 980], [560, 1010], [990, 650], [1585, 772], [25
 const GNOMES = [[1880, 1200], [120, 1180], [1900, 160], [760, 160], [1460, 1230]];
 
 /* ---------- rifle progression ---------- */
-const LEVEL_XP = 6000;
+// cumulative XP needed to reach a level: 0, 5k, 15k, 30k, 50k, 75k ...
+const xpForLevel = l => 2500 * l * (l - 1);
 const UNLOCKS = [
   { lvl: 1, text: 'Gummy Rifle · 4-round magazine · 2.0× zoom' },
   { lvl: 2, text: 'Scope upgrade · 2.6× zoom' },

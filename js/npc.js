@@ -236,6 +236,7 @@ function updateNPC(n, dt) {
         if (dist(n.x, n.y, ...goal) < 14) { if (n.kind === 'target') { if (n.id === 'baroness' && R.balloon) { /* balloon handles boarding */ } else return escapeTarget(n); } else return leave(n); }
         break;
     }
+    if (R.type === 'guard' && R.time <= 0 && R.p && !R.p.secured) { R.p.secured = true; say(n, pick(['Area secured.', 'Nobody touch the puddle.', 'Cordoned off.']), 2); }
     if (R.type !== 'bees' && R.type !== 'flee' && R.time <= 0) { n.react = null; n.stepI = -1; }
   }
   if (!n.react) {

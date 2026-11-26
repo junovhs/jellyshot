@@ -15,7 +15,7 @@ const SAVE_KEY = 'jellyshot.save.v1';
 let SAVE = { xp: 0, done: [], best: 0, runs: 0, wins: 0 };
 try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) SAVE = Object.assign(SAVE, s); } catch (e) { }
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); } catch (e) { } }
-const levelOf = xp => 1 + Math.floor(xp / LEVEL_XP);
+const levelOf = xp => { let l = 1; while (xp >= xpForLevel(l + 1)) l++; return l; };
 const multOf = () => Math.min(3, 1 + SAVE.done.length * .08);
 
 /* ---------- state ---------- */
@@ -167,7 +167,7 @@ function notice(m, p, live) {
   }
   if (p.accident) { bump(m.kind === 'guard' ? 3 : 1); if (!m.react) react(m, 'look', { time: 2.6 }); if (Math.random() < .6) say(m, pick(LINES.accidentSeen), 2.4); return; }
   markFound(p);
-  if (m.kind === 'guard') { bump(live ? 30 : 22); react(m, 'guard', { x: p.x, y: p.y, time: 14 }); say(m, pick(LINES.guardAlert), 2.4); }
+  if (m.kind === 'guard') { bump(live ? 30 : 22); react(m, 'guard', { x: p.x, y: p.y, time: 14, p }); say(m, pick(LINES.guardAlert), 2.4); }
   else if (m.kind === 'target') { bump(live ? 34 : 26); react(m, 'panic', { x: p.x, y: p.y, time: 3 }); say(m, pick(LINES.flee), 2.2); }
   else { bump(live ? 14 : 10); react(m, 'panic', { x: p.x, y: p.y, time: 3.4 }); say(m, pick(LINES.panic), 2.2); }
 }
@@ -469,7 +469,7 @@ function timeline() {
     if (t && d?.alive) { say(t, 'YES!! A THOUSAND TIMES YES!', 3.5); spray(t.x, t.y - 20, ['#ff8fc1', '#ffe066', '#ffffff', '#7fd9ff'], 40, .8); crowdSay(t.x, t.y, 140, 'cheer', 4); sfx('chime', .6); }
   });
   cue('mcFire', 268, () => { const m = A('sprinkles'); if (m) say(m, G.flags.shedGone ? 'The fireworks... already happened. Early.' : 'Fireworks in thirty seconds, folks!', 3.5); });
-  cue('show', 292, () => { const f = G.props.find(p => p.id === 'fireworks'); if (f.state === 'ok') f.show(); });
+  cue('show', 286, () => { const f = G.props.find(p => p.id === 'fireworks'); if (f.state === 'ok') f.show(); });
   // carriage departure
   if (G.T >= MISSION_LEN - 4) for (const id of ['mayor', 'judge', 'baroness']) { const n = G.byId[id]; if (n.alive && !n.inBalloon && dist(n.x, n.y, 1000, 1205) < 60) escapeTarget(n); }
   if (G.T >= MISSION_LEN) { for (const id of ['mayor', 'judge', 'baroness']) if (G.byId[id].alive) escapeTarget(G.byId[id]); endMission(); }
@@ -535,7 +535,7 @@ function update(dt, raw) {
     for (const n of G.npcs) {
       if (!n.alive || n.dying || n.inBalloon || n.kb) continue;
       const range = n.kind === 'guard' ? 150 : 115;
-      for (const p of G.puddles) if (!p.concealed && p.age > .3 && !p.seenBy.has(n.id) && Math.abs(n.x - p.x) < range && Math.abs(n.y - p.y) < range && dist(n.x, n.y, p.x, p.y) < range) notice(n, p, false);
+      for (const p of G.puddles) if (!p.concealed && !p.secured && p.age > .3 && !p.seenBy.has(n.id) && Math.abs(n.x - p.x) < range && Math.abs(n.y - p.y) < range && dist(n.x, n.y, p.x, p.y) < range) notice(n, p, false);
     }
   }
   // suspicion cools
@@ -747,9 +747,9 @@ function portrait(cv, id) {
 }
 function showBrief() {
   G.started = false; G.ended = true;
-  const lvl = levelOf(SAVE.xp), into = SAVE.xp % LEVEL_XP;
-  $('lvl').textContent = lvl; $('xpbar').style.setProperty('--v', (into / LEVEL_XP).toFixed(3));
-  $('xptext').textContent = `${into.toLocaleString()} / ${LEVEL_XP.toLocaleString()} XP`;
+  const lvl = levelOf(SAVE.xp), lo = xpForLevel(lvl), hi = xpForLevel(lvl + 1), into = SAVE.xp - lo;
+  $('lvl').textContent = lvl; $('xpbar').style.setProperty('--v', (into / (hi - lo)).toFixed(3));
+  $('xptext').textContent = `${into.toLocaleString()} / ${(hi - lo).toLocaleString()} XP to level ${lvl + 1}`;
   $('mult').textContent = multOf().toFixed(2) + '×';
   $('chcount').textContent = `${SAVE.done.length} / ${CHALLENGES.length}`;
   $('best').textContent = SAVE.best.toLocaleString();
@@ -832,7 +832,7 @@ function endMission() {
   const lockPen = G.lockdown ? -1500 : 0;
   const base = Math.max(0, G.score + timeBonus + ghostBonus + lockPen);
   const final = Math.round(base * (success ? multOf() : 1));
-  const xp = Math.round(final * (success ? 1 : .5));
+  const xp = Math.round(final * (success ? 1 : .4));
   const before = levelOf(SAVE.xp);
   SAVE.xp += xp; SAVE.runs++; if (success) SAVE.wins++;
   const best = final > SAVE.best; if (best) SAVE.best = final;
