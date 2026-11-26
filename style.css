@@ -228,3 +228,10 @@ canvas#world:active { cursor: grabbing; }
   .breath { width: 58px; height: 58px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+.jobs { background: #ffe0660f; border: 1px solid #ffe06633; border-radius: 16px; padding: 10px 14px; margin-bottom: 10px; }
+.jobs b { font-size: 10px; letter-spacing: .18em; color: #ffe066; font-weight: 950; }
+.jobs ul { margin: 6px 0 0; padding-left: 0; list-style: none; font-size: 12.5px; line-height: 1.6; color: #f3e6c8; }
+.jobs li.done { color: #83dc65; text-decoration: line-through; }
+#jobs li::before { content: '○ '; color: #ffe066; }
+.ghost.pro.on { background: #ff2d6326; border-color: var(--hot); color: #ffb3c4; }

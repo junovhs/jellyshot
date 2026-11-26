@@ -23,7 +23,7 @@
     <div class="hud" id="hudwrap" hidden>
       <div class="topbar">
         <div class="scorebox">
-          <div class="wordmark">JELLYSHOT</div>
+          <div class="wordmark" id="wordmark">JELLYSHOT</div>
           <div class="points" id="score">00000</div>
           <div class="pips">
             <span class="pip alive" id="t_mayor">MAYOR</span>
@@ -99,6 +99,8 @@
           <p>Our client wants all three popped before the festival ends. Every jelly down there has a schedule. Learn it. Use it. Make it look like an accident.</p>
         </div>
         <div class="targets" id="targets"></div>
+        <div class="jobs"><b>SIDE JOBS · +1500 each</b><ul id="jobs"></ul></div>
+        <button class="ghost pro" id="proToggle" hidden>PRO MODE: OFF</button>
         <button class="big" id="start">ACCEPT CONTRACT</button>
         <div class="meta">
           <div class="stat"><span>RIFLE LEVEL</span><b id="lvl">1</b></div>
@@ -135,6 +137,7 @@
         </div>
         <div class="tabs"><button class="on" data-tab="tabT">TARGETS</button><button data-tab="tabO">OPPORTUNITIES</button><button data-tab="tabC">CHALLENGES</button></div>
         <div class="tabpane" id="tabT">
+          <div class="jobs"><b>SIDE JOBS</b><ul id="intelJobs"></ul></div>
           <div id="intelTargets"></div>
         </div>
         <div class="tabpane" id="tabO" hidden>

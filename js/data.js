@@ -186,22 +186,22 @@ const TARGET_INFO = {
   mayor: {
     name: 'Mayor Wobbleton', short: 'MAYOR',
     dossier: 'Host of the Jubilee. Rigged the Great Jam Contest nine years running. Loves ducks, speeches and the sound of his own wobble.',
-    sched: ['Greets guests at the chocolate fountain', 'Speech under the Big Cake (0:50)', 'Feeds ducks on the dock (1:40)', 'Admires the gumball machine (2:40)', 'Secret meeting (3:40)', 'Carriage at the south gate (4:30)']
+    sched: ['Greets guests at the chocolate fountain', 'Speech under the Big Cake (4:10 left)', 'Feeds ducks on the dock (3:20 left)', 'Admires the gumball machine (2:20 left)', 'Secret meeting (1:20 left)', 'Carriage at the south gate (0:30 left)']
   },
   baroness: {
     name: 'Baroness Fondant', short: 'BARONESS',
     dossier: 'Sugar tycoon. Owns every beet for 400 miles. Arrives by hot air balloon. Loathes bees. Adores dancing.',
-    sched: ['Lands by balloon, chats at the fountain', 'Stands beside the podium (0:50)', 'Sniffs flowers in the garden (1:40)', 'Dances around the maypole (2:40)', 'Secret meeting (3:40)', 'Leaves by balloon (4:30)']
+    sched: ['Lands by balloon, chats at the fountain', 'Stands beside the podium (4:10 left)', 'Sniffs flowers in the garden (3:20 left)', 'Dances around the maypole (2:20 left)', 'Secret meeting (1:20 left)', 'Leaves by balloon (0:30 left)']
   },
   judge: {
     name: 'Judge Gumbo', short: 'JUDGE',
     dossier: 'Pie judge. Has never awarded a ribbon he didn\'t get a cut of. Will eat absolutely anything placed in front of him.',
-    sched: ['Inspects the pie tent', 'Stands on stage for the cake (0:50)', 'Tastes pies beside the oven (1:40)', 'Admires the gumball machine (2:40)', 'Secret meeting (3:40)', 'Carriage at the south gate (4:30)']
+    sched: ['Inspects the pie tent', 'Stands on stage for the cake (4:10 left)', 'Tastes pies beside the oven (3:20 left)', 'Admires the gumball machine (2:20 left)', 'Secret meeting (1:20 left)', 'Carriage at the south gate (0:30 left)']
   }
 };
 
 const OPPS = {
-  cake: { name: 'The Big Cake', hint: 'A one-ton cake dangles over the podium by a single rope. The ceremony starts at 0:50.' },
+  cake: { name: 'The Big Cake', hint: 'A one-ton cake dangles over the podium by a single rope. The ceremony starts with 4:10 left on the clock.' },
   oven: { name: 'The Rickety Oven', hint: 'The pie tent oven is held together with hope. A shot will make it overheat… and blow.' },
   gumball: { name: 'Giant Gumball Machine', hint: 'Thin glass. Lots of gumballs. A steep path downhill.' },
   dock: { name: 'The Duck Dock', hint: 'Two wobbly posts hold up the dock. Anyone on it goes for a swim. Jellies can\'t swim.' },
@@ -213,7 +213,7 @@ const OPPS = {
   banjo: { name: 'Banjo Bill\'s Banjo', hint: 'Snap a string, stop the music, ruin the dance.' },
   bobber: { name: 'The Fishing Bobber', hint: 'Old Finnegan has been waiting all day for a bite.' },
   bunch: { name: 'The Balloon Bunch', hint: 'Bubbles the vendor holds an entire bouquet of balloons.' },
-  pump: { name: 'Fountain Pump', hint: 'The chocolate fountain’s pump is over-pressurised. Shoot it and anyone at the rim gets fondue’d. The Mayor and the Baroness chat there until 0:50.' },
+  pump: { name: 'Fountain Pump', hint: 'The chocolate fountain’s pump is over-pressurised. Shoot it and anyone at the rim gets fondue’d. The Mayor and the Baroness chat there until 4:10 is left.' },
   fountain: { name: 'The Chocolate Fountain', hint: 'Anything popped in the chocolate is hidden from view. Same goes for ponds and bushes.' }
 };
 
@@ -284,7 +284,7 @@ const CHALLENGES = [
   { id: 'accidents', group: 'Mastery', name: 'Clean Hands', desc: 'Pop all three targets with accidents.' },
   { id: 'ghost', group: 'Mastery', name: 'Sugar Ghost', desc: 'Finish the contract with no lockdown and no open puddles discovered.' },
   { id: 'heads', group: 'Mastery', name: 'Sharpshooter', desc: 'Pop all three targets with headshots.' },
-  { id: 'speed', group: 'Mastery', name: 'Sugar Rush', desc: 'Pop all three targets before 2:00.' },
+  { id: 'speed', group: 'Mastery', name: 'Sugar Rush', desc: 'Pop all three targets within the first 2 minutes.' },
   { id: 'targetsOnly', group: 'Mastery', name: 'Surgical', desc: 'Finish with only the three targets popped.' },
   { id: 'guards', group: 'Mastery', name: 'Off Duty', desc: 'Pop all six guards.' },
   { id: 'concealed', group: 'Mastery', name: 'Tidy Up', desc: 'Conceal 5 pops in one contract.' },

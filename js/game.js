@@ -27,6 +27,28 @@ const G = {
   disc: new Set(), combo: 0, lastKill: -9, rifle: rifleFor(1), special: { fizz: 0, bomb: 0 }, handlerQ: [], handlerT: 0, quietT: 0, cues: new Set()
 };
 
+/* ---------- side jobs: fresh mini-objectives every contract ---------- */
+const JOB_GEN = [
+  () => { const c = pick(CAST_CIVS.filter(c => !c.kid)); return { text: `Pop ${c.name} with an accident`, test: (n, i) => n.id === c.id && i.accident }; },
+  () => { const c = pick(CAST_CIVS.filter(c => !c.kid)); return { text: `Pop ${c.name} and hide the puddle`, test: (n, i, p) => n.id === c.id && p.concealed }; },
+  () => { const gd = pick(CAST_GUARDS); return { text: `Headshot ${gd.name}`, test: (n, i) => n.id === gd.id && i.head }; },
+  () => { const c = pick(CAST_CIVS.filter(c => !c.kid)); return { text: `Pop ${c.name} in the first 2 minutes`, test: n => n.id === c.id && G.T < 120 }; },
+  () => ({ text: 'Headshot a target while they’re walking', test: (n, i) => n.kind === 'target' && i.head && i.moving }),
+  () => ({ text: 'Pop a guard hiding in a bush', test: (n, i, p) => n.kind === 'guard' && p.where === 'bush' }),
+  () => ({ text: 'Pop 3 jellies within a few seconds', test: () => G.combo >= 3 }),
+  () => ({ text: 'Pop a target while they’re dancing', test: n => n.kind === 'target' && n.acting === 'dance' }),
+  () => ({ text: 'Dunk a guard in the pond', test: (n, i, p) => n.kind === 'guard' && p.where === 'water' && waterAt(n.x, n.y)?.id === 'pond' }),
+  () => ({ text: 'Pop a bodyguard before their boss', test: n => n.protects && G.byId[n.protects].alive })
+];
+function rollJobs() { const idx = [...JOB_GEN.keys()].sort(() => Math.random() - .5).slice(0, 3); return idx.map(i => ({ ...JOB_GEN[i](), done: false })); }
+let nextJobs = rollJobs();
+function checkJobs(n, info, p) {
+  for (const j of G.jobs) if (!j.done && j.test(n, info, p)) {
+    j.done = true; addScore(1500 * (G.pro ? 1.5 : 1) | 0);
+    setTimeout(() => { toast('SIDE JOB DONE  +1500', j.text.toUpperCase()); sfx('chime'); }, 1100);
+  }
+}
+
 function newMission() {
   const lvl = levelOf(SAVE.xp);
   Object.assign(G, {
@@ -37,6 +59,9 @@ function newMission() {
     stats: { kills: [], found: 0, ducks: 0, gnomes: 0, concealed: 0, heads: 0, accidents: 0, collateral: 0, guards: 0, escaped: 0, fizzDunk: false }
   });
   G.mag = G.rifle.mag; G.special = { fizz: G.rifle.fizz, bomb: G.rifle.bomb };
+  G.jobs = nextJobs; nextJobs = rollJobs();
+  G.pro = !!SAVE.pro && levelOf(SAVE.xp) >= 4;
+  $('wordmark').textContent = G.pro ? 'JELLYSHOT · PRO' : 'JELLYSHOT';
   G.props = makeProps();
   G.npcs = buildCast();
   G.byId = {}; for (const n of G.npcs) G.byId[n.id] = n;
@@ -115,6 +140,7 @@ function killNPC(n, info = {}) {
   feed(`${T ? '◆ ' : ''}${n.name}`, parts.join(' · '), pts, T);
   G.stats.kills.push({ id: n.id, kind: n.kind, cause: info.cause || 'shot', accident: !!info.accident, head: !!info.head, concealed, t: G.T });
   if (info.ev) (G.evKills[info.ev] ||= []).push(n.id);
+  checkJobs(n, { ...info, moving: info.moving || n.moving > 5 }, p);
   if (!T && n.kind !== 'guard') G.stats.collateral++;
   if (n.kind === 'guard') G.stats.guards++;
 
@@ -178,6 +204,7 @@ function markFound(p) {
 }
 function bumpSusp(v) {
   if (G.lockdown) return;
+  if (G.pro) v *= 1.6;
   G.susp = Math.min(100, G.susp + v);
   G.calmT = 6;
   if (G.susp >= 60 && !G.cues.has('susp')) { G.cues.add('susp'); handler(HANDLER.suspicious); }
@@ -230,6 +257,7 @@ function award(id) {
   setTimeout(() => { toast(fresh ? 'CHALLENGE COMPLETE' : 'CHALLENGE', c.name.toUpperCase()); sfx('chime'); }, 700);
 }
 function handler(text, urgent) {
+  if (G.pro && !urgent && G.T > 12 && !G.ended && Object.values(HANDLER).includes(text) && ![HANDLER.lockdown, HANDLER.allDown, HANDLER.escape, HANDLER.client].includes(text)) return;
   if (urgent) G.handlerQ.unshift(text); else G.handlerQ.push(text);
   if (G.handlerQ.length > 5) G.handlerQ.length = 5;
 }
@@ -280,7 +308,7 @@ function hitstop(t) { if (!REDUCE) G.hitstop = Math.max(G.hitstop, t); }
 /* ---------- shooting ---------- */
 function scale() { return G.zoom * baseScale; }
 function sway() {
-  const t = G.clock, amp = (5.5 + G.kick * 16) * (1 - G.steady * .86) * (G.breathLock ? 1.9 : 1) * (G.lockdown ? 1.15 : 1);
+  const t = G.clock, amp = (5.5 + G.kick * 16) * (1 - G.steady * .86) * (G.breathLock ? 1.9 : 1) * (G.lockdown ? 1.15 : 1) * (G.pro ? 1.3 : 1);
   return [(Math.sin(t * .83) * .6 + Math.sin(t * 1.97 + 1.3) * .4) * amp, (Math.sin(t * 1.13 + .5) * .6 + Math.sin(t * 2.41) * .4) * amp * .8];
 }
 function aimPoint() { const [sx, sy] = sway(), S = scale(); return [G.cam.x + sx / S, G.cam.y + sy / S]; }
@@ -757,6 +785,10 @@ function showBrief() {
   $('loadout').textContent = `Gummy Rifle · ${rf.mag} rounds · ${rf.maxZoom}× zoom${rf.fizz ? ` · ${rf.fizz} fizz` : ''}${rf.bomb ? ` · ${rf.bomb} bombs` : ''}`;
   const nextU = UNLOCKS.find(u => u.lvl > lvl);
   $('nextunlock').textContent = nextU ? `Level ${nextU.lvl}: ${nextU.text}` : 'Everything unlocked. You monster.';
+  const jb = $('jobs'); jb.innerHTML = '';
+  for (const j of nextJobs) { const li = document.createElement('li'); li.textContent = j.text; jb.appendChild(li); }
+  const pro = $('proToggle'); pro.hidden = lvl < 4; pro.classList.toggle('on', !!SAVE.pro);
+  pro.textContent = SAVE.pro ? 'PRO MODE: ON  (×1.5 score · twitchier crowd · no hints)' : 'PRO MODE: OFF';
   const tc = $('targets'); tc.innerHTML = '';
   for (const id of ['mayor', 'baroness', 'judge']) {
     const t = TARGET_INFO[id], d = document.createElement('div');
@@ -814,6 +846,7 @@ function openIntel() {
     ol.appendChild(d);
   }
   renderChallenges($('intelCh'), new Set(SAVE.done));
+  const ij = $('intelJobs'); ij.innerHTML = ''; for (const j of G.jobs) { const li = document.createElement('li'); li.textContent = (j.done ? '✓ ' : '○ ') + j.text; li.className = j.done ? 'done' : ''; ij.appendChild(li); }
   $('intelStats').textContent = `${fmt(MISSION_LEN - G.T)} left · ${G.stats.kills.length} popped · ${G.disc.size}/${Object.keys(OPPS).length} opportunities · ducks ${G.stats.ducks}/6 · gnomes ${G.stats.gnomes}/5`;
   $('intel').hidden = false;
 }
@@ -831,7 +864,7 @@ function endMission() {
   const ghostBonus = success && !G.lockdown && st.found === 0 ? 2500 : 0;
   const lockPen = G.lockdown ? -1500 : 0;
   const base = Math.max(0, G.score + timeBonus + ghostBonus + lockPen);
-  const final = Math.round(base * (success ? multOf() : 1));
+  const final = Math.round(base * (success ? multOf() : 1) * (G.pro ? 1.5 : 1));
   const xp = Math.round(final * (success ? 1 : .4));
   const before = levelOf(SAVE.xp);
   SAVE.xp += xp; SAVE.runs++; if (success) SAVE.wins++;
@@ -847,6 +880,8 @@ function endMission() {
     ['Collateral jellies', st.collateral], ['Guards popped', `${st.guards} / 6`],
     ['Puddles discovered', st.found], ['Accuracy', G.shots ? Math.round(G.hits / G.shots * 100) + '%' : '—'],
     ['Challenges this run', G.run.done.size],
+    ['Side jobs', `${G.jobs.filter(j => j.done).length} / ${G.jobs.length}`],
+    ...(G.pro ? [['PRO mode', '×1.5']] : []),
     ['Contract score', G.score.toLocaleString()],
     ['Time bonus', timeBonus ? '+' + timeBonus.toLocaleString() : '—'],
     ['Ghost bonus', ghostBonus ? '+' + ghostBonus.toLocaleString() : '—'],
@@ -943,6 +978,7 @@ $('restart').addEventListener('click', () => { $('intel').hidden = true; startMi
 $('abort').addEventListener('click', () => { $('intel').hidden = true; G.paused = false; for (const id of ['mayor', 'judge', 'baroness']) if (G.byId[id].alive) { G.byId[id].alive = false; G.byId[id].escaped = true; } endMission(); });
 $('extract').addEventListener('click', () => endMission());
 $('showCh').addEventListener('click', () => $('chwrap').classList.toggle('open'));
+$('proToggle').addEventListener('click', () => { SAVE.pro = !SAVE.pro; persist(); showBrief(); });
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
   document.querySelectorAll('.tabpane').forEach(p => p.hidden = p.id !== b.dataset.tab);
