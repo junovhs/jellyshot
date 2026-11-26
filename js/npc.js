@@ -430,6 +430,7 @@ function drawNPC(n, lift = 0) {
   if (a === 'dazed') for (let i = 0; i < 3; i++) { const an = t * 5 + i * TAU / 3; txt('✦', n.x + Math.cos(an) * r * .8, top + Math.sin(an) * 3, 8, '#ffcc4c'); }
   if (a === 'music' && !G.flags.banjoBroken && Math.sin(t * 2 + n.phase) > 0) txt('♪', n.x + 14 + Math.sin(t * 3) * 4, top - ((t * 14) % 20), 12, '#a8608d');
   if (a === 'photo' && Math.sin(t * 2.3 + n.phase) > .97) circ(n.x + n.face * r, y - r * .5, 10, '#ffffffdd');
+  if (n.warn > 0 && n.alive) { const wx = n.x + (n.kind === 'target' ? 16 : 0), wy = top - 16; ringS(wx, wy, 7, '#ffe06688', 2); g.beginPath(); g.moveTo(wx, wy); g.arc(wx, wy, 7, -Math.PI / 2, -Math.PI / 2 + TAU * Math.min(1, n.warn)); g.closePath(); g.fillStyle = '#ffe066cc'; g.fill(); txt('?', wx, wy + .5, 9, '#50334f'); }
   if (n.kind === 'target' && !lift) {
     const my = top - 12 + Math.sin(t * 4) * 2;
     poly([n.x - 6, my - 6, n.x + 6, my - 6, n.x, my + 2], '#ff3d6e');

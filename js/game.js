@@ -570,7 +570,14 @@ function update(dt, raw) {
     for (const n of G.npcs) {
       if (!n.alive || n.dying || n.inBalloon || n.kb) continue;
       const range = n.kind === 'guard' ? 150 : 115;
-      for (const p of G.puddles) if (!p.concealed && !p.secured && p.age > .3 && !p.seenBy.has(n.id) && Math.abs(n.x - p.x) < range && Math.abs(n.y - p.y) < range && dist(n.x, n.y, p.x, p.y) < range) notice(n, p, false);
+      let best = null, bd = 1e9;
+      for (const p of G.puddles) {
+        if (p.concealed || p.secured || p.age < .3 || p.seenBy.has(n.id) || Math.abs(n.x - p.x) > range * 1.5 || Math.abs(n.y - p.y) > range * 1.5) continue;
+        const d = dist(n.x, n.y, p.x, p.y); if (d < bd) { bd = d; best = p; }
+      }
+      // a beat of "huh?" before they actually clock the puddle
+      if (best && bd < range) { n.noticeT = (n.noticeT || 0) + .25; if (n.noticeT >= (n.kind === 'guard' ? .5 : .75)) { n.noticeT = 0; n.warn = 0; notice(n, best, false); } else n.warn = n.noticeT / .75; }
+      else { n.noticeT = 0; n.warn = best && bd < range * 1.5 ? .15 : 0; }
     }
   }
   // suspicion cools
