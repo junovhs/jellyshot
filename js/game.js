@@ -81,7 +81,7 @@ function killNPC(n, info = {}) {
   if (!n.alive) return;
   const lift = n.inBalloon ? (G.props.find(p => p.id === 'balloon')?.h || 0) : 0;
   n.alive = false; n.dying = 0; n.kb = null; n.inBalloon = false;
-  const wasMourning = n.react?.type === 'mourn' ? n.react.who : null;
+  const wasMourning = n.react?.type === 'mourn' && G.T - (n.react.at ?? G.T) > .5 ? n.react.who : null;
   n.react = null;
   const wAt = waterAt(n.x, n.y), bAt = bushAt(n.x, n.y);
   const concealed = !!(info.concealed || (wAt && !onDock(n.x, n.y)) || bAt || (wAt && info.cause === 'dock'));
@@ -136,6 +136,7 @@ function killNPC(n, info = {}) {
       if (G.T < 120) award('speed');
     }
   }
+  if (n.id === 'dmitri' && G.flags.proposing) { award('coldfeet'); G.flags.proposing = false; }
   if (n.id === 'granny') { award('client'); setTimeout(() => handler(HANDLER.client), 600); }
   if (wasMourning && (G.byId[wasMourning]?.partner === n.id || n.partner === wasMourning)) award('widow');
   if (G.stats.collateral === 12) handler(HANDLER.collateral);
@@ -143,7 +144,7 @@ function killNPC(n, info = {}) {
   if (G.npcs.filter(m => m.kind === 'guard').every(m => !m.alive && !m.gone)) award('guards');
   if (G.npcs.every(m => !m.alive && !m.gone && !m.escaped)) award('everyone');
   // people who loved them and didn't see it go looking
-  for (const m of G.npcs) if (m.alive && loves(m, n) && !p.seenBy.has(m.id)) { m.lostFor = n.id; }
+  for (const m of G.npcs) if (m.alive && m.kind !== 'target' && loves(m, n) && !p.seenBy.has(m.id)) { m.lostFor = n.id; }
   // immediate witnesses
   const wr = concealed ? 70 : 170;
   for (const m of G.npcs) if (m.alive && !m.dying && !m.inBalloon && dist(m.x, m.y, n.x, n.y) < wr) notice(m, p, true);
@@ -438,10 +439,37 @@ function timeline() {
     if (ph.id === 'farewell') handler(HANDLER.farewell);
   }
   const cue = (k, t, fn) => { if (G.T >= t && !G.cues.has(k)) { G.cues.add(k); fn(); } };
+  cue('arrivals', 18, () => { if (G.byId.mayor.alive && G.byId.baroness.alive) handler(HANDLER.arrivals); });
   cue('cakeSoon', 36, () => { if (!G.flags.cakeDown) handler(HANDLER.cakeSoon); });
   cue('pie2', 114, () => { if (G.byId.mayor.alive) handler(HANDLER.pie2); });
   cue('pie3', 128, () => { if (G.byId.baroness.alive) handler(HANDLER.pie3); });
   cue('oneMin', MISSION_LEN - 60, () => { if (!$('extract').hidden === false) handler(HANDLER.oneMin); });
+  // ---- little scripted scenes that make the town feel alive ----
+  const A = id => { const n = G.byId[id]; return n && n.alive && !n.react ? n : null; };
+  cue('crane', 47, () => { const k = A('kranz'); if (k && !G.flags.cakeDown) say(k, 'Cake is UP! Nobody sneeze.', 3); });
+  cue('mcCake', 56, () => { const m = A('sprinkles'); if (m) say(m, G.flags.cakeEarly ? 'Uh... the ceremony has MOVED to the fountain!' : 'Give it up for MAYOR WOBBLETON!', 3); });
+  cue('nibbles', 118, () => { const n = A('nibbles'); if (n) say(n, '*sneaks a pie*', 2.5); });
+  cue('granny1', 140, () => { const n = A('granny'); if (n) say(n, G.byId.judge.alive ? 'He’s not even CHEWING!' : 'Well. No judge. Pity.', 3); });
+  cue('results', 156, () => {
+    const m = A('sprinkles'), j = G.byId.judge;
+    if (!m) return;
+    if (j.alive) { say(m, 'And the winner is... BARNABY CRUMB!', 3.5); setTimeout(() => { const b = A('barnaby'); if (b) say(b, 'I WON?! I used store-bought!', 3); const gr = A('granny'); if (gr) say(gr, 'RIGGED! RIGGED, I SAY!', 3); }, 1600); }
+    else { say(m, 'The judge is... unavailable. Everyone wins!', 3.5); setTimeout(() => { const gr = A('granny'); if (gr) say(gr, 'Heh. Heh heh heh.', 3); }, 1600); }
+  });
+  cue('propose', 204, () => {
+    const d = A('dmitri'), t = A('dot');
+    if (!d || !t || G.lockdown) return;
+    G.flags.proposing = true; d.pose = 'kneel'; d.poseT = 6; react(t, 'look', { time: 6 }); t.x = d.x + 22; t.y = d.y; say(d, 'Dot... will you marry me?', 4);
+    crowdSay(d.x, d.y, 120, 'watch', 3);
+  });
+  cue('yes', 209, () => {
+    G.flags.proposing = false;
+    const d = G.byId.dmitri, t = A('dot');
+    if (d) d.pose = null;
+    if (t && d?.alive) { say(t, 'YES!! A THOUSAND TIMES YES!', 3.5); spray(t.x, t.y - 20, ['#ff8fc1', '#ffe066', '#ffffff', '#7fd9ff'], 40, .8); crowdSay(t.x, t.y, 140, 'cheer', 4); sfx('chime', .6); }
+  });
+  cue('mcFire', 268, () => { const m = A('sprinkles'); if (m) say(m, G.flags.shedGone ? 'The fireworks... already happened. Early.' : 'Fireworks in thirty seconds, folks!', 3.5); });
+  cue('show', 292, () => { const f = G.props.find(p => p.id === 'fireworks'); if (f.state === 'ok') f.show(); });
   // carriage departure
   if (G.T >= MISSION_LEN - 4) for (const id of ['mayor', 'judge', 'baroness']) { const n = G.byId[id]; if (n.alive && !n.inBalloon && dist(n.x, n.y, 1000, 1205) < 60) escapeTarget(n); }
   if (G.T >= MISSION_LEN) { for (const id of ['mayor', 'judge', 'baroness']) if (G.byId[id].alive) escapeTarget(G.byId[id]); endMission(); }
@@ -523,6 +551,8 @@ function update(dt, raw) {
   let key = t ? (t.what === 'npc' ? 'n:' + t.n.id : t.what === 'item' ? 'i:' + t.kind : 'p:' + t.p.id) : null;
   if (!key) for (const p of G.props) if (p.opp && !G.disc.has(p.opp) && dist(ax, ay, p.dx, p.dy) < p.dr) { key = 'd:' + p.opp; break; }
   if (key !== G.aimKey) { G.aimKey = key; G.aimT = 0; } else G.aimT += raw;
+  if (key === 'n:lars' && G.aimT > 2.2 && !G.cues.has('lars')) { G.cues.add('lars'); const l = G.byId.lars; say(l, '...I see you.', 3); setTimeout(() => { if (l.alive) say(l, '*waves*', 2); }, 2600); }
+  if (key?.startsWith('n:') && G.aim?.n?.kind === 'target' && !G.cues.has('firstTarget')) { G.cues.add('firstTarget'); handler('That’s one of them. Their full schedules are in the intel menu (☰). Patience pays.'); }
   if (G.aimT > .45 && key) {
     if (key.startsWith('p:')) discover(t.p.opp); else if (key.startsWith('d:')) discover(key.slice(2));
     else if (key === 'i:cone') discover('icecream'); else if (key === 'i:banjo') discover('banjo'); else if (key === 'i:bunch') discover('bunch'); else if (key === 'i:bobber') discover('bobber');

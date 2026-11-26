@@ -228,6 +228,7 @@ function drawGround() {
   for (let i = 0; i < 8; i++) ln(840 + i * 44, 226, 840 + i * 44, 318, '#f6c3db', 2);
   rrect(826, 318, 348, 16, 6, '#c77aa8');
   // fountain basin
+  if (G.flags.chocFlood) { ell(1000, 650, 150, 82, '#5a2c1a'); ell(996, 646, 140, 74, '#7a4630'); for (const [a, b] of [[-120, 30], [110, 40], [60, -50], [-70, -55]]) ell(1000 + a, 650 + b, 26, 12, '#7a4630'); }
   ell(1000, 646, 82, 46, '#e8b8cc');
   ell(1000, 642, 78, 43, '#f6d2e0');
   ell(1000, 642, 70, 37, '#7a4630');
@@ -643,6 +644,7 @@ function makeProps() {
         }
       }
       for (const r of this.rockets) {
+        if (r.delay > 0) { r.delay -= dt; if (r.delay <= 0) sfx('whoosh', .3); continue; }
         if (!r.burst) { r.x += r.vx * dt; r.y += r.vy * dt; r.vy += 200 * dt; r.t -= dt; if (r.t <= 0) { r.burst = true; sfx('pop', .3); for (let i = 0; i < 26; i++) { const a = i / 26 * TAU; r.parts.push({ x: r.x, y: r.y, vx: Math.cos(a) * rand(80, 160), vy: Math.sin(a) * rand(80, 160), l: rand(.8, 1.4) }); } } }
         for (const p of r.parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 60 * dt; p.vx *= .98; p.l -= dt; }
         r.parts = r.parts.filter(p => p.l > 0);
@@ -651,6 +653,7 @@ function makeProps() {
     },
     draw() {
       const x = 1262, y = 288;
+      if (this.state === 'show') { ell(x, y - 2, 34, 10, '#c9966b'); return; }
       if (this.state === 'boom') { ell(x, y - 4, 50, 16, '#3a2a3a'); for (let i = 0; i < 6; i++) ln(x - 30 + i * 12, y - 4, x - 34 + i * 14, y - 20 - (i % 3) * 6, '#2a1e2a', 4); }
       else {
         const s = this.state === 'fuse' ? Math.sin(G.clock * 70) * 1.5 : 0;
@@ -662,8 +665,14 @@ function makeProps() {
         g.restore();
       }
     },
+    show() {
+      this.state = 'show'; sfx('crackle');
+      for (let i = 0; i < 24; i++) this.rockets.push({ x: 1262 + rand(-20, 20), y: 260, vx: rand(-160, 160), vy: rand(-560, -400), t: rand(.6, 1.1), delay: i * .28, c: PAL_KEYS[i % PAL_KEYS.length], burst: false, parts: [] });
+      crowdSay(1000, 700, 600, 'cheer', 10);
+    },
     drawSky() {
       for (const r of this.rockets) {
+        if (r.delay > 0) continue;
         if (!r.burst) { circ(r.x, r.y, 3, '#fff5b0'); ln(r.x, r.y, r.x - r.vx * .03, r.y - r.vy * .03, '#ffe06699', 2); }
         for (const p of r.parts) { g.globalAlpha = clamp(p.l, 0, 1); circ(p.x, p.y, 2.6, PAL[r.c][0]); circ(p.x, p.y, 1.2, '#fff'); }
         g.globalAlpha = 1;
@@ -715,6 +724,46 @@ function makeProps() {
       circ(x + 2, y - 44, 2.5, '#fff');
       circ(x - 2, y - 21, 1.2, '#50334f'); circ(x + 3, y - 21, 1.2, '#50334f');
       if (Math.sin(G.clock * 3) > .9) txt('✦', x + 12, y - 40, 10, '#fff5b0');
+    }
+  });
+
+  /* ---- CHOCOLATE FOUNTAIN PUMP ---- */
+  P.push({
+    id: 'pump', opp: 'pump', x: 1122, y: 676, state: 'ok', t: 0, dx: 1122, dy: 658, dr: 30,
+    hit(px, py) { if (this.state !== 'ok') return null; return px > 1106 && px < 1138 && py > 638 && py < 678 ? { kind: 'pump' } : null; },
+    shot(hit, ammo) {
+      if (this.state !== 'ok') return 'lure';
+      this.state = 'surge'; this.t = ammo === 'bomb' ? .05 : 1.4; sfx('clank'); sfx('rumble'); discover('pump');
+      startle(1000, 630, 160, 'Is the fountain... gurgling?');
+      return 'prop';
+    },
+    update(dt) {
+      if (this.state === 'surge') {
+        this.t -= dt; if (Math.random() < dt * 30) G.parts.push({ type: 'blob', x: 1000 + rand(-40, 40), y: 630, vx: rand(-20, 20), vy: rand(-120, -60), r: rand(3, 5), c: '#7a4630', hl: '#a8704f', life: .6, g: 300 });
+        if (this.t <= 0) {
+          this.state = 'blown'; G.flags.chocFlood = true; shake(12); sfx('splat'); sfx('splash');
+          for (let i = 0; i < 90; i++) { const a = rand(0, TAU), s = rand(60, 260); G.parts.push({ type: 'blob', x: 1000, y: 600, vx: Math.cos(a) * s, vy: -rand(200, 420), r: rand(3, 8), c: pick(['#7a4630', '#5a2c1a', '#a8704f']), hl: '#c38a66', life: rand(.8, 1.4), g: 520 }); }
+          const vic = npcsIn(1000, 630, 112, 64);
+          const ev = ++G.eventId;
+          for (const n of vic) killNPC(n, { cause: 'fountain', accident: true, concealed: true, ev });
+          const tk = (G.evKills[ev] || []).filter(id => G.byId[id].kind === 'target');
+          if (tk.includes('mayor') && tk.includes('baroness')) award('fondue');
+          if (vic.length > 1) toast(`${vic.length}× FONDUE'D`, 'drowned in chocolate');
+          if (tk.length) handler(pick(HANDLER.accident));
+          crowdSay(1000, 640, 300, 'shocked', 5);
+        }
+      }
+    },
+    draw() {
+      const x = 1122, y = 676, s = this.state === 'surge' ? Math.sin(G.clock * 60) * 1.5 : 0;
+      ell(x + 3, y + 2, 18, 5, '#5a3f6a30');
+      ln(x - 12, y - 8, 1070, y - 22, '#c99ab8', 6);
+      g.save(); g.translate(s, 0);
+      rrect(x - 14, y - 34, 28, 34, 6, this.state === 'blown' ? '#5b4458' : '#e8a0c8');
+      circ(x, y - 22, 8, '#fff3df'); ln(x, y - 22, x + (this.state === 'surge' ? Math.sin(G.clock * 40) * 6 : 5), y - 26, '#e0457a', 2);
+      rrect(x - 10, y - 10, 20, 5, 2, '#a8608d');
+      if (this.state === 'blown') for (let i = 0; i < 3; i++) circ(x - 6 + i * 6, y - 40 - ((G.clock * 20 + i * 7) % 20), 4, '#ffffff55');
+      g.restore();
     }
   });
 

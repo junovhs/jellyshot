@@ -116,7 +116,7 @@ canvas#world:active { cursor: grabbing; }
 @keyframes bob { to { transform: translate(-50%, -4px); } }
 
 .hint { position: absolute; left: 50%; top: var(--scopeBottom); transform: translate(-50%, 8px); white-space: nowrap; font-size: 9.5px; font-weight: 800; letter-spacing: .07em; color: #f3ddf4a8; text-align: center; transition: opacity .4s; }
-.hint.hidden { opacity: 0; }
+.hint.hidden, .aimtag.show ~ .hint { opacity: 0; }
 
 .toast { position: absolute; top: calc(var(--sat) + 26%); left: 50%; transform: translate(-50%, -8px) scale(.96); opacity: 0; pointer-events: none; text-align: center; transition: opacity .18s, transform .18s; width: 92vw; }
 .toast.show { opacity: 1; transform: translate(-50%, 0) scale(1); }

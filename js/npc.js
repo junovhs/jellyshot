@@ -190,7 +190,7 @@ function react(n, type, o = {}) {
   const cur = n.react;
   const prio = { fall: 9, bees: 8, flee: 7, mourn: 6, guard: 5, panic: 4, argue: 4, chase: 3, dazed: 3, cower: 3, sad: 2, look: 2, investigate: 1, lost: 1 };
   if (cur && prio[cur.type] > (prio[type] || 0) && cur.type !== 'investigate') return;
-  n.react = { type, time: 6, ...o };
+  n.react = { type, time: 6, at: G.T, ...o };
   n.wander = null;
 }
 
@@ -211,6 +211,7 @@ function updateNPC(n, dt) {
     return;
   }
 
+  if (n.pose) { n.poseT -= dt; if (n.poseT <= 0 || n.react) n.pose = null; else { n.acting = 'idle'; n.moving = 0; tickSpeech(n, dt); return; } }
   let goal = null, act = 'idle', spd = n.speed;
   const R = n.react;
   if (R) {
@@ -365,6 +366,7 @@ function drawNPC(n, lift = 0) {
   if (a === 'sleep') { sy = .92 + Math.sin(t * 1.5) * .03; }
   if (a === 'argue') { hop = Math.abs(Math.sin(t * 9)) * 4; }
   if (a === 'boo') { sy = .92; }
+  if (n.pose === 'kneel') { sy = .78; sx = 1.1; hop = 0; }
   if (n.startled > 0) { hop += n.startled * 8; }
   n.hopNow = hop + lift;
   const y = n.y - hop - lift;

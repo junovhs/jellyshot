@@ -154,6 +154,7 @@ const HANDLER = {
     'Three marks: the Mayor, the Baroness, the Judge. The Sugarplum Syndicate.',
     'Our client wants them popped before the festival ends. Accidents preferred. Discretion appreciated.'
   ],
+  arrivals: 'The Mayor and the Baroness are chatting by the chocolate fountain. That pump beside it has been making noises all morning.',
   cakeSoon: 'The Mayor takes the stage soon. That cake is hanging by one sad little rope.',
   cake: 'Ceremony\'s on. All three marks are on that stage. Just saying.',
   pie: 'Pie judging. Gumbo is tasting next to an oven that has never passed inspection.',
@@ -212,6 +213,7 @@ const OPPS = {
   banjo: { name: 'Banjo Bill\'s Banjo', hint: 'Snap a string, stop the music, ruin the dance.' },
   bobber: { name: 'The Fishing Bobber', hint: 'Old Finnegan has been waiting all day for a bite.' },
   bunch: { name: 'The Balloon Bunch', hint: 'Bubbles the vendor holds an entire bouquet of balloons.' },
+  pump: { name: 'Fountain Pump', hint: 'The chocolate fountain’s pump is over-pressurised. Shoot it and anyone at the rim gets fondue’d. The Mayor and the Baroness chat there until 0:50.' },
   fountain: { name: 'The Chocolate Fountain', hint: 'Anything popped in the chocolate is hidden from view. Same goes for ponds and bushes.' }
 };
 
@@ -269,6 +271,7 @@ const CAST_GUARDS = [
 /* ---------- challenges (hour to hour) ---------- */
 const CHALLENGES = [
   { id: 'cake', group: 'Assassinations', name: 'Let Them Eat Cake', desc: 'Pop a target with the Big Cake.' },
+  { id: 'fondue', group: 'Assassinations', name: 'Fondue for Two', desc: 'Pop the Mayor and the Baroness together with the fountain pump.' },
   { id: 'cake3', group: 'Assassinations', name: 'Party\'s Over', desc: 'Pop all three targets with the Big Cake.' },
   { id: 'oven', group: 'Assassinations', name: 'Half-Baked', desc: 'Pop Judge Gumbo with the oven.' },
   { id: 'gumball', group: 'Assassinations', name: 'Gumball Wizard', desc: 'Pop a target with the gumball avalanche.' },
@@ -288,6 +291,7 @@ const CHALLENGES = [
   { id: 'everyone', group: 'Diabolical', name: 'Total Jubilee', desc: 'Pop every single jelly at the festival.' },
   { id: 'client', group: 'Diabolical', name: 'Breach of Contract', desc: 'Pop Granny Marmalade. The client.' },
   { id: 'widow', group: 'Diabolical', name: 'Heartbreaker', desc: 'Pop a sweetheart, then their grieving partner.' },
+  { id: 'coldfeet', group: 'Diabolical', name: 'Cold Feet', desc: 'Pop Dmitri in the middle of his proposal.' },
   { id: 'fizz', group: 'Diabolical', name: 'Dunk Tank', desc: 'Shove a jelly into water with a fizz round.' },
   { id: 'bomb', group: 'Diabolical', name: 'Overkill', desc: 'Pop 4 jellies with a single sugar bomb.' },
   { id: 'scoop', group: 'Feats', name: 'Scooped', desc: 'Shoot a kid\'s ice cream cone.' },
