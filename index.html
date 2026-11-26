@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#1b1228">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Jellyshot">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <title>JELLYSHOT</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <main id="game" aria-label="Jellyshot game">
+    <canvas id="world" tabindex="0" aria-label="Sniper scope. Drag to aim, pinch to zoom."></canvas>
+
+    <div class="hud" id="hudwrap" hidden>
+      <div class="topbar">
+        <div class="scorebox">
+          <div class="wordmark">JELLYSHOT</div>
+          <div class="points" id="score">00000</div>
+          <div class="pips">
+            <span class="pip alive" id="t_mayor">MAYOR</span>
+            <span class="pip alive" id="t_baroness">BARONESS</span>
+            <span class="pip alive" id="t_judge">JUDGE</span>
+          </div>
+        </div>
+        <div class="timebox">
+          <div class="clock" id="clock">5:00</div>
+          <div class="phase" id="phase">ARRIVALS</div>
+          <div class="next" id="next"></div>
+          <div class="susp" id="susp" data-level="calm"><i></i><span id="suspLabel">CALM</span></div>
+        </div>
+        <div class="rightbox">
+          <div class="tools">
+            <button class="control" id="intelBtn" aria-label="Intel and pause" title="Intel (Tab)"><svg viewBox="0 0 24 24">
+                <path d="M4 6h16M4 12h16M4 18h10" />
+              </svg></button>
+            <button class="control" id="sound" aria-label="Toggle sound" title="Sound"><svg viewBox="0 0 24 24">
+                <path d="M3 9v6h4l5 4V5L7 9H3Z" />
+                <path class="wave" d="M16 9a4 4 0 0 1 0 6m3-9a8 8 0 0 1 0 12" />
+                <path class="x" d="M16 9l5 6m0-6-5 6" />
+              </svg></button>
+          </div>
+          <canvas id="minimap" aria-label="Map. Tap to move the scope."></canvas>
+        </div>
+      </div>
+
+      <div id="feed" class="feed"></div>
+
+      <div id="aimtag" class="aimtag"><b id="aimName"></b><span id="aimRole"></span><em id="aimAct"></em></div>
+
+      <div id="handler" class="handler">
+        <div class="hface" aria-hidden="true">◐</div>
+        <div><b>LICORICE · YOUR HANDLER</b>
+          <p id="handlerText"></p>
+        </div>
+      </div>
+
+      <div class="bottombar">
+        <div class="leftctl">
+          <button class="ammo" id="ammo" aria-label="Switch ammo" data-type="std"><span id="ammoName">GUMMY</span><span class="mag" id="mag"></span></button>
+          <div class="row">
+            <button class="chip" id="zoom" aria-label="Cycle zoom">1.0×</button>
+            <button class="chip small" id="reloadBtn" aria-label="Reload">⟳</button>
+            <button class="chip small" id="ff" aria-label="Fast forward">▸▸</button>
+          </div>
+        </div>
+        <div class="rightctl">
+          <button class="breath" id="breath" aria-label="Hold breath to steady the scope">HOLD<br>BREATH</button>
+          <button class="fire" id="fire" aria-label="Fire"><svg viewBox="0 0 40 40">
+              <circle cx="20" cy="20" r="12" />
+              <circle cx="20" cy="20" r="3" fill="currentColor" />
+              <path d="M20 2v10m0 16v10M2 20h10m16 0h10" />
+            </svg></button>
+        </div>
+      </div>
+      <button id="extract" class="extract" hidden>FINISH CONTRACT ▸</button>
+      <div class="hint" id="hint">DRAG TO AIM · HOLD BREATH TO STEADY · FIRE TO POP</div>
+    </div>
+
+    <div class="toast" id="toast" aria-live="polite"><b id="toastA"></b><span id="toastB"></span></div>
+
+    <!-- ===== BRIEFING ===== -->
+    <section class="overlay brief" id="brief">
+      <div class="sheet">
+        <div class="logo">JELLY<span>SHOT</span></div>
+        <div class="tag">a cute game about horrible things</div>
+        <div class="contract">
+          <div class="ckicker">CONTRACT · GUMDROP HOLLOW</div>
+          <h1>The Gumdrop Jubilee</h1>
+          <p>The whole town is out for the Jubilee: a cake ceremony, a pie contest, maypole dancing and fireworks. Somewhere in the crowd are the three members of the <b>Sugarplum Syndicate</b>, who have rigged the Great Jam Contest for nine straight years.</p>
+          <p>Our client wants all three popped before the festival ends. Every jelly down there has a schedule. Learn it. Use it. Make it look like an accident.</p>
+        </div>
+        <div class="targets" id="targets"></div>
+        <button class="big" id="start">ACCEPT CONTRACT</button>
+        <div class="meta">
+          <div class="stat"><span>RIFLE LEVEL</span><b id="lvl">1</b></div>
+          <div class="stat"><span>MULTIPLIER</span><b id="mult">1.00×</b></div>
+          <div class="stat"><span>CHALLENGES</span><b id="chcount">0</b></div>
+          <div class="stat"><span>BEST</span><b id="best">0</b></div>
+        </div>
+        <div class="xp"><i id="xpbar"></i></div>
+        <div class="small" id="xptext"></div>
+        <div class="small" id="loadout"></div>
+        <div class="small next" id="nextunlock"></div>
+        <button class="ghost" id="showCh">CHALLENGES ▾</button>
+        <div class="chwrap" id="chwrap">
+          <div class="chlist" id="chlist"></div>
+        </div>
+        <div class="controls">
+          <b>HOW TO PLAY</b>
+          <p><b>Drag</b> to aim · <b>pinch</b> or tap <b>zoom</b> · hold <b>BREATH</b> to steady · <b>FIRE</b> to pop.<br>
+            Tap the <b>map</b> to jump the scope. <b>▸▸</b> fast-forwards time. <b>☰</b> opens intel (pauses).<br>
+            Keyboard: WASD/arrows · Space fire · Shift breath · Z zoom · R reload · Q ammo · F fast-forward · Tab intel. Click to fire.</p>
+          <p><b>Puddles</b> in the open get noticed. Pop jellies in <b>water, bushes or chocolate</b> to hide them. Too much panic and the targets run for the exits.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== INTEL / PAUSE ===== -->
+    <section class="overlay intel" id="intel" hidden>
+      <div class="sheet">
+        <div class="ihead">
+          <div>
+            <div class="ckicker">PAUSED · INTEL</div>
+            <div class="small" id="intelStats"></div>
+          </div><button class="big slim" id="resume">RESUME</button>
+        </div>
+        <div class="tabs"><button class="on" data-tab="tabT">TARGETS</button><button data-tab="tabO">OPPORTUNITIES</button><button data-tab="tabC">CHALLENGES</button></div>
+        <div class="tabpane" id="tabT">
+          <div id="intelTargets"></div>
+        </div>
+        <div class="tabpane" id="tabO" hidden>
+          <div id="intelOpps"></div>
+        </div>
+        <div class="tabpane" id="tabC" hidden>
+          <div class="chlist" id="intelCh"></div>
+        </div>
+        <div class="irow"><button class="ghost" id="restart">RESTART</button><button class="ghost" id="abort">ABANDON CONTRACT</button></div>
+      </div>
+    </section>
+
+    <!-- ===== RESULTS ===== -->
+    <section class="overlay end" id="end" hidden>
+      <div class="sheet">
+        <div class="ckicker" id="rating">PROFESSIONAL</div>
+        <h1 class="endtitle" id="endTitle">CONTRACT<br>COMPLETE</h1>
+        <div class="rows" id="endRows"></div>
+        <div class="final"><span>FINAL SCORE</span><b id="final">0</b></div>
+        <div class="xpgain" id="xpgain"></div>
+        <div class="unlocks" id="unlocks"></div>
+        <div class="endch" id="endCh"></div>
+        <div class="irow"><button class="big" id="again">PLAY AGAIN</button><button class="ghost" id="menu">BRIEFING</button></div>
+      </div>
+    </section>
+  </main>
+  <script src="js/data.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/npc.js"></script>
+  <script src="js/game.js"></script>
+</body>
+
+</html>

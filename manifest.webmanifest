@@ -1,0 +1,10 @@
+{
+  "name": "Jellyshot",
+  "short_name": "Jellyshot",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#1b1228",
+  "theme_color": "#1b1228",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
