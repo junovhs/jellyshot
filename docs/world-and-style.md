@@ -17,19 +17,21 @@ Status: **character look locked by DEC-05.** The reference is the jellies in `co
 
 ## Character design language
 
-Reference: the jellies in `concepts/clay3d.html`. Locked by DEC-05.
+Reference: the jellies in `concepts/clay3d.html`, as varied in `concepts/randomizer.html`. Locked by DEC-05.
 
-1. **One body for everyone.** Every jelly, target or crowd, is the clay3d body: a soft clay dome with two little ears and glossy googly bead eyes, in the candy palette (`JELLY_COLS`). No bespoke body sculpts.
-2. **Size and colour vary.** A kid can be half a judge. Named characters get a signature colour.
-3. **Accessories make the individual.** The kit:
+1. **One body for everyone.** Every jelly, target or crowd, is the clay3d body: a soft clay dome with two **arm nubs** at its sides (the clay3d ears, moved down) and two glossy bead eyes, in the candy palette (`JELLY_COLS`). No bespoke body sculpts. The nubs sit on shoulder pivots so they can wave, gesture, stretch to the face and hold props.
+2. **Pupils are painted, never 3D.** The pupil (and its highlight) is paint on the eyeball's texture. Looking around slides the texture; blinking squashes the eye. Eye styles are paint too: small or big pupils, mismatched pupils, sleepy lids painted in the body colour.
+3. **Jellies can be painted.** Each body has a canvas paint layer (UV seam at the back, front centre at u = .5). Current paints: blush, belly patch, frosting drip, stripes, back spots, heart tattoo. New paints are small canvas functions, so markings, tattoos and costumes painted on the body cost nothing at runtime.
+4. **Size and colour vary.** A kid can be half a judge. Named characters get a signature colour.
+5. **Accessories make the individual.** The kit:
    - **Headwear:** top hat, crown, cap, chef's hat, beanie, flower, bow, judge's wig, hair tufts and quiffs.
    - **Face:** sunglasses, round glasses, monocle, moustache, beard, eyebrows, earrings.
    - **Held props:** fork, gavel, drink, ice cream, cigar or pipe, phone, balloon.
 
-   A named target wears 2 or 3 accessories that read at full zoom-out. Crowd jellies wear 0 or 1, drawn from the same kit, so a target never stands out just by being dressed.
-4. **Behaviours carry the personality.** What a jelly does is as identifying as what it wears: smoking, eating, dancing, running to the bathroom, chatting, sneaking, napping, arguing, licking the chocolate fountain. Behaviours are schedule steps, so they double as opportunities and as briefing clues ("the one in sunglasses who keeps going to the bathroom").
-5. **Readable through the scope.** Colour plus accessories plus behaviour has to identify a named target at full zoom-out.
-6. **Clean faces.** No specks or crumbs near the eyes; they read as spots.
+   A named target wears 2 or 3 accessories (plus usually a paint) that read at full zoom-out. Crowd jellies wear 0 or 1, drawn from the same kit, so a target never stands out just by being dressed.
+6. **Behaviours carry the personality.** What a jelly does is as identifying as what it wears: smoking, eating, dancing, running to the bathroom, chatting, sneaking, napping, arguing, licking the chocolate fountain. Behaviours are schedule steps, so they double as opportunities and as briefing clues ("the one in sunglasses who keeps going to the bathroom").
+7. **Readable through the scope.** Colour plus accessories plus behaviour has to identify a named target at full zoom-out.
+8. **Clean faces.** No specks or crumbs near the eyes; they read as spots.
 
 ### Quality bar
 

@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jellyshot: jelly randomizer</title>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #bfe0f4; font-family: ui-rounded, 'SF Pro Rounded', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+#labels { position: fixed; inset: 0; pointer-events: none; }
+.lab { position: absolute; transform: translate(-50%, -100%); text-align: center; white-space: nowrap; color: #3a2547; font-size: 12px; font-weight: 700; text-shadow: 0 1px 0 rgba(255,255,255,.8); }
+.lab b { display: block; font-size: 13px; }
+.lab i { font-style: normal; font-weight: 600; opacity: .75; }
+.lab .say { display: inline-block; margin-bottom: 4px; padding: 3px 9px; border-radius: 12px; background: #fff8ec; color: #3a2547; font-weight: 700; box-shadow: 0 2px 6px rgba(40,20,60,.2); }
+.lab .say:empty { display: none; }
+.lab.sel b { color: #d4317a; }
+#ui { position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: min(96vw, 720px); }
+button, select { font: inherit; font-weight: 800; font-size: 15px; border: 0; border-radius: 18px; padding: 10px 16px; color: #fff; background: radial-gradient(130% 120% at 30% 22%, #ffb0d6, #ff6aa8 46%, #d63f86); box-shadow: inset 2px 3px 4px rgba(255,255,255,.45), inset -2px -3px 5px rgba(120,20,70,.35), 0 3px 8px rgba(40,20,60,.25); cursor: pointer; }
+.seg { display: flex; border-radius: 18px; overflow: hidden; box-shadow: 0 3px 8px rgba(40,20,60,.25); }
+.seg button { border-radius: 0; box-shadow: none; background: #efe3f4; color: #6b4a7d; }
+.seg button.on { background: radial-gradient(130% 120% at 30% 22%, #d8c4fb, #a68cff 46%, #7a5cd0); color: #fff; }
+select { background: #fff8ec; color: #3a2547; }
+#card { position: fixed; left: 12px; top: max(12px, env(safe-area-inset-top)); width: min(300px, 70vw); padding: 12px 14px; border-radius: 18px; background: rgba(255,248,236,.94); color: #3a2547; box-shadow: 0 4px 14px rgba(40,20,60,.22); font-size: 13px; line-height: 1.35; }
+#card h2 { margin: 0 0 2px; font-size: 17px; }
+#card .sw { display: inline-block; width: 12px; height: 12px; border-radius: 6px; vertical-align: -1px; margin-right: 4px; }
+#card ul { margin: 6px 0 8px; padding-left: 18px; }
+#card button { font-size: 13px; padding: 6px 12px; }
+#card .hint { opacity: .6; font-size: 12px; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="labels"></div>
+<div id="card"></div>
+<div id="ui">
+  <button id="roll">Reroll all</button>
+  <div class="seg" id="mode"><button data-m="mix" class="on">Mix</button><button data-m="named">Named</button><button data-m="crowd">Crowd</button></div>
+  <select id="force"><option value="">Random behaviour</option></select>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ---------- renderer, scene, light: same studio as clay3d ---------- */
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#bfe0f4');
+const camera = new THREE.PerspectiveCamera(32, 1, .1, 200);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.maxPolarAngle = 1.45; controls.minDistance = 4; controls.maxDistance = 40;
+
+function clayNoise() {
+  const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d'), img = g.createImageData(S, S);
+  const rnd = (x, y) => { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s); };
+  const smooth = (x, y, f) => { const xi = Math.floor(x * f), yi = Math.floor(y * f), xf = x * f - xi, yf = y * f - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = f;
+    const a = rnd(xi % w, yi % w), b = rnd((xi + 1) % w, yi % w), c2 = rnd(xi % w, (yi + 1) % w), d = rnd((xi + 1) % w, (yi + 1) % w);
+    return a + (b - a) * u + (c2 - a) * v + (a - b - c2 + d) * u * v; };
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const nx = x / S, ny = y / S;
+    let n = smooth(nx, ny, 4) * .5 + smooth(nx, ny, 9) * .3 + smooth(nx, ny, 23) * .2;
+    n += Math.sin((nx * 3 + ny * 2) * 18 + smooth(nx, ny, 5) * 6) * .04;
+    const v = Math.max(0, Math.min(255, n * 255)), i = (y * S + x) * 4;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+const BUMP = clayNoise();
+const mats = new Map();
+function clay(hex, bump = .55) {
+  const key = 'c' + hex + bump;
+  if (!mats.has(key)) { const col = new THREE.Color(hex);
+    mats.set(key, new THREE.MeshPhysicalMaterial({ color: col, roughness: .82, sheen: .55, sheenRoughness: .7,
+      sheenColor: col.clone().lerp(new THREE.Color('#fff'), .55), bumpMap: BUMP, bumpScale: bump })); }
+  return mats.get(key);
+}
+function glossy(hex, extra = {}) {
+  const key = 'g' + hex + JSON.stringify(extra);
+  if (!mats.has(key)) mats.set(key, new THREE.MeshPhysicalMaterial({ color: hex, roughness: .25, clearcoat: .7, clearcoatRoughness: .25, ...extra }));
+  return mats.get(key);
+}
+const geos = new Map();
+const G = (k, make) => { if (!geos.has(k)) geos.set(k, make()); return geos.get(k); };
+
+scene.add(new THREE.HemisphereLight('#d8ecff', '#8fb86a', 1.35));
+const key = new THREE.DirectionalLight('#fff1dc', 2.7);
+key.position.set(-14, 26, 14); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 70 });
+key.shadow.radius = 9; key.shadow.blurSamples = 20; key.shadow.bias = -.0006;
+scene.add(key);
+const rimL = new THREE.DirectionalLight('#ffd6ec', .7); rimL.position.set(12, 8, -18); scene.add(rimL);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(60, 64).rotateX(-Math.PI / 2), clay('#94d26a', 1.4));
+ground.receiveShadow = true; scene.add(ground);
+const plaza = new THREE.Mesh(new THREE.CylinderGeometry(9, 9.3, .12, 64), clay('#f3e3c4', 1));
+plaza.position.y = .06; plaza.receiveShadow = true; scene.add(plaza);
+
+/* ---------- helpers ---------- */
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const chance = p => Math.random() < p;
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const k = Math.floor(Math.random() * (i + 1)); [a[i], a[k]] = [a[k], a[i]]; } return a; };
+function mesh(geo, mat, parent, x = 0, y = 0, z = 0) {
+  const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m;
+}
+const sph = (r, w = 20, h = 14) => G(`s${r}${w}${h}`, () => new THREE.SphereGeometry(r, w, h));
+const cyl = (rt, rb, h, n = 20, open = false) => G(`c${rt},${rb},${h},${n},${open}`, () => new THREE.CylinderGeometry(rt, rb, h, n, 1, open));
+const tor = (r, t, a = Math.PI * 2) => G(`t${r},${t},${a}`, () => new THREE.TorusGeometry(r, t, 10, 28, a));
+const cone = (r, h, n = 18) => G(`k${r},${h},${n}`, () => new THREE.ConeGeometry(r, h, n));
+const ease = x => x < 0 ? 0 : x > 1 ? 1 : x * x * (3 - 2 * x);
+
+/* ---------- the clay3d body (with arm nubs where the ears were) ---------- */
+const PROFILE = [[0, 0], [.78, 0], [.95, .1], [1.0, .3], [.96, .62], [.84, .92], [.62, 1.16], [.34, 1.3], [0, 1.34]];
+const profPts = new THREE.SplineCurve(PROFILE.map(([x, y]) => new THREE.Vector2(x, y))).getPoints(40).map(p => new THREE.Vector2(Math.max(0, p.x), p.y));
+profPts[profPts.length - 1].x = 0;
+// rotated so the UV seam is at the back: u = .5 is the front centre, u grows toward +x
+const bodyGeo = new THREE.LatheGeometry(profPts, 48).rotateY(Math.PI); bodyGeo.computeVertexNormals();
+const rAt = y => { for (let i = 1; i < profPts.length; i++) if (profPts[i].y >= y) { const a = profPts[i - 1], b = profPts[i]; return a.x + (b.x - a.x) * (y - a.y) / (b.y - a.y || 1); } return 0; };
+
+/* ---------- paint layer: every jelly gets its own canvas on the body and on the eyes ----------
+   Body canvas: u = .5 + angle/2pi (angle 0 = front, + toward +x), v from the profile index (0 = feet).
+   Eye canvas: equirect on the eyeball, front centre at u = .25, v = .5. Pupils are paint, not geometry;
+   looking around slides the texture. */
+const vAt = y => { for (let i = 1; i < profPts.length; i++) if (profPts[i].y >= y) return (i - 1 + (y - profPts[i - 1].y) / (profPts[i].y - profPts[i - 1].y || 1)) / (profPts.length - 1); return 1; };
+const BW = 1024, BH = 512;
+const bpx = (angle, y) => [(.5 + angle / (Math.PI * 2)) * BW, (1 - vAt(y)) * BH];
+const shade = (hex, l) => new THREE.Color(hex).offsetHSL(0, 0, l).getStyle();
+const PAINT = {
+  blush(c, col) { for (const s of [-1, 1]) { const [x, y] = bpx(s * .62, .6);
+    const g = c.createRadialGradient(x, y, 0, x, y, 46); g.addColorStop(0, 'rgba(255,70,120,.55)'); g.addColorStop(1, 'rgba(255,70,120,0)');
+    c.fillStyle = g; c.fillRect(x - 60, y - 60, 120, 120); } },
+  'belly patch'(c, col) { const [x, y] = bpx(0, .2); c.fillStyle = shade(col, .12); c.beginPath(); c.ellipse(x, y, 120, 70, 0, 0, Math.PI * 2); c.fill(); },
+  frosting(c, col) { const fc = pick(['#fff6ee', '#ff86c4', '#6b3a2a', '#a68cff', '#ffd84a']); const [, top] = bpx(0, 1.0);
+    c.fillStyle = fc; c.beginPath(); c.moveTo(0, 0); c.lineTo(0, top);
+    for (let x = 0; x <= BW; x += 64) { const d = top + 10 + (Math.sin(x * .7) * .5 + .5) * 40; c.lineTo(x + 16, top); c.quadraticCurveTo(x + 32, d + 30, x + 48, top); }
+    c.lineTo(BW, 0); c.fill(); },
+  stripes(c, col) { c.fillStyle = shade(col, pick([-.1, .12])); for (const y of [.3, .55]) { const [, a] = bpx(0, y), [, b] = bpx(0, y + .1); c.fillRect(0, b, BW, a - b); } },
+  spots(c, col) { c.fillStyle = shade(col, -.1); for (let i = 0; i < 9; i++) { const [x, y] = bpx(Math.PI * (.6 + Math.random() * .8) * pick([-1, 1]), rand(.2, 1.05)); c.beginPath(); c.arc(x, y, rand(14, 26), 0, Math.PI * 2); c.fill(); } },
+  'heart tattoo'(c, col) { const [x, y] = bpx(Math.PI * pick([-.5, .5, 1]), .5); c.fillStyle = pick(['#ff3a6e', '#4a2a6e']); c.save(); c.translate(x, y); c.scale(1.4, 1.4);
+    c.beginPath(); c.moveTo(0, 12); c.bezierCurveTo(-26, -6, -12, -24, 0, -10); c.bezierCurveTo(12, -24, 26, -6, 0, 12); c.fill(); c.restore(); },
+};
+function bodyMaterial(col, paints) {
+  const cv = document.createElement('canvas'); cv.width = BW; cv.height = BH; const c = cv.getContext('2d');
+  c.fillStyle = col; c.fillRect(0, 0, BW, BH);
+  for (const p of paints) PAINT[p](c, col);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const sc = new THREE.Color(col).lerp(new THREE.Color('#fff'), .55);
+  return new THREE.MeshPhysicalMaterial({ map: tex, roughness: .82, sheen: .55, sheenRoughness: .7, sheenColor: sc, bumpMap: BUMP, bumpScale: .55 });
+}
+const EYE_STYLES = ['normal', 'normal', 'small pupils', 'big pupils', 'sleepy lids', 'mismatched'];
+function eyeMaterial(col, pupil, lid = 0) {
+  const W = 256, H = 128, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d');
+  c.fillStyle = '#fbf8f4'; c.fillRect(0, 0, W, H);
+  c.fillStyle = '#241a2e'; c.beginPath(); c.arc(W * .25, H * .5, pupil, 0, Math.PI * 2); c.fill();
+  c.fillStyle = 'rgba(255,255,255,.9)'; c.beginPath(); c.arc(W * .25 - pupil * .35, H * .5 - pupil * .4, Math.max(2.5, pupil * .22), 0, Math.PI * 2); c.fill();
+  if (lid) { c.fillStyle = col; c.fillRect(0, 0, W, H * lid); c.fillStyle = shade(col, -.15); c.fillRect(0, H * lid - 3, W, 4); }
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.wrapS = THREE.RepeatWrapping; tex.anisotropy = 4;
+  return new THREE.MeshPhysicalMaterial({ map: tex, roughness: .3, clearcoat: .6, clearcoatRoughness: .2 });
+}
+
+const JELLY_COLS = ['#ff86c4', '#4fdcb9', '#ff9a3c', '#a68cff', '#4a8dff', '#ffd84a', '#ff5a6e', '#3cc8e0', '#8ad84a', '#ff7aa8'];
+const COL_NAMES = { '#ff86c4': 'bubblegum', '#4fdcb9': 'mint', '#ff9a3c': 'orange', '#a68cff': 'grape', '#4a8dff': 'blueberry', '#ffd84a': 'lemon', '#ff5a6e': 'cherry', '#3cc8e0': 'aqua', '#8ad84a': 'lime', '#ff7aa8': 'strawberry' };
+const HAT_COLS = ['#2a2035', '#ff5a4e', '#4a8dff', '#ffd84a', '#8a5cff', '#3cc8a0', '#ff86c4', '#fff4e6', '#ff9a3c'];
+const HAIR_COLS = ['#3b2a2a', '#6b4226', '#f2c14e', '#efe6dc', '#ff7a3c', '#7a4cff', '#ff5aa0', '#2b2b2b', '#4fdcb9'];
+const GOLD = () => glossy('#ffcf3a', { roughness: .2, metalness: .6 });
+
+/* ---------- accessory kit ---------- */
+const HEAD = {
+  'top hat'(g) { const c = pick(['#2a2035', '#2a2035', '#7a3cff', '#3a7a4a']), hm = clay(c);
+    mesh(cyl(.62, .62, .08, 28), hm, g, 0, 1.3); mesh(cyl(.4, .42, .72, 24), hm, g, 0, 1.68);
+    mesh(cyl(.43, .43, .14, 24), clay(pick(['#ff5c9e', '#ffd84a', '#4fdcb9'])), g, 0, 1.42); },
+  bowler(g) { const m = clay(pick(['#2a2035', '#6b4226', '#3a3a50']));
+    mesh(G('bowl', () => new THREE.SphereGeometry(.5, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2)), m, g, 0, 1.2);
+    mesh(cyl(.72, .72, .05, 28), m, g, 0, 1.22); },
+  crown(g) { const m = GOLD();
+    mesh(cyl(.42, .38, .3, 6, true), m, g, 0, 1.42).material.side = THREE.DoubleSide;
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2 + Math.PI / 6; mesh(sph(.07), m, g, Math.sin(a) * .41, 1.6, Math.cos(a) * .41); }
+    mesh(sph(.08), glossy('#ff3a6e'), g, 0, 1.42, .4); },
+  cap(g) { const m = clay(pick(HAT_COLS)), back = chance(.4), cg = new THREE.Group(); g.add(cg); cg.rotation.y = back ? Math.PI : 0;
+    mesh(G('cap', () => new THREE.SphereGeometry(.6, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2)), m, cg, 0, 1.04);
+    mesh(G('bill', () => new THREE.CylinderGeometry(.48, .48, .06, 20, 1, false, -Math.PI / 2, Math.PI)), m, cg, 0, 1.1, .36);
+    mesh(sph(.07), m, cg, 0, 1.64); },
+  'chef hat'(g) { const w = clay('#fffaf2');
+    mesh(cyl(.46, .48, .3, 24), w, g, 0, 1.34);
+    for (const [x, y, z, r] of [[0, 1.78, 0, .34], [-.26, 1.64, 0, .27], [.26, 1.64, 0, .27], [0, 1.64, .24, .26], [0, 1.66, -.24, .27]]) mesh(sph(r), w, g, x, y, z); },
+  beanie(g) { const c = pick(HAT_COLS), m = clay(c);
+    mesh(G('bean', () => new THREE.SphereGeometry(.7, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2)), m, g, 0, .9).scale.y = 1.0;
+    const band = mesh(tor(.72, .11), clay(pick(HAT_COLS)), g, 0, 1.0); band.rotation.x = Math.PI / 2;
+    mesh(sph(.19), clay('#fffaf2'), g, 0, 1.64); },
+  'party hat'(g) { const pg = new THREE.Group(); pg.position.set(.12, 1.25, 0); pg.rotation.z = -.25; g.add(pg);
+    mesh(cone(.3, .78), clay(pick(HAT_COLS)), pg, 0, .38); const s = mesh(tor(.22, .04), clay('#fff4e6'), pg, 0, .2); s.rotation.x = Math.PI / 2;
+    mesh(sph(.11), clay(pick(HAT_COLS)), pg, 0, .8); },
+  propeller(g) { const c = pick(HAT_COLS);
+    mesh(G('prop', () => new THREE.SphereGeometry(.56, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2)), clay(c), g, 0, 1.02);
+    mesh(cyl(.03, .03, .2), GOLD(), g, 0, 1.66);
+    const spin = new THREE.Group(); spin.position.y = 1.77; g.add(spin);
+    for (const s of [-1, 1]) { const b = mesh(sph(.12), clay(pick(['#ff5a4e', '#ffd84a', '#4a8dff'])), spin, s * .22, 0, 0); b.scale.set(2, .25, .8); }
+    g.userData.spin = spin; },
+  flower(g) { const fg = new THREE.Group(); fg.position.set(.4, 1.2, .36); fg.rotation.set(-.5, .4, -.5); g.add(fg);
+    const pc = clay(pick(['#ffffff', '#ff86c4', '#a68cff', '#ff5a6e']));
+    for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; const p = mesh(sph(.11), pc, fg, Math.cos(a) * .14, 0, Math.sin(a) * .14); p.scale.y = .5; }
+    mesh(sph(.08), clay('#ffd84a'), fg, 0, .04, 0); },
+  bow(g) { const c = clay(pick(['#ff5a9e', '#ff5a4e', '#a68cff', '#4fdcb9'])), bg = new THREE.Group(); bg.position.set(-.34, 1.24, .32); bg.rotation.set(-.4, -.3, .35); g.add(bg);
+    for (const s of [-1, 1]) { const k = mesh(cone(.16, .32), c, bg, s * .17, 0, 0); k.rotation.z = s * Math.PI / 2; k.scale.z = .5; }
+    mesh(sph(.08), c, bg); },
+  'judge wig'(g) { const w = clay(pick(['#f6efe4', '#efe6dc', '#e8dccb']));
+    for (const s of [-1, 1]) for (const [y, x] of [[.62, .96], [.86, .92], [1.1, .8]]) { const r = mesh(sph(.21), w, g, s * x, y, -.06); r.scale.z = 1.3; }
+    for (let i = -2; i <= 2; i++) mesh(sph(.24), w, g, i * .2, 1.36 + (2 - Math.abs(i)) * .05, -.08);
+    for (let i = -1; i <= 1; i++) mesh(sph(.22), w, g, i * .2, 1.66, -.12); mesh(sph(.2), w, g, 0, 1.9, -.14); },
+  quiff(g) { const m = clay(pick(HAIR_COLS));
+    for (const [y, z, r] of [[1.3, 0, .32], [1.5, .2, .25], [1.6, .42, .18], [1.56, .6, .11]]) mesh(sph(r), m, g, 0, y, z); },
+  mohawk(g) { const m = clay(pick(['#ff5aa0', '#4fdcb9', '#7a4cff', '#ff7a3c', '#2b2b2b']));
+    for (let i = -6; i <= 2; i++) { const a = i * .2, k = mesh(cone(.1, .42, 10), m, g, 0, .62 + .74 * Math.cos(a), .74 * Math.sin(a)); k.rotation.x = a; k.translateY(.12); } },
+  afro(g) { const m = clay(pick(HAIR_COLS), .9); mesh(sph(.62, 24, 16), m, g, 0, 1.3, -.08);
+    for (let i = 0; i < 18; i++) { const u = i / 18, th = Math.acos(1 - 1.2 * u), ph = i * 2.4;
+      mesh(sph(.24), m, g, Math.sin(th) * Math.cos(ph) * .6, 1.3 + Math.cos(th) * .55, Math.sin(th) * Math.sin(ph) * .55 - .1); } },
+  bun(g) { const m = clay(pick(HAIR_COLS)); mesh(sph(.6, 24, 16), m, g, 0, 1.0, -.08).scale.set(1.05, .65, 1.05);
+    mesh(sph(.28), m, g, 0, 1.5, -.12); const t = mesh(tor(.2, .05), clay(pick(HAT_COLS)), g, 0, 1.36, -.1); t.rotation.x = Math.PI / 2; },
+};
+const EYEWEAR = {
+  sunglasses(g) { const m = glossy(pick(['#1c1426', '#1c1426', '#ff3a8e', '#3a1c66']), { clearcoat: 1, roughness: .1 });
+    for (const s of [-1, 1]) { const l = mesh(cyl(.22, .22, .05, 24), m, g, s * .25, .79, 1.04); l.rotation.x = Math.PI / 2; l.scale.z = .85; }
+    const b = mesh(cyl(.025, .025, .16), m, g, 0, .82, 1.04); b.rotation.z = Math.PI / 2; },
+  glasses(g) { const m = clay(pick(['#2a2035', '#ff5a4e', '#4a8dff']));
+    for (const s of [-1, 1]) mesh(tor(.2, .032), m, g, s * .25, .79, 1.03);
+    const b = mesh(cyl(.025, .025, .12), m, g, 0, .82, 1.04); b.rotation.z = Math.PI / 2; },
+  monocle(g) { const s = pick([-1, 1]); mesh(tor(.21, .03), GOLD(), g, s * .25, .79, 1.04);
+    const ch = mesh(cyl(.012, .012, .5, 6), GOLD(), g, s * .4, .56, .98); ch.rotation.z = -s * .5; },
+};
+const FACIAL = {
+  moustache(g, hair) { const m = clay(hair);
+    for (const s of [-1, 1]) { const p = mesh(sph(.14), m, g, s * .13, .55, .97); p.scale.set(1.35, .55, .6); p.rotation.z = s * .3; } },
+  handlebar(g, hair) { const m = clay(hair);
+    for (const s of [-1, 1]) { const p = mesh(sph(.13), m, g, s * .13, .55, .97); p.scale.set(1.35, .5, .6); p.rotation.z = s * .15;
+      const c = mesh(tor(.07, .03, Math.PI * 1.3), m, g, s * .31, .62, .93); c.rotation.set(0, 0, s > 0 ? -1.2 : Math.PI + 1.2 - Math.PI * .3); } },
+  beard(g, hair) { const m = clay(hair, .9);
+    for (const [row, y0, n, rr] of [[0, .44, 6, .13], [1, .3, 5, .15], [2, .17, 3, .14]])
+      for (let i = -n; i <= n; i++) { const a = i * .16, y = y0 + Math.abs(i) * .025 * (row === 0 ? 1 : .6), r = rAt(y) + (row ? .05 : .02);
+        mesh(sph(rr - Math.abs(i) * .006), m, g, Math.sin(a) * r, y, Math.cos(a) * r); }
+    for (const s of [-1, 1]) { const p = mesh(sph(.13), m, g, s * .13, .56, .98); p.scale.set(1.3, .5, .6); } },
+  goatee(g, hair) { const m = clay(hair); for (const [x, y, z, r] of [[0, .36, .99, .1], [-.07, .3, .97, .08], [.07, .3, .97, .08], [0, .24, .97, .08]]) mesh(sph(r), m, g, x, y, z); },
+};
+const BROWS = {
+  'angry brows'(g, hair) { for (const s of [-1, 1]) { const b = mesh(G('brow', () => new THREE.CapsuleGeometry(.045, .2, 4, 10)), clay(hair), g, s * .25, 1.03, .8); b.rotation.set(-.6, 0, Math.PI / 2 - s * .4); } },
+  'worried brows'(g, hair) { for (const s of [-1, 1]) { const b = mesh(G('brow', () => new THREE.CapsuleGeometry(.045, .2, 4, 10)), clay(hair), g, s * .25, 1.04, .79); b.rotation.set(-.6, 0, Math.PI / 2 + s * .35); } },
+  'one raised brow'(g, hair) { for (const s of [-1, 1]) { const b = mesh(G('brow', () => new THREE.CapsuleGeometry(.045, .2, 4, 10)), clay(hair), g, s * .25, s > 0 ? 1.1 : 1.0, s > 0 ? .72 : .81); b.rotation.set(-.6, 0, Math.PI / 2 + (s > 0 ? -.2 : 0)); } },
+  unibrow(g, hair) { const b = mesh(G('uni', () => new THREE.CapsuleGeometry(.05, .55, 4, 10)), clay(hair), g, 0, 1.02, .8); b.rotation.set(-.6, 0, Math.PI / 2); },
+};
+const EARRINGS = {
+  'gold hoops'(g) { for (const s of [-1, 1]) mesh(tor(.09, .022), GOLD(), g, s * .8, .92, .08); },
+  pearls(g) { for (const s of [-1, 1]) mesh(sph(.07), glossy('#fff6ee', { clearcoat: 1, roughness: .15 }), g, s * .82, .98, .12); },
+  'one pirate hoop'(g) { mesh(tor(.12, .025), GOLD(), g, pick([-1, 1]) * .8, .9, .08); },
+};
+const SLOTS = { head: HEAD, eyewear: EYEWEAR, facial: FACIAL, brows: BROWS, earrings: EARRINGS };
+
+/* ---------- props, held in the right nub (origin = grip, +y up, +z forward) ---------- */
+const PROPS = {
+  cigar(h) { mesh(cyl(.04, .04, .34, 12), clay('#7a4426'), h, 0, 0, .14).rotation.x = Math.PI / 2;
+    mesh(cyl(.041, .041, .05, 12), clay('#ff5a4e'), h, 0, 0, .06).rotation.x = Math.PI / 2;
+    const tip = mesh(sph(.042, 10, 8), new THREE.MeshBasicMaterial({ color: '#ff8a3a' }), h, 0, 0, .31); h.userData.tip = tip; },
+  fork(h) { const m = glossy('#d8dde6', { metalness: .7, roughness: .2 }); mesh(cyl(.025, .025, .5, 8), m, h, 0, .16, 0);
+    mesh(G('forkhead', () => new THREE.BoxGeometry(.16, .06, .03)), m, h, 0, .43, 0);
+    for (const x of [-.06, 0, .06]) mesh(cyl(.013, .013, .16, 6), m, h, x, .54, 0);
+    mesh(sph(.08), clay('#ff9a5c'), h, 0, .6, 0); },
+  'ice cream'(h) { const c = mesh(cone(.12, .3), clay('#e8a85a', 1.2), h, 0, .06, 0); c.rotation.x = Math.PI;
+    mesh(sph(.15), clay(pick(['#ff9ac8', '#fff4e6', '#8a5a3a', '#8ad84a'])), h, 0, .26, 0);
+    if (chance(.5)) mesh(sph(.13), clay(pick(['#ff9ac8', '#fff4e6', '#ffd84a'])), h, 0, .45, 0); },
+  drink(h) { mesh(cyl(.13, .1, .3, 18), glossy(pick(['#ff5a6e', '#4fdcb9', '#ffd84a'])), h, 0, .1, 0);
+    mesh(cyl(.12, .12, .02, 18), clay('#fff4e6'), h, 0, .25, 0);
+    const s = mesh(cyl(.018, .018, .32, 6), clay('#ff86c4'), h, .04, .36, 0); s.rotation.z = -.3; },
+  phone(h) { mesh(G('phone', () => new THREE.BoxGeometry(.2, .34, .04)), glossy('#2a2035'), h, 0, .14, 0);
+    mesh(G('screen', () => new THREE.PlaneGeometry(.17, .29)), new THREE.MeshBasicMaterial({ color: '#9fe8ff' }), h, 0, .14, -.022).rotation.y = Math.PI; },
+  balloon(h) { const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1.4, 0)]), new THREE.LineBasicMaterial({ color: '#ffffff' }));
+    h.add(line); const b = mesh(sph(.32, 24, 16), glossy(pick(['#ff5a6e', '#4a8dff', '#ffd84a', '#a68cff'])), h, 0, 1.7, 0); b.scale.y = 1.15;
+    mesh(cone(.06, .08, 8), b.material, h, 0, 1.36, 0); },
+  gavel(h) { const w = clay('#7a3a20'); mesh(cyl(.035, .035, .5, 8), w, h, 0, .18, 0);
+    const hd = mesh(cyl(.1, .1, .34, 16), w, h, 0, .45, 0); hd.rotation.z = Math.PI / 2;
+    const band = mesh(cyl(.105, .105, .06, 16), GOLD(), h, 0, .45, 0); band.rotation.z = Math.PI / 2; },
+  lollipop(h) { mesh(cyl(.02, .02, .45, 6), clay('#fffaf2'), h, 0, .18, 0);
+    const d = mesh(cyl(.2, .2, .06, 24), clay(pick(['#ff86c4', '#a68cff', '#4fdcb9'])), h, 0, .5, 0); d.rotation.x = Math.PI / 2;
+    const r = mesh(tor(.12, .03), clay('#fffaf2'), h, 0, .5, .035); },
+};
+
+/* ---------- behaviours ---------- */
+const BEHAVIOURS = {
+  idle: { label: 'loitering', props: [null, null, 'balloon', 'drink', 'gavel'] },
+  smoking: { label: 'smoking', props: ['cigar'] },
+  eating: { label: 'eating', props: ['ice cream', 'fork', 'lollipop', 'drink'] },
+  dancing: { label: 'dancing', props: [null] },
+  bathroom: { label: 'running to the bathroom', props: [null] },
+  chatting: { label: 'chatting', props: [null, null, 'drink'] },
+  sneaking: { label: 'sneaking', props: [null] },
+  napping: { label: 'napping', props: [null] },
+  phone: { label: 'on the phone', props: ['phone'] },
+  waving: { label: 'waving', props: [null, 'balloon'] },
+};
+const NAMED_BEH = Object.keys(BEHAVIOURS);
+const CROWD_BEH = ['idle', 'idle', 'dancing', 'dancing', 'chatting', 'waving', 'eating', 'phone'];
+const CHAT = ['...and THEN she said', 'no WAY', 'ugh, the Mayor', 'did you see that?', 'hehehe', 'pie rigged!', 'shh shh shh'];
+const FIRST = ['Doug', 'Mayor', 'Baroness', "Lil'", 'Auntie', 'Sir', 'Big', 'Captain', 'Nana', 'Professor', 'Judge', 'Count', 'Officer', 'Dame', 'Uncle', 'Madame'];
+const LAST = ['Wobbleton', 'Fondant', 'Gumbo', 'Taffy', 'Sprinkles', 'Jellybean', 'Squishington', 'Marzipan', 'Butterscotch', 'Puddington', 'Fizzwhistle', 'Bonbon', 'Gloop', 'McNougat'];
+const force = document.getElementById('force');
+for (const k of NAMED_BEH) force.add(new Option(BEHAVIOURS[k].label, k));
+
+/* ---------- build one jelly ---------- */
+const labelsEl = document.getElementById('labels');
+const jellies = [];
+function makeJelly(home, tier) {
+  const col = pick(JELLY_COLS), hair = pick(HAIR_COLS);
+  const size = tier === 'named' ? rand(.62, .82) : rand(.5, .68);
+  const w = rand(.94, 1.1), h = rand(.92, 1.14);
+  const root = new THREE.Group(); root.position.copy(home); root.rotation.y = rand(-.35, .35); scene.add(root);
+  const rig = new THREE.Group(); root.add(rig);
+  const items = [];
+  const paints = tier === 'named' ? (chance(.75) ? shuffle(Object.keys(PAINT)).slice(0, chance(.3) ? 2 : 1) : []) : (chance(.3) ? [pick(Object.keys(PAINT))] : []);
+  const bodyMat = clay(col);
+  const body = mesh(bodyGeo, bodyMaterial(col, paints), rig);
+  const footMat = clay(new THREE.Color(col).offsetHSL(0, 0, -.12).getStyle());
+  const feet = [-.42, .42].map(sx => { const f = mesh(sph(.3, 16, 10), footMat, rig, sx, .1, .18); f.scale.set(1, .55, 1.15); return f; });
+  const eyeStyle = tier === 'named' ? pick(EYE_STYLES) : chance(.8) ? 'normal' : pick(EYE_STYLES);
+  const pr = { normal: 19, 'small pupils': 11, 'big pupils': 27, 'sleepy lids': 19, mismatched: 19 }[eyeStyle];
+  const lid = eyeStyle === 'sleepy lids' ? .44 : 0;
+  const eyeMats = eyeStyle === 'mismatched' ? [eyeMaterial(col, 26), eyeMaterial(col, 10)] : [eyeMaterial(col, pr, lid)];
+  const eyes = [-.24, .24].map((sx, i) => { const e = mesh(sph(.2, 32, 20), eyeMats[i % eyeMats.length], rig, sx, .78, .8); e.scale.set(1, 1.15, .6); return e; });
+  if (eyeStyle !== 'normal') items.push(eyeStyle);
+  items.push(...paints);
+  // arm nubs: the clay3d ear, moved to the sides on a shoulder pivot
+  const arms = [-1, 1].map(side => {
+    const pivot = new THREE.Group(); pivot.position.set(side * .9, .68, .1); rig.add(pivot);
+    const nub = mesh(sph(.26, 18, 12), bodyMat, pivot, side * .1, -.16, 0); nub.scale.set(.85, 1.15, .9);
+    const hold = new THREE.Group(); hold.position.set(side * .12, -.36, .16); hold.rotation.order = 'ZYX'; pivot.add(hold);
+    return { side, pivot, nub, hold };
+  });
+  // accessories
+  const acc = new THREE.Group(); rig.add(acc);
+    let slots;
+  if (tier === 'named') {
+    const n = chance(.5) ? 2 : 3;
+    slots = chance(.85) ? ['head', ...shuffle(['eyewear', 'facial', 'brows', 'earrings']).slice(0, n - 1)] : shuffle(['eyewear', 'facial', 'brows', 'earrings']).slice(0, n);
+  } else slots = chance(.55) ? [chance(.5) ? 'head' : pick(['eyewear', 'facial', 'brows', 'earrings'])] : [];
+  for (const s of slots) { const kit = SLOTS[s], name = pick(Object.keys(kit)); kit[name](acc, hair); items.push(name); }
+  // behaviour and prop
+  const beh = force.value || (tier === 'named' ? pick(NAMED_BEH) : pick(CROWD_BEH));
+  const propName = pick(BEHAVIOURS[beh].props);
+  if (propName) PROPS[propName](arms[1].hold);
+  rig.scale.set(size * w, size * h, size * w);
+  // contact shadow + label
+  const lab = document.createElement('div'); lab.className = 'lab';
+  lab.innerHTML = `<span class="say"></span>${tier === 'named' ? `<b>${pick(FIRST)} ${pick(LAST)}</b>` : ''}<i>${BEHAVIOURS[beh].label}</i>`;
+  labelsEl.appendChild(lab);
+  const j = { root, rig, body, feet, eyes, eyeMats, arms, acc, home: home.clone(), size, w, h, col, hair, tier, items, beh, propName,
+    ph: rand(0, 20), lab, say: lab.querySelector('.say'), name: lab.querySelector('b')?.textContent ?? 'crowd jelly', nextFx: 0, sayT: 0, face0: root.rotation.y };
+  root.traverse(o => { o.userData.j = j; });
+  return j;
+}
+function disposeJelly(j) { scene.remove(j.root); j.lab.remove(); }
+
+/* ---------- lineup ---------- */
+let mode = 'mix', selected = null, focus = null;
+function setFocus(j) {
+  focus = j;
+  for (const o of jellies) { o.root.visible = !j || o === j; o.lab.style.visibility = !j || o === j ? '' : 'hidden'; }
+  if (j) { controls.target.set(j.home.x, .55, j.home.z); camera.position.set(j.home.x + .6, 1.5, j.home.z + 3.4); controls.update(); }
+  else resize();
+  if (selected) select(selected);
+}
+function layout() {
+  const portrait = innerWidth < innerHeight, cols = portrait ? 3 : 4, rows = portrait ? 4 : 3;
+  const pts = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) pts.push(new THREE.Vector3((c - (cols - 1) / 2) * 2.7, .12, (r - (rows - 1) / 2) * 2.6));
+  return pts;
+}
+function tierFor(i) { return mode === 'mix' ? (i % 3 === 0 ? 'named' : 'crowd') : mode; }
+function rollAll() {
+  jellies.splice(0).forEach(disposeJelly); if (focus) { focus = null; resize(); }
+  layout().forEach((p, i) => jellies.push(makeJelly(p, tierFor(i))));
+  select(jellies.find(j => j.tier === 'named') ?? jellies[0]);
+}
+function rerollOne(j) {
+  const i = jellies.indexOf(j); disposeJelly(j);
+  const nj = makeJelly(j.home, j.tier); jellies[i] = nj; if (focus === j) focus = nj; select(nj); if (focus) setFocus(nj);
+}
+const card = document.getElementById('card');
+function select(j) {
+  selected = j; jellies.forEach(o => o.lab.classList.toggle('sel', o === j));
+  if (!j) { card.innerHTML = ''; return; }
+  const sz = j.size > .74 ? 'big' : j.size > .6 ? 'medium' : 'small';
+  const shape = j.h > 1.07 ? ', tall' : j.h < .97 ? ', squat' : '';
+  card.innerHTML = `<h2>${j.name}</h2>
+    <div><span class="sw" style="background:${j.col}"></span>${COL_NAMES[j.col]}, ${sz}${shape} · ${j.tier}</div>
+    <ul>${j.items.map(i => `<li>${i}</li>`).join('') || '<li>no accessories</li>'}${j.propName ? `<li>holding a ${j.propName}</li>` : ''}<li><b>${BEHAVIOURS[j.beh].label}</b></li></ul>
+    <button id="one">Reroll this one</button> <button id="close">${focus ? 'Back to lineup' : 'Close-up'}</button>`;
+  card.querySelector('#one').onclick = () => rerollOne(j);
+  card.querySelector('#close').onclick = () => setFocus(focus ? null : j);
+}
+document.getElementById('roll').onclick = rollAll;
+for (const b of document.querySelectorAll('#mode button')) b.onclick = () => {
+  mode = b.dataset.m; document.querySelectorAll('#mode button').forEach(x => x.classList.toggle('on', x === b)); rollAll();
+};
+force.onchange = rollAll;
+
+/* ---------- picking ---------- */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+let down = null;
+canvas.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+canvas.addEventListener('pointerup', e => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return;
+  ndc.set(e.clientX / innerWidth * 2 - 1, -e.clientY / innerHeight * 2 + 1); ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObjects(jellies.map(j => j.root), true)[0];
+  if (hit) { const j = hit.object.userData.j; if (j === selected) j.poke = 1; select(j); }
+});
+
+/* ---------- puffs (smoke, sweat) ---------- */
+const puffs = [];
+const puffGeo = new THREE.SphereGeometry(1, 12, 8);
+function puff(pos, color, vel, life, size) {
+  let p = puffs.find(p => p.t >= p.life);
+  if (!p) { p = { m: new THREE.Mesh(puffGeo, new THREE.MeshStandardMaterial({ transparent: true, depthWrite: false, roughness: 1 })) }; scene.add(p.m); puffs.push(p); }
+  p.m.material.color.set(color); p.m.position.copy(pos); Object.assign(p, { v: vel.clone(), t: 0, life, size }); p.m.visible = true;
+}
+function tickPuffs(dt) {
+  for (const p of puffs) { if (p.t >= p.life) { p.m.visible = false; continue; }
+    p.t += dt; const k = p.t / p.life; p.m.position.addScaledVector(p.v, dt);
+    p.m.scale.setScalar(p.size * (.5 + k)); p.m.material.opacity = .75 * (1 - k); }
+}
+
+/* ---------- animation ---------- */
+const v3 = new THREE.Vector3();
+function setArm(a, fwd, out, stretch = 1) {
+  a.pivot.rotation.set(-fwd, 0, a.side * out); a.pivot.scale.set(1, stretch, 1);
+  a.hold.rotation.set(fwd, 0, -a.side * out); a.hold.scale.set(1, 1 / stretch, 1);
+}
+function animate(j, t, dt) {
+  const T = t + j.ph, [L, R] = j.arms;
+  let bob = 0, q = Math.sin(T * 2.2) * .025, lean = 0, turn = 0, crouch = 0;
+  let lf = 0, lo = .12, rf = 0, ro = .12, rs = 1;
+  let look = [Math.sin(T * .7) * .03, 0], closed = false, say = '';
+  j.root.position.copy(j.home); j.root.rotation.y = j.face0;
+  j.feet.forEach((f, i) => f.position.set(i ? .42 : -.42, .1, .18));
+  switch (j.beh) {
+    case 'idle': lo = ro = .15 + Math.sin(T * 1.3) * .05; break;
+    case 'waving': { ro = 2.5 + Math.sin(T * 12) * .35; rf = .3; lean = -.05; break; }
+    case 'smoking': {
+      const c = T % 4.5, up = ease(c / .8) * (1 - ease((c - 2.4) / .8));
+      rf = 1.5 * up; ro = .15 - .55 * up; rs = 1 + .35 * up; q += up * .04 * Math.sin(Math.min(1, (c - .8) / 1.6) * Math.PI);
+      if (t > j.nextFx) { j.nextFx = t + .35; const tip = R.hold.userData.tip; if (tip) puff(tip.getWorldPosition(v3), '#ffffff', new THREE.Vector3(rand(-.1, .1), .5, 0), 1.6, .05); }
+      if (c > 2.6 && c < 3.4 && t > (j.exhale ?? 0)) { j.exhale = t + .12; j.rig.localToWorld(v3.set(0, .5, 1.05)); puff(v3, '#f4eef6', new THREE.Vector3(rand(-.2, .2), .4, .6).applyAxisAngle(new THREE.Vector3(0, 1, 0), j.root.rotation.y), 1.8, .1); }
+      look = [.02, .02]; break; }
+    case 'eating': {
+      const c = T % 1.8, up = ease(c / .4) * (1 - ease((c - .9) / .4));
+      rf = 1.5 * up; ro = .15 - .55 * up; rs = 1 + .35 * up;
+      if (c > .45 && c < .9) q = -Math.abs(Math.sin((c - .45) * 21)) * .08;
+      look = [0, -.02]; break; }
+    case 'dancing': {
+      bob = Math.abs(Math.sin(T * 6)) * .35; q = -Math.max(0, .12 - bob) * .8; turn = Math.sin(T * 3) * .45;
+      lo = 1.8 + Math.sin(T * 6) * .8; ro = 1.8 - Math.sin(T * 6) * .8; lean = Math.sin(T * 3) * .1; break; }
+    case 'bathroom': {
+      const a = T * 3.4, rx = .8, rz = .55;
+      j.root.position.x = j.home.x + Math.cos(a) * rx; j.root.position.z = j.home.z + Math.sin(a) * rz;
+      j.root.rotation.y = Math.atan2(-Math.sin(a) * rx, Math.cos(a) * rz);
+      bob = Math.abs(Math.sin(T * 18)) * .1; lean = .1;
+      j.feet.forEach((f, i) => { const s = Math.sin(T * 18 + i * Math.PI); f.position.z = .18 + s * .2; f.position.y = .1 + Math.max(0, s) * .1; });
+      lf = Math.sin(T * 18) * .9; rf = -Math.sin(T * 18) * .9; lo = ro = .3;
+      j.rig.scale.x = j.size * j.w * (.92 + Math.sin(T * 40) * .015);
+      if (t > j.nextFx) { j.nextFx = t + .22; j.rig.localToWorld(v3.set(rand(-.5, .5), 1.2, .3)); puff(v3, '#8fd8ff', new THREE.Vector3(rand(-.8, .8), 1.2, rand(-.3, .3)), .6, .05); }
+      say = 'gotta go gotta go'; look = [0, .03]; break; }
+    case 'chatting': {
+      bob = Math.max(0, Math.sin(T * 5)) * .04; lean = Math.sin(T * 1.3) * .08;
+      rf = .7 + Math.sin(T * 5) * .5; ro = .45 + Math.sin(T * 3.1) * .2; lf = .3 + Math.sin(T * 4.3) * .3; lo = .3;
+      if (t > j.sayT) { j.sayT = t + rand(2, 3.5); j.line = pick(CHAT); } say = j.line;
+      look = [.04, 0]; break; }
+    case 'sneaking': {
+      crouch = .14; j.root.position.x = j.home.x + Math.sin(T * .9) * .7;
+      bob = Math.abs(Math.sin(T * 7)) * .05; lf = rf = .6; lo = ro = 1.0;
+      j.feet.forEach((f, i) => { f.position.y = .1 + Math.max(0, Math.sin(T * 7 + i * Math.PI)) * .08; });
+      look = [Math.sign(Math.sin(T * 1.7)) * .06, .01]; break; }
+    case 'napping': {
+      closed = true; q = Math.sin(T * 1.1) * .06; lean = .12; lo = ro = .05; say = 'z z z'; break; }
+    case 'phone': {
+      rf = 1.25; ro = -.35; rs = 1.2 + Math.sin(T * 9) * .02;
+      look = [0, -.05];
+      if ((T % 7) > 5.8) { bob = Math.abs(Math.sin(T * 14)) * .1; say = 'LOL'; } break; }
+  }
+  if (j.poke) { j.poke = Math.max(0, j.poke - dt * 1.6); q += Math.sin(j.poke * 18) * j.poke * .25; }
+  j.rig.position.y = bob;
+  j.rig.rotation.set(0, turn, lean);
+  const sy = j.size * j.h * (1 - q - crouch), sxz = j.size * j.w * (1 + q * .7 + crouch * .4);
+  if (j.beh !== 'bathroom') j.rig.scale.set(sxz, sy, sxz); else j.rig.scale.y = sy;
+  setArm(L, lf, lo); setArm(R, rf, ro, rs);
+  const blink = closed || (T % 3.7) < .12;
+  j.eyes.forEach(e => e.scale.y = blink ? .12 : 1.15);
+  // painted pupils: slide the eye texture (look is in eye-radius-ish units)
+  for (const m of j.eyeMats) { m.map.offset.x = -(look[0] / .2) / (Math.PI * 2); m.map.offset.y = -(look[1] / .2) / Math.PI; }
+  if (j.acc.userData.spin) j.acc.userData.spin.rotation.y += dt * 14;
+  j.say.textContent = say;
+}
+
+/* ---------- labels, resize, loop ---------- */
+function placeLabels() {
+  for (const j of jellies) {
+    j.rig.localToWorld(v3.set(0, 2.15, 0)); v3.project(camera);
+    const hide = v3.z > 1; j.lab.style.display = hide ? 'none' : '';
+    j.lab.style.left = `${(v3.x + 1) / 2 * innerWidth}px`; j.lab.style.top = `${(1 - v3.y) / 2 * innerHeight}px`;
+  }
+}
+function resize() {
+  renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  const portrait = innerWidth < innerHeight, d = portrait ? 24 : 15;
+  camera.position.set(0, d * .62, d); controls.target.set(0, .6, portrait ? .4 : .2); controls.update();
+}
+let wasPortrait = innerWidth < innerHeight;
+addEventListener('resize', () => { resize(); const p = innerWidth < innerHeight; if (p !== wasPortrait) { wasPortrait = p; rollAll(); } });
+resize(); rollAll();
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
+  for (const j of jellies) animate(j, t, dt);
+  tickPuffs(dt); controls.update(); renderer.render(scene, camera); placeLabels();
+});
+window.__jellies = jellies; window.__cam = { camera, controls };
+</script>
+</body>
+</html>

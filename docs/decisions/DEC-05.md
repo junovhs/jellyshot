@@ -37,3 +37,8 @@ Bespoke SDF-sculpted characters per target (the Judge experiment): too slow to a
 ## Consequences
 
 concepts/gumbo*.html, gumbo-model.js, sculpt.js, simplify.js, jelly-material.js, perf.html, cast.html and the bake scripts are shelved experiments, not the pipeline; nothing in the game depends on them. Character work becomes an accessory kit and a behaviour/animation set on the clay3d jelly. Contract data names a character by colour, size, accessories and schedule.
+
+## Amendment (2026-11-26, FEAT-09)
+
+From the randomizer proof of concept, the person set three more rules: the clay3d ears become **arm nubs** at the body's sides that gesture and hold props; **pupils are painted flat on the eyeball**, never separate 3D spheres; and every jelly has a **paint layer** (a canvas texture on the body) so characters can get markings, tattoos and painted details. See `docs/world-and-style.md` and `concepts/randomizer.html`.
+
