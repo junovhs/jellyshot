@@ -1,0 +1,101 @@
+{
+ "hero": {
+  "file": "assets/gumbo-hero.bin",
+  "bytes": 845240,
+  "tris": 39998,
+  "sculptMs": 4131,
+  "simplifyMs": 631,
+  "groups": {
+   "jelly": {
+    "verts": 12359,
+    "tris": 24584,
+    "pos": 0,
+    "nor": 148308,
+    "col": 185388,
+    "idx": 222468
+   },
+   "clay": {
+    "verts": 6937,
+    "tris": 13900,
+    "pos": 517476,
+    "nor": 600720,
+    "col": 621532,
+    "idx": 642344
+   },
+   "gloss": {
+    "verts": 996,
+    "tris": 1514,
+    "pos": 809144,
+    "nor": 821096,
+    "col": 824084,
+    "idx": 827072
+   }
+  }
+ },
+ "mid": {
+  "file": "assets/gumbo-mid.bin",
+  "bytes": 213308,
+  "tris": 9999,
+  "sculptMs": 4131,
+  "simplifyMs": 424,
+  "groups": {
+   "jelly": {
+    "verts": 3112,
+    "tris": 6146,
+    "pos": 0,
+    "nor": 37344,
+    "col": 46680,
+    "idx": 56016
+   },
+   "clay": {
+    "verts": 1718,
+    "tris": 3475,
+    "pos": 129768,
+    "nor": 150384,
+    "col": 155540,
+    "idx": 160696
+   },
+   "gloss": {
+    "verts": 354,
+    "tris": 378,
+    "pos": 202396,
+    "nor": 206644,
+    "col": 207708,
+    "idx": 208772
+   }
+  }
+ },
+ "far": {
+  "file": "assets/gumbo-far.bin",
+  "bytes": 75360,
+  "tris": 3527,
+  "sculptMs": 4131,
+  "simplifyMs": 420,
+  "groups": {
+   "jelly": {
+    "verts": 793,
+    "tris": 1536,
+    "pos": 0,
+    "nor": 9516,
+    "col": 11896,
+    "idx": 14276
+   },
+   "clay": {
+    "verts": 873,
+    "tris": 1795,
+    "pos": 32708,
+    "nor": 43184,
+    "col": 45804,
+    "idx": 48424
+   },
+   "gloss": {
+    "verts": 169,
+    "tris": 196,
+    "pos": 69964,
+    "nor": 71992,
+    "col": 72500,
+    "idx": 73008
+   }
+  }
+ }
+}

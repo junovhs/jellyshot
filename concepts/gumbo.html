@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Jellyshot · Judge Gumbo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+</script>
+<style>
+/* Character study: Judge Gumbo. A translucent jelly (glossy, colour deepening where he's thick,
+   a few bubbles set in him) wearing matte clay props. Sculpted as signed-distance fields (sculpt.js).
+   Drag to turn him; he jiggles, blinks, and keeps tasting the evidence. */
+:root { --ink: #4a3560; --font: 'Baloo 2', ui-rounded, system-ui, sans-serif; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #f7eef3; font-family: var(--font); color: var(--ink); }
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+.card { position: fixed; left: max(18px, env(safe-area-inset-left)); bottom: max(18px, env(safe-area-inset-bottom)); padding: .55em 1.1em .35em; border-radius: 1em;
+  background: radial-gradient(130% 120% at 30% 22%, #fffdf4, #fff0c4 46%, #ecd396);
+  box-shadow: inset .25em .3em .4em rgba(255,255,255,.6), inset -.3em -.35em .5em rgba(170,140,90,.45), 0 .4em .8em rgba(60,30,40,.25); }
+.card b { display: block; font-weight: 800; font-size: clamp(18px, 3vw, 26px); line-height: 1; color: #c2245e; letter-spacing: .02em; }
+.lod { margin-top: .5em; display: flex; gap: 6px; flex-wrap: wrap; } .lod button { font: 800 12px/1 'Baloo 2', sans-serif; border: 0; border-radius: .7em; padding: .45em .7em .3em; background: #e2cff8; color: #4a3560; cursor: pointer; } .lod button.on { background: #8a3a7a; color: #fff; }
+.card span { display: block; font-weight: 600; font-size: clamp(12px, 1.8vw, 15px); margin-top: .25em; }
+#compare { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); display: none; pointer-events: none; }
+#compare .sheet { width: 100%; height: 50%; background: url(assets/judge-turnaround.webp) no-repeat; background-color: #fff; border-radius: 10px; }
+#compare .tag { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-weight: 800; font-size: 12px; color: #8a3a7a; background: #fff8; padding: 2px 8px; border-radius: 8px; }
+body.turn #compare { display: block; }
+#compare .diff { display: none; position: absolute; left: 0; top: 0; width: 100%; height: 50%; border-radius: 10px; }
+#compare.diffm .diff { display: block; } #compare.diffm .sheet { visibility: hidden; }
+#compare.onion .sheet { position: absolute; left: 0; top: 50%; opacity: .5; } #compare.onion .tag { display: none; }
+#loading { position: fixed; inset: 0; display: grid; place-items: center; font-weight: 800; font-size: 22px; color: #8a5a6a; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="loading">sculpting…</div>
+<div class="card"><b>THE JUDGE</b><span>Judge Gumbo · head judge, Great Pie Judging · target</span><div class="lod" id="mode"></div><div class="lod" id="lod"></div></div>
+<div id="compare"><div class="sheet"></div><canvas class="diff"></canvas><div class="tag">turnaround ↑ · model ↓</div></div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
+import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js';
+import { RoomEnvironment } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/environments/RoomEnvironment.js';
+import { assemble, DETAIL } from './gumbo-model.js';
+import { fakeJelly, wobbly, jiggleUniforms } from './jelly-material.js';
+
+/* ---- renderer + a soft pastel studio like the design sheet ---- */
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#f7eef3');
+scene.fog = new THREE.Fog('#f7eef3', 10, 24);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), .04).texture;
+scene.environmentIntensity = .7;
+
+const camera = new THREE.PerspectiveCamera(30, 1, .1, 100);
+camera.position.set(1.6, 1.8, 6);
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(0, 1.3, 0); controls.enableDamping = true; controls.enablePan = false;
+controls.maxPolarAngle = Math.PI * .52;
+controls.autoRotate = true; controls.autoRotateSpeed = .7;
+canvas.addEventListener('pointerdown', () => { controls.autoRotate = false; });
+
+scene.add(new THREE.HemisphereLight('#fff6fa', '#d9c2d2', 1.0));
+const key = new THREE.DirectionalLight('#fff4ea', 2.2);
+key.position.set(-3, 6, 5); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 6; key.shadow.bias = -.0004; key.shadow.normalBias = .02;
+Object.assign(key.shadow.camera, { left: -3, right: 3, top: 3.5, bottom: -1, near: .5, far: 16 });
+scene.add(key);
+const rim = new THREE.DirectionalLight('#ffe8f4', 1.3); rim.position.set(4, 3, -4); scene.add(rim);
+const fill = new THREE.DirectionalLight('#eef0ff', .5); fill.position.set(4, 1.5, 4); scene.add(fill);
+const floor = window.floor = new THREE.Mesh(new THREE.CircleGeometry(30, 64).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#f1e2ea', roughness: .9 }));
+floor.receiveShadow = true; scene.add(floor);
+
+/* ---- materials: three for the whole character, colour is per vertex ---- */
+const U = jiggleUniforms(), T = U.uTime, JIG = U.uJig;
+const MATS = {
+  jelly: fakeJelly(U),
+  satin: wobbly(new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .45, clearcoat: .35, clearcoatRoughness: .3 }), U),
+  gloss: wobbly(new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .22, clearcoat: 1, clearcoatRoughness: .12 }), U),
+};
+
+/* ---- build the detail levels and poses; buttons switch between them ---- */
+const stage = new THREE.Group(); scene.add(stage);
+const models = {};
+let cur = null, lod = 'hero', mode = 'main';
+async function build(lod, pose) {
+  const k = lod + pose;
+  if (models[k]) return models[k];
+  const t0 = performance.now();
+  const { root, parts } = await assemble(DETAIL[lod], { pose });
+  let tris = 0;
+  root.traverse(m => { if (m.isMesh) { m.material = MATS[m.userData.tag]; m.castShadow = m.receiveShadow = true; tris += m.geometry.index ? m.geometry.index.count / 3 : m.geometry.getAttribute('position').count / 3; } });
+  console.log(lod, pose, Math.round(tris), 'tris in', Math.round(performance.now() - t0), 'ms');
+  return (models[k] = { root, parts, tris: Math.round(tris) });
+}
+async function show() {
+  if (mode === 'turn') await build(lod, 'turnaround');
+  const m = await build(lod, 'gavel');
+  if (cur) stage.remove(cur.root);
+  stage.add(m.root); cur = m;
+  document.body.classList.toggle('turn', mode === 'turn');
+  document.querySelectorAll('#lod button').forEach(b => b.classList.toggle('on', b.dataset.v === lod));
+  document.querySelectorAll('#mode button').forEach(b => b.classList.toggle('on', b.dataset.v === mode));
+  document.querySelector(`#lod button[data-v="${lod}"]`).textContent = `${lod} · ${(m.tris / 1000).toFixed(1)}k tris`;
+  resize();
+}
+const btn = (box, v, label, fn) => { const b = document.createElement('button'); b.dataset.v = v; b.textContent = label; b.onclick = fn; document.getElementById(box).appendChild(b); };
+btn('mode', 'main', 'Main view', () => { mode = 'main'; show(); });
+btn('mode', 'turn', 'Turnaround vs art', () => { mode = 'turn'; document.getElementById('compare').classList.remove('onion', 'diffm'); show(); });
+btn('mode', 'diff', 'Silhouette diff', () => { mode = 'turn'; const c = document.getElementById('compare'); c.classList.remove('onion'); c.classList.add('diffm'); show().then(runDiff); });
+btn('mode', 'onion', 'Onion skin', () => { mode = 'turn'; document.getElementById('compare').classList.add('onion'); show(); });
+for (const l of Object.keys(DETAIL)) btn('lod', l, l, () => { lod = l; show(); });
+
+/* ---- turnaround: three orthographic views laid out exactly like the sheet's row
+   (sheet x 625–1435, y 85–400; 100 sheet px = 1 unit; feet at sheet y 389) ---- */
+const SHEET = { x0: 170, x1: 1850, y0: 0, y1: 660, feet: 627, W: 2000, H: 667, unit: 208 };   // judge-turnaround.webp
+const VIEWS = [
+  { x0: 170, x1: 800, cx: 466, pos: [0, 0, 20], pose: 'gavel' },          // front (holds the gavel up)
+  { x0: 800, x1: 1270, cx: 1032, pos: [20, 0, 0], pose: 'turnaround' },        // side: camera on his right, face to the left (cx = robe centre)
+  { x0: 1270, x1: 1850, cx: 1563, pos: [0, 0, -20], pose: 'turnaround' },      // back
+].map(v => { const c = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 60); c.position.set(...v.pos); c.lookAt(0, 0, 0); return { ...v, cam: c }; });
+let strip = null;
+function layoutCompare() {
+  const el = document.getElementById('compare');
+  const aspect = (SHEET.x1 - SHEET.x0) / (SHEET.y1 - SHEET.y0);
+  const w = Math.min(innerWidth * .98, innerHeight * .46 * aspect), h = w / aspect;
+  el.style.width = w + 'px'; el.style.height = h * 2 + 'px';
+  const sc = w / (SHEET.x1 - SHEET.x0), sh = el.querySelector('.sheet');
+  sh.style.backgroundSize = `${SHEET.W * sc}px ${SHEET.H * sc}px`;
+  sh.style.backgroundPosition = `${-SHEET.x0 * sc}px ${-SHEET.y0 * sc}px`;
+  const left = (innerWidth - w) / 2, top = (innerHeight - h * 2) / 2 + h;   // the model row sits under the sheet row
+  strip = { left, top, sc, h };
+  for (const v of VIEWS) {
+    const u = 1 / SHEET.unit;   // world units per sheet px
+    Object.assign(v.cam, { left: (v.x0 - v.cx) * u, right: (v.x1 - v.cx) * u, top: (SHEET.feet - SHEET.y0) * u, bottom: (SHEET.feet - SHEET.y1) * u });
+    v.cam.position.y = 0; v.cam.lookAt(0, 0, 0);
+    v.cam.updateProjectionMatrix();
+  }
+}
+
+/* ---- silhouette diff: render each orthographic view at the art's own resolution and compare
+   its coverage with the art's alpha. Red = art only (model is missing something), blue = model only
+   (model sticks out), grey = both. IoU per view goes to the tag and the console. ---- */
+let artAlpha = null;
+async function loadArt() {
+  if (artAlpha) return artAlpha;
+  const img = new Image(); img.src = 'assets/judge-turnaround.webp'; await img.decode();
+  const c = new OffscreenCanvas(SHEET.W, SHEET.H), g = c.getContext('2d'); g.drawImage(img, 0, 0);
+  return (artAlpha = g.getImageData(0, 0, SHEET.W, SHEET.H).data);
+}
+async function runDiff() {
+  const art = await loadArt();
+  const W = SHEET.x1 - SHEET.x0, H = SHEET.y1 - SHEET.y0;
+  const cv = document.querySelector('#compare .diff'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'), out = g.createImageData(W, H);
+  const bg = scene.background, fog = scene.fog; scene.background = null; scene.fog = null; floor.visible = false;
+  const report = [];
+  for (const v of VIEWS) {
+    const vw = v.x1 - v.x0, rt = new THREE.WebGLRenderTarget(vw, H);
+    const mv = models[lod + v.pose]; stage.clear(); stage.add(mv.root); stage.rotation.z = 0; stage.scale.set(1, 1, 1);
+    stage.updateMatrixWorld(true);
+    renderer.setRenderTarget(rt); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(scene, v.cam);
+    const px = new Uint8Array(vw * H * 4); renderer.readRenderTargetPixels(rt, 0, 0, vw, H, px);
+    renderer.setRenderTarget(null); rt.dispose();
+    let both = 0, artOnly = 0, modelOnly = 0;
+    const B = () => ({ x0: 1e9, x1: -1, y0: 1e9, y1: -1, sx: 0, sy: 0, n: 0 }), ba = B(), bm = B();
+    const acc = (b, x, y) => { b.x0 = Math.min(b.x0, x); b.x1 = Math.max(b.x1, x); b.y0 = Math.min(b.y0, y); b.y1 = Math.max(b.y1, y); b.sx += x; b.sy += y; b.n++; };
+    for (let y = 0; y < H; y++) for (let x = 0; x < vw; x++) {
+      const m = px[((H - 1 - y) * vw + x) * 4 + 3] > 128, a = art[((y + SHEET.y0) * SHEET.W + x + v.x0) * 4 + 3] > 128;
+      if (m) acc(bm, x, y); if (a) acc(ba, x, y);
+      const o = (y * W + x + v.x0 - SHEET.x0) * 4;
+      if (m && a) { both++; out.data.set([200, 190, 200, 255], o); }
+      else if (a) { artOnly++; out.data.set([235, 40, 70, 255], o); }
+      else if (m) { modelOnly++; out.data.set([40, 110, 235, 255], o); }
+      else out.data.set([255, 255, 255, 255], o);
+    }
+    const bb = b => [b.x0 + v.x0, b.x1 + v.x0, b.y0 + SHEET.y0, b.y1 + SHEET.y0, Math.round(b.sx / b.n) + v.x0, Math.round(b.sy / b.n) + SHEET.y0];
+    report.push({ view: v.pose === 'gavel' ? 'front' : v.pos[0] ? 'side' : 'back', iou: +(both / (both + artOnly + modelOnly) * 100).toFixed(1), artOnly, modelOnly,
+      art: bb(ba), model: bb(bm) });   // [xmin, xmax, ymin, ymax, cx, cy] in art pixels
+  }
+  g.putImageData(out, 0, 0);
+  scene.background = bg; scene.fog = fog; floor.visible = true; renderer.setClearColor(0x000000, 1);
+  document.querySelector('#compare .tag').textContent = report.map(r => `${r.view} ${r.iou}%`).join(' · ') + '  (red = art only, blue = model only)';
+  console.log('DIFF', JSON.stringify(report)); window.__diff = report;
+  return report;
+}
+
+/* ---- idle: breathe, blink, a stern little sway, and every few seconds a gavel bonk ---- */
+function resize() {
+  renderer.setSize(innerWidth, innerHeight, false);
+  layoutCompare();
+  camera.aspect = innerWidth / innerHeight;
+  const vh = Math.max(3.2, 3.4 / camera.aspect), dist = vh / 2 / Math.tan(THREE.MathUtils.degToRad(15));
+  camera.position.sub(controls.target).setLength(dist).add(controls.target);
+  controls.minDistance = dist * .4; controls.maxDistance = dist * 1.8;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+let poke = -10;
+canvas.addEventListener('pointerup', e => { if (e.timeStamp - (canvas._down ?? 0) < 220) poke = clock.getElapsedTime(); });
+canvas.addEventListener('pointerdown', e => { canvas._down = e.timeStamp; });
+
+const bgScene = new THREE.Scene(); bgScene.background = new THREE.Color('#f7eef3'); const bgCam = new THREE.Camera();
+const clock = new THREE.Clock();
+const qb = new THREE.Quaternion(), AX = new THREE.Vector3(1, 0, 0), AZ = new THREE.Vector3(0, 0, 1);
+function frame() {
+  const t = clock.getElapsedTime();
+  T.value = t;
+  const since = t - poke;
+  JIG.value = since < 2 ? Math.exp(-since * 2.4) * Math.abs(Math.sin(since * 9)) : 0;
+  controls.update();
+  if (cur) {
+    const p = cur.parts, br = Math.sin(t * 1.9);
+    stage.scale.set(1 - br * .008 + JIG.value * .05, 1 + br * .014 - JIG.value * .07, 1 - br * .008 + JIG.value * .05);
+    stage.rotation.z = Math.sin(t * 1.2) * .02;
+    p.lids.forEach((l, i) => { l.rotation.x = ((t + i * .1) % 4.4) < .13 ? 1.5 : l.userData.rest; });
+    const cyc = t % 5.5, bonk = cyc > 4.6 ? Math.sin((cyc - 4.6) / .9 * Math.PI) : 0;
+    if (mode === 'main') p.armR.quaternion.copy(p.armR.userData.q0).multiply(qb.setFromAxisAngle(AX, -bonk * .5));
+    p.armL.quaternion.copy(p.armL.userData.q0).multiply(qb.setFromAxisAngle(AZ, Math.sin(t * 1.9) * .02));
+    p.brows.position.y = -bonk * .02;
+  }
+  if (mode === 'turn' && strip) {
+    // hold still for comparison: no sway, no breathing
+    stage.rotation.z = 0; stage.scale.set(1, 1, 1);
+    const fog = scene.fog; scene.fog = null;
+    renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight); renderer.render(bgScene, bgCam);
+    renderer.autoClear = false;
+    for (const v of VIEWS) {
+      const x = strip.left + (v.x0 - SHEET.x0) * strip.sc, w = (v.x1 - v.x0) * strip.sc, y = innerHeight - strip.top - strip.h;
+      renderer.setViewport(x, y, w, strip.h); renderer.setScissor(x, y, w, strip.h); renderer.setScissorTest(true);
+      const mv = models[lod + v.pose]; if (mv) { stage.clear(); stage.add(mv.root); }
+      renderer.clear(); renderer.render(scene, v.cam);
+    }
+    renderer.setScissorTest(false); renderer.autoClear = true;
+    scene.fog = fog; if (cur) { stage.clear(); stage.add(cur.root); }
+  } else {
+    renderer.setViewport(0, 0, innerWidth, innerHeight);
+    renderer.render(scene, camera);
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+const qm = new URLSearchParams(location.search).get('mode');
+mode = ['turn', 'onion', 'diff'].includes(qm) ? 'turn' : 'main';
+if (qm === 'onion') document.getElementById('compare').classList.add('onion');
+if (qm === 'diff') document.getElementById('compare').classList.add('diffm');
+requestAnimationFrame(() => setTimeout(async () => { await show(); document.getElementById('loading')?.remove(); if (qm === 'diff') runDiff(); }, 30));
+</script>
+</body>
+</html>

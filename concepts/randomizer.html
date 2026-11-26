@@ -238,7 +238,7 @@ const GOLD2 = () => glossy('#ffcf3a', { roughness: .2, metalness: .6, side: THRE
 
 /* ---------- 2D art cards (cut-out paintings used on the 3D jellies) ---------- */
 const texLoader = new THREE.TextureLoader();
-const ART = { bow: .479, moustache: .312, lollipop: 1.477, cigarette: .341 };   // height / width
+const ART = { bow: .479, moustache: .312, lollipop: 1.477 };   // height / width
 const TEX2D = {};
 for (const n of Object.keys(ART)) { const t = texLoader.load(`assets/2d/${n}.png`); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; TEX2D[n] = t; }
 function cardMat(n) {
@@ -316,9 +316,7 @@ const HEAD = {
   bow(g) { const c = clay(pick(['#ff5a9e', '#ff5a4e', '#a68cff', '#4fdcb9'])), bg = new THREE.Group(); bg.position.set(-.34, 1.24, .32); bg.rotation.set(-.4, -.3, .35); g.add(bg);
     for (const s of [-1, 1]) { const k = mesh(cone(.16, .32), c, bg, s * .17, 0, 0); k.rotation.z = s * Math.PI / 2; k.scale.z = .5; }
     mesh(sph(.08), c, bg); },
-  'bow (2D)'(g) { const top = chance(.5), b = mesh(cardGeo('bow', top ? .72 : .5), cardMat('bow'), g);
-    if (top) b.position.set(0, 1.47, .02);                                  // standing on top of the head
-    else { const p = onFace(-.44, 1.12, .04); b.position.copy(p); b.rotation.set(-.2, -.55, .3); } },
+  'bow (2D)'(g) { mesh(cardGeo('bow', .72), cardMat('bow'), g, 0, 1.47, .02); },   // standing on top of the head
   'braided bun'(g, hair) { const m = clay(hair, .8), y0 = .99, off = .025, top = shellTop(y0, off);
     mesh(domeShell(y0, off), m, g);
     const bun = new THREE.Group(); bun.position.set(0, top - .02, -.12); bun.rotation.x = -.35; g.add(bun);
@@ -386,8 +384,6 @@ const PROPS = {
   cigar(h) { mesh(cyl(.04, .04, .34, 12), clay('#7a4426'), h, 0, 0, .14).rotation.x = Math.PI / 2;
     mesh(cyl(.041, .041, .05, 12), clay('#ff5a4e'), h, 0, 0, .06).rotation.x = Math.PI / 2;
     const tip = mesh(sph(.042, 10, 8), new THREE.MeshBasicMaterial({ color: '#ff8a3a' }), h, 0, 0, .31); h.userData.tip = tip; },
-  'cigarette (2D)'(h) { const c = mesh(cardGeo('cigarette', .62), cardMat('cigarette'), h, -.04, .03, .06); c.scale.x = -1;
-    const tip = new THREE.Object3D(); tip.position.set(.25, -.05, .06); h.add(tip); h.userData.tip = tip; },
   fork(h) { const m = glossy('#d8dde6', { metalness: .7, roughness: .2 }); mesh(cyl(.025, .025, .5, 8), m, h, 0, .16, 0);
     mesh(G('forkhead', () => new THREE.BoxGeometry(.16, .06, .03)), m, h, 0, .43, 0);
     for (const x of [-.06, 0, .06]) mesh(cyl(.013, .013, .16, 6), m, h, x, .54, 0);
@@ -415,7 +411,7 @@ const PROPS = {
 /* ---------- behaviours ---------- */
 const BEHAVIOURS = {
   idle: { label: 'loitering', props: [null, null, 'balloon', 'drink', 'gavel'] },
-  smoking: { label: 'smoking', props: ['cigar', 'cigarette (2D)'] },
+  smoking: { label: 'smoking', props: ['cigar'] },
   eating: { label: 'eating', props: ['ice cream', 'fork', 'lollipop', 'lollipop (2D)', 'drink'] },
   dancing: { label: 'dancing', props: [null] },
   bathroom: { label: 'running to the bathroom', props: [null] },
@@ -512,7 +508,6 @@ const TEST = [
   { label: 'bow (2D)', items: [['head', 'bow (2D)']], beh: 'idle', col: '#4fdcb9' },
   { label: 'moustache (2D)', items: [['facial', 'moustache (2D)']], beh: 'idle', col: '#ffd84a' },
   { label: 'lollipop (2D)', beh: 'eating', prop: 'lollipop (2D)', col: '#a68cff' },
-  { label: 'cigarette (2D)', beh: 'smoking', prop: 'cigarette (2D)', col: '#ff86c4' },
   { label: 'bow (3D)', items: [['head', 'bow']], beh: 'idle', col: '#4fdcb9' },
   { label: 'moustache (3D)', items: [['facial', 'moustache']], beh: 'idle', col: '#ffd84a', hair: '#7a3a20' },
   { label: 'lollipop (3D)', beh: 'eating', prop: 'lollipop', col: '#a68cff' },

@@ -28,6 +28,8 @@ Reference: the jellies in `concepts/clay3d.html`, as varied in `concepts/randomi
    - **Face:** sunglasses, round glasses, monocle, moustache, beard, eyebrows, earrings.
    - **Held props:** fork, gavel, drink, ice cream, cigar or pipe, phone, balloon.
 
+   Per DEC-07, facial hair, eyewear, jewelry, hair bows and clips, and small hand props are cut-out **2D art** (`concepts/assets/2d/`). Hats stay 3D clay on a shell that follows the head. Beards and most hair are cut. See `docs/handoff-characters.md` for the asset list.
+
    A named target wears 2 or 3 accessories (plus usually a paint) that read at full zoom-out. Crowd jellies wear 0 or 1, drawn from the same kit, so a target never stands out just by being dressed.
 6. **Behaviours carry the personality.** What a jelly does is as identifying as what it wears: smoking, eating, dancing, running to the bathroom, chatting, sneaking, napping, arguing, licking the chocolate fountain. Behaviours are schedule steps, so they double as opportunities and as briefing clues ("the one in sunglasses who keeps going to the bathroom").
 7. **Readable through the scope.** Colour plus accessories plus behaviour has to identify a named target at full zoom-out.

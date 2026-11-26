@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Jellyshot · cast lineup concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+</script>
+<style>
+/* Concept: the "gremlins made of candy clay" character language (docs/world-and-style.md).
+   Same clay material and lighting as clay3d.html. Tap a jelly to pop it; toggle the stare. */
+:root { --ink: #4a3560; --font: 'Baloo 2', ui-rounded, system-ui, sans-serif; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #bfe0f4; font-family: var(--font); color: var(--ink); }
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.clay { background: radial-gradient(130% 120% at 30% 22%, var(--hi), var(--c) 46%, var(--lo));
+  box-shadow: inset .25em .3em .4em rgba(255,255,255,.55), inset -.3em -.35em .5em color-mix(in srgb, var(--lo) 80%, #000 20%), 0 .4em .7em rgba(24,14,46,.3); }
+header { position: fixed; left: 50%; top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%) rotate(-1.5deg); --c: #ffe263; --hi: #fff6b8; --lo: #f0bb2c;
+  padding: .35em 1.2em .1em; border-radius: 1em; font-weight: 800; font-size: clamp(16px, 3.4vw, 26px); letter-spacing: .03em; white-space: nowrap; color: #5a3a2a; }
+.tag { position: fixed; transform: translate(-50%, 0); pointer-events: none; text-align: center; white-space: nowrap; --c: #fffaec; --hi: #fff; --lo: #eadfc6;
+  padding: .3em .9em .1em; border-radius: .9em; font-size: clamp(10px, 1.6vw, 14px); line-height: 1.15; transition: opacity .3s; }
+.tag b { display: block; font-weight: 800; font-size: 1.15em; }
+.tag i { font-style: normal; font-weight: 600; opacity: .8; }
+.tag.target b { color: #c2245e; }
+.bar { position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 10px; align-items: center; }
+button { font: inherit; font-weight: 800; font-size: clamp(13px, 2.4vw, 17px); color: var(--ink); border: 0; cursor: pointer; padding: .45em 1.1em .25em; border-radius: 1em; --c: #e2cff8; --hi: #f6eeff; --lo: #b99fe0; }
+button.on { --c: #ff8fb5; --hi: #ffd0e0; --lo: #d85a88; color: #fff; }
+.hint { font-weight: 700; font-size: clamp(11px, 2vw, 14px); color: #4a3560; opacity: .7; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<header class="clay">THE CAST OF GUMDROP HOLLOW</header>
+<div id="tags"></div>
+<div class="bar"><span class="hint">tap a jelly to pop it</span><button id="stare" class="clay">👀 Everyone stares</button></div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
+
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#bfe0f4');
+scene.fog = new THREE.Fog('#cde6f2', 30, 60);
+const camera = new THREE.PerspectiveCamera(35, 1, .1, 200);
+const LOOK = new THREE.Vector3(0, .9, -1.2);
+
+/* ---------- clay material (same recipe as clay3d.html) ---------- */
+function clayNoise() {
+  const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d'), img = g.createImageData(S, S);
+  const rnd = (x, y) => { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s); };
+  const smooth = (x, y, f) => { const xi = Math.floor(x * f), yi = Math.floor(y * f), xf = x * f - xi, yf = y * f - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = f;
+    const a = rnd(xi % w, yi % w), b = rnd((xi + 1) % w, yi % w), c2 = rnd(xi % w, (yi + 1) % w), d = rnd((xi + 1) % w, (yi + 1) % w);
+    return a + (b - a) * u + (c2 - a) * v + (a - b - c2 + d) * u * v; };
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const nx = x / S, ny = y / S;
+    let n = smooth(nx, ny, 4) * .5 + smooth(nx, ny, 9) * .3 + smooth(nx, ny, 23) * .2;
+    n += Math.sin((nx * 3 + ny * 2) * 18 + smooth(nx, ny, 5) * 6) * .04;
+    const v = Math.max(0, Math.min(255, n * 255)), i = (y * S + x) * 4;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+const BUMP = clayNoise();
+const mats = new Map();
+function clay(hex, bump = .55) {
+  const key = hex + bump;
+  if (mats.has(key)) return mats.get(key);
+  const col = new THREE.Color(hex);
+  const m = new THREE.MeshPhysicalMaterial({ color: col, roughness: .82, sheen: .55, sheenRoughness: .7,
+    sheenColor: col.clone().lerp(new THREE.Color('#fff'), .55), bumpMap: BUMP, bumpScale: bump });
+  mats.set(key, m); return m;
+}
+const glossy = hex => new THREE.MeshPhysicalMaterial({ color: hex, roughness: .25, clearcoat: .6, clearcoatRoughness: .3 });
+const EYE = new THREE.MeshPhysicalMaterial({ color: '#fff', roughness: .35, clearcoat: .5 });
+const PUPIL = new THREE.MeshPhysicalMaterial({ color: '#241a2e', roughness: .25, clearcoat: 1 });
+const MOUTH = clay('#3a1230', .3), TONGUE = clay('#ff7f9e', .3), TOOTH = clay('#fffaf0', .2);
+
+/* ---------- light + set ---------- */
+scene.add(new THREE.HemisphereLight('#d8ecff', '#c7a6c0', 1.35));
+const key = new THREE.DirectionalLight('#fff1dc', 2.6);
+key.position.set(-8, 14, 10); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12, near: 1, far: 50 });
+key.shadow.radius = 6; key.shadow.bias = -.0005;
+scene.add(key);
+const rim = new THREE.DirectionalLight('#ffd6ec', .7); rim.position.set(10, 6, -12); scene.add(rim);
+const stage = new THREE.Mesh(new THREE.CylinderGeometry(9, 9.3, .5, 72), clay('#ffc9d9', 1));
+stage.position.y = -.25; stage.receiveShadow = true; scene.add(stage);
+const lawn = new THREE.Mesh(new THREE.CircleGeometry(60, 64).rotateX(-Math.PI / 2), clay('#94d26a', 1.2));
+lawn.position.y = -.5; lawn.receiveShadow = true; scene.add(lawn);
+
+const add = (m, p) => { m.castShadow = true; m.receiveShadow = true; p.add(m); return m; };
+
+/* ---------- the jelly kit ---------- */
+const bodyGeo = (() => {
+  const prof = [[0, 0], [.78, 0], [.95, .1], [1.0, .3], [.96, .62], [.84, .92], [.62, 1.16], [.34, 1.3], [0, 1.34]];
+  const pts = new THREE.SplineCurve(prof.map(([x, y]) => new THREE.Vector2(x, y))).getPoints(28).map(p => new THREE.Vector2(Math.max(0, p.x), p.y));
+  pts[pts.length - 1].x = 0;
+  const g = new THREE.LatheGeometry(pts, 40); g.computeVertexNormals(); return g;
+})();
+const sphere = (r, w = 18, h = 12) => new THREE.SphereGeometry(r, w, h);
+const footGeo = sphere(.3, 16, 10), armGeo = new THREE.CapsuleGeometry(.11, .26, 6, 12).translate(0, -.2, 0);
+const lidGeo = new THREE.SphereGeometry(1, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+
+const chars = [];
+function jelly(spec) {
+  const s = spec.s ?? .9;
+  const root = new THREE.Group(); root.position.set(spec.x, spec.y ?? 0, spec.z); root.rotation.y = spec.face ?? 0; scene.add(root);
+  const body = new THREE.Group(); root.add(body); body.scale.setScalar(s);
+  const mat = clay(spec.col), dark = clay(new THREE.Color(spec.col).offsetHSL(0, 0, -.12).getStyle());
+  add(new THREE.Mesh(bodyGeo, mat), body);
+  for (const sx of [-.42, .42]) { const f = add(new THREE.Mesh(footGeo, dark), body); f.position.set(sx, .1, .18); f.scale.set(1, .55, 1.15); }
+
+  // eyes: mismatched sizes, lids for smug/scheming, pupils that can shrink to pinpricks
+  const eyes = [];
+  const E = spec.eyes ?? {};
+  [-1, 1].forEach((side, i) => {
+    const size = (E.size ?? [1, 1])[i];
+    const eg = new THREE.Group(); eg.position.set(side * .25 * (E.spread ?? 1), E.y ?? .82, .78); eg.scale.set(1, 1.15, .6); body.add(eg);
+    const r = .2 * size;
+    add(new THREE.Mesh(sphere(r), EYE), eg);
+    const pupil = add(new THREE.Mesh(sphere(r * .52, 14, 10), PUPIL), eg);
+    const off = (E.look ?? [[0, 0], [0, 0]])[i];
+    pupil.userData.base = new THREE.Vector3(off[0] * r, off[1] * r, r * .78);
+    pupil.position.copy(pupil.userData.base);
+    pupil.userData.scale = (E.pupil ?? [1, 1])[i];
+    const lid = add(new THREE.Mesh(lidGeo, mat), eg); lid.scale.setScalar(r * 1.1);
+    lid.userData.rest = (E.lids ?? [-1.5, -1.5])[i]; lid.rotation.x = lid.userData.rest;
+    eyes.push({ eg, pupil, lid, r });
+  });
+
+  // mouths: where the emotion lives
+  const mouth = new THREE.Group(); mouth.position.set(0, .5, .985); body.add(mouth);
+  const blob = (geo, m, x, y, z, sx, sy, sz) => { const o = add(new THREE.Mesh(geo, m), mouth); o.position.set(x, y, z); o.scale.set(sx, sy, sz); return o; };
+  let tongue = null;
+  switch (spec.mouth) {
+    case 'grin': {
+      const arc = add(new THREE.Mesh(new THREE.TorusGeometry(.24, .05, 10, 24, Math.PI), MOUTH), mouth); arc.rotation.z = Math.PI; arc.position.set(0, .12, .01); arc.scale.set(1, .75, 1);
+      blob(new THREE.BoxGeometry(.07, .07, .05), glossy('#ffd54a'), .12, -.07, .05, 1, 1, 1);
+      break; }
+    case 'scream':
+      blob(sphere(.2), MOUTH, 0, 0, 0, 1.25, 1.5, .3);
+      tongue = blob(sphere(.12), TONGUE, 0, -.18, .04, 1.3, .6, .5);
+      blob(new THREE.BoxGeometry(.07, .06, .04), TOOTH, -.08, .24, .05, 1, 1, 1);
+      blob(new THREE.BoxGeometry(.07, .06, .04), TOOTH, .09, .24, .05, 1, 1, 1);
+      break;
+    case 'tiny':
+      blob(sphere(.07), MOUTH, 0, -.02, 0, 1, .7, .4);
+      break;
+    case 'lick':
+      blob(sphere(.2), MOUTH, 0, 0, 0, 1.1, .7, .3);
+      tongue = add(new THREE.Mesh(new THREE.CapsuleGeometry(.09, .22, 6, 12).translate(0, -.13, 0), TONGUE), mouth);
+      tongue.position.set(.05, -.04, .07); tongue.scale.set(1.25, 1, .55);
+      break;
+    case 'snicker':
+      blob(sphere(.2), MOUTH, 0, 0, 0, 1.45, .55, .3);
+      blob(new THREE.BoxGeometry(.08, .08, .04), TOOTH, -.11, .06, .06, 1, 1, 1);   // one snaggle tooth, off-centre
+      break;
+  }
+  if (spec.mouth === 'grin' && spec.monocle) {
+    const m = add(new THREE.Mesh(new THREE.TorusGeometry(.25, .03, 8, 24), glossy('#ffd54a')), eyes[1].eg); m.position.z = .05;
+  }
+
+  // nub arms
+  const arms = [-1, 1].map(side => {
+    const p = new THREE.Group(); p.position.set(side * .9, .62, .05); body.add(p);
+    add(new THREE.Mesh(armGeo, mat), p); p.rotation.z = side * .45; return p;
+  });
+
+  // hats and props: the job and the scheme
+  const H = new THREE.Group(); H.position.y = 1.3; body.add(H);
+  if (spec.hat === 'top') {
+    const hm = clay('#2a2035');
+    add(new THREE.Mesh(new THREE.CylinderGeometry(.62, .62, .08, 24), hm), H).position.y = .04;
+    add(new THREE.Mesh(new THREE.CylinderGeometry(.4, .42, .7, 24), hm), H).position.y = .42;
+    add(new THREE.Mesh(new THREE.CylinderGeometry(.43, .43, .14, 24), clay('#ff5c9e')), H).position.y = .16;
+    H.rotation.z = -.12;
+  } else if (spec.hat === 'tiara') {
+    add(new THREE.Mesh(new THREE.CylinderGeometry(.4, .36, .26, 6, 1, true), glossy('#ffd54a')), H).position.y = .08;
+    for (let i = 0; i < 3; i++) { const gem = add(new THREE.Mesh(sphere(.07, 12, 8), glossy('#ff4a8e')), H); gem.position.set((i - 1) * .2, .14, .36 - Math.abs(i - 1) * .06); }
+  } else if (spec.hat === 'chef') {
+    const w = clay('#fffaf2', .4);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(.45, .45, .3, 24), w), H).position.y = .05;
+    for (const [x, y, z, r] of [[-.22, .42, 0, .3], [.22, .42, 0, .3], [0, .5, -.12, .32], [0, .48, .14, .3]]) add(new THREE.Mesh(sphere(r), w), H).position.set(x, y, z);
+    H.rotation.z = .18;
+  } else if (spec.hat === 'capBack') {
+    const cm = clay('#3cc8e0');
+    add(new THREE.Mesh(new THREE.SphereGeometry(.58, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), cm), H).position.y = -.22;
+    const bill = add(new THREE.Mesh(new THREE.CylinderGeometry(.42, .42, .06, 20, 1, false, -Math.PI / 2, Math.PI), cm), H); bill.position.set(0, -.2, -.36); bill.rotation.y = Math.PI;
+  }
+  let prop = null;
+  if (spec.prop === 'pie') {
+    prop = new THREE.Group(); body.add(prop); prop.position.set(0, .5, 1.15);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(.42, .34, .16, 24), clay('#e2a160')), prop);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(.36, .36, .04, 24), clay('#d23a6a', .3)), prop).position.y = .08;
+    for (let i = -1; i <= 1; i++) { const l = add(new THREE.Mesh(new THREE.BoxGeometry(.06, .05, .66), clay('#f0bf80')), prop); l.position.set(i * .17, .11, 0); }
+    const bite = add(new THREE.Mesh(sphere(.13), clay('#ffc9d9')), prop); bite.position.set(.38, .05, .12); bite.scale.set(1, .8, 1);   // someone already had a go
+    prop.rotation.x = .3;
+  } else if (spec.prop === 'fork') {
+    prop = new THREE.Group(); arms[1].add(prop); prop.position.set(0, -.42, 0);
+    const steel = glossy('#c9c4dc');
+    add(new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .55, 8), steel), prop).position.y = -.2;
+    for (let i = -1; i <= 1; i++) add(new THREE.Mesh(new THREE.CylinderGeometry(.015, .015, .2, 6), steel), prop).position.set(i * .05, -.55, 0);
+  }
+
+  // soft contact shadow
+  const cs = new THREE.Mesh(new THREE.CircleGeometry(1, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#3a2a50', transparent: true, opacity: .18, depthWrite: false }));
+  cs.scale.set(.95 * s, 1, .8 * s); cs.position.y = .01; root.add(cs);
+
+  const ch = { spec, root, body, eyes, arms, tongue, prop, mouth, mat, s, cs, ph: Math.random() * 6, alive: true, popT: 0, face0: root.rotation.y };
+  root.traverse(o => { o.userData.ch = ch; });
+  chars.push(ch); return ch;
+}
+
+/* ---------- the cast ---------- */
+const MAIN = [
+  { id: 'baroness', name: 'Baroness Fondant', tag: 'TARGET · owns the bees, hates the bees', target: true, col: '#b38cff', x: -4.7, z: -.2, face: .3, s: .95,
+    hat: 'tiara', mouth: 'tiny', anim: 'sniff', eyes: { size: [.9, .9], lids: [.15, .15], look: [[.2, .45], [.2, .45]] } },
+  { id: 'mayor', name: 'Mayor Wobbleton', tag: 'TARGET · rigs the jam contest', target: true, col: '#7fdc6a', x: -2.3, z: .5, face: .25, s: 1.02,
+    hat: 'top', mouth: 'grin', monocle: true, anim: 'rub', eyes: { size: [.95, 1.12], lids: [.3, .5], look: [[.35, -.1], [.3, -.1]] } },
+  { id: 'judge', name: 'Judge Gumbo', tag: 'TARGET · eats the evidence', target: true, col: '#ff9a3c', x: .2, z: .9, face: 0, s: 1.08,
+    hat: 'chef', mouth: 'lick', prop: 'fork', anim: 'lick', eyes: { size: [1.25, .85], lids: [-1.5, .1], look: [[.1, -.3], [-.3, .2]], pupil: [.8, 1.1] } },
+  { id: 'kid', name: 'Lil’ Taffy', tag: 'a kid · that is not their pie', col: '#ff86c4', x: 2.6, z: .5, face: -.3, s: .7,
+    hat: 'capBack', mouth: 'snicker', prop: 'pie', anim: 'snicker', eyes: { size: [1.3, 1.05], look: [[.25, .1], [-.35, -.05]], pupil: [1.15, .8] } },
+  { id: 'screamer', name: 'Doug', tag: 'witness · will tell everyone', col: '#4a8dff', x: 4.9, z: -.3, face: -.45, s: .9,
+    mouth: 'scream', anim: 'flail', eyes: { size: [1.2, 1.25], spread: 1.1, pupil: [.35, .35] } },
+];
+for (const m of MAIN) jelly(m);
+// the herd: identical, synchronised, and every so often they all look at you
+const HERD_COLS = ['#ffd84a', '#4fdcb9', '#ffd84a', '#3cc8e0', '#ffd84a', '#4fdcb9', '#ffd84a'];
+const herd = [];
+// they stand on a little clay hill behind the cast
+const hill = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2), clay('#a4dc78', 1));
+hill.scale.set(4.6, 1.3, 2.4); hill.position.set(0, -.2, -4.6); hill.receiveShadow = true; scene.add(hill);
+[[-2.6, -3.6], [-1.3, -3.9], [0, -4], [1.3, -3.9], [2.6, -3.6], [-.65, -4.9], [.65, -4.9]].forEach(([x, z], i) => {
+  herd.push(jelly({ id: 'herd' + i, col: HERD_COLS[i], x, z, y: 1.3 * Math.sqrt(Math.max(0, 1 - (x / 4.6) ** 2 - ((z + 4.6) / 2.4) ** 2)) - .22, s: .5, face: (i % 2 ? 1 : -1) * (1 + i * .3), anim: 'herd', herd: true,
+    eyes: { size: [1.35, 1.35], spread: .95 } }));
+});
+
+/* ---------- tags ---------- */
+const tagsEl = document.getElementById('tags');
+for (const c of chars.filter(c => !c.spec.herd)) {
+  const el = document.createElement('div'); el.className = 'tag clay' + (c.spec.target ? ' target' : '');
+  el.innerHTML = `<b>${c.spec.name}</b><i>${c.spec.tag}</i>`; tagsEl.appendChild(el); c.tagEl = el;
+}
+const herdTag = document.createElement('div'); herdTag.className = 'tag clay'; herdTag.innerHTML = '<b>The Crowd</b><i>moves as one · is watching</i>'; tagsEl.appendChild(herdTag);
+
+/* ---------- popping: squash, burst, splat — the eyes always survive ---------- */
+const blobs = [], puddles = [];
+const blobGeo = sphere(1, 14, 10);
+function pop(ch) {
+  if (!ch.alive) return;
+  ch.alive = false; ch.popT = 0; ch.squash = 0;
+  shock = 1.6;
+}
+function burst(ch) {
+  ch.root.visible = false;
+  const p = ch.root.position, s = ch.s;
+  for (let i = 0; i < 18; i++) {
+    const r = (.1 + Math.random() * .14) * s;
+    const m = add(new THREE.Mesh(blobGeo, ch.mat), scene); m.scale.setScalar(r);
+    m.position.set(p.x, p.y + .7 * s, p.z); m.userData.floor = p.y;
+    const a = Math.random() * Math.PI * 2, sp = (2 + Math.random() * 3) * s;
+    blobs.push({ m, r, v: new THREE.Vector3(Math.cos(a) * sp, 4 + Math.random() * 4, Math.sin(a) * sp), life: 0 });
+  }
+  // the puddle, plus two eyes that roll out and keep blinking
+  const g = new THREE.Group(); g.position.set(p.x, p.y, p.z); scene.add(g);
+  const pud = add(new THREE.Mesh(blobGeo, ch.mat), g); pud.scale.set(.01, .01, .01);
+  const lobes = [];
+  for (let i = 0; i < 4; i++) { const l = add(new THREE.Mesh(blobGeo, ch.mat), g); const a = i * 1.7 + Math.random(); l.position.set(Math.cos(a) * .75 * s, 0, Math.sin(a) * .6 * s); l.scale.set(.01, .01, .01); l.userData.r = (.3 + Math.random() * .2) * s; lobes.push(l); }
+  const eyes = [-1, 1].map((side, i) => {
+    const eg = new THREE.Group(); g.add(eg);
+    const r = ch.eyes[i].r * s * 1.1;
+    add(new THREE.Mesh(sphere(1), EYE), eg).scale.setScalar(r);
+    const pu = add(new THREE.Mesh(sphere(1, 12, 8), PUPIL), eg); pu.scale.setScalar(r * .5); pu.position.set(0, r * .45, r * .72);
+    const lid = add(new THREE.Mesh(lidGeo, ch.mat), eg); lid.scale.setScalar(r * 1.08); lid.rotation.x = -1.5;
+    eg.position.set(side * .5 * s, .9 * s, 0);
+    return { eg, lid, target: new THREE.Vector3(side * (.26 + Math.random() * .2) * s, .1 * s + r * .5, .1 * s + Math.random() * .25 * s), r };
+  });
+  puddles.push({ ch, g, pud, lobes, eyes, t: 0 });
+}
+let shock = 0;
+
+/* ---------- input ---------- */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+canvas.addEventListener('pointerdown', e => {
+  ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObjects(chars.filter(c => c.alive).map(c => c.root), true)[0];
+  if (hit) pop(hit.object.userData.ch);
+});
+let staring = false;
+const stareBtn = document.getElementById('stare');
+stareBtn.addEventListener('click', () => { staring = !staring; stareBtn.classList.toggle('on', staring); });
+
+/* ---------- loop ---------- */
+function resize() {
+  renderer.setSize(innerWidth, innerHeight, false);
+  const aspect = innerWidth / innerHeight;
+  camera.aspect = aspect;
+  const dist = Math.max(12, 7.2 / (Math.tan(THREE.MathUtils.degToRad(17.5)) * aspect));
+  camera.position.set(0, 1.2 + dist * .17, dist);
+  camera.lookAt(LOOK); camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+
+const clock = new THREE.Clock();
+const camLocal = new THREE.Vector3(), tmp = new THREE.Vector3();
+const ease = (a, b, k) => a + (b - a) * k;
+function frame() {
+  const dt = Math.min(clock.getDelta(), 1 / 20), t = clock.elapsedTime;
+  shock = Math.max(0, shock - dt);
+  // the herd checks on you every few seconds, all at once
+  const herdLook = staring || (t % 7) > 5.4;
+
+  for (const c of chars) {
+    if (!c.alive) {
+      // anticipation: a quick squash-and-stretch before the burst
+      c.popT += dt;
+      const k = c.popT / .14;
+      c.body.scale.set(c.s * (1 + k * .35), c.s * (1 - k * .3), c.s * (1 + k * .35));
+      if (c.popT > .14 && c.root.visible) burst(c);
+      continue;
+    }
+    const sp = c.spec, ph = t * 4 + c.ph, b = c.body;
+    const look = staring || (sp.herd && herdLook);
+    // face the scope when staring, otherwise back to scheming
+    const faceTo = look ? Math.atan2(camera.position.x - c.root.position.x, camera.position.z - c.root.position.z) : c.face0;
+    c.root.rotation.y = ease(c.root.rotation.y, faceTo, Math.min(1, dt * (sp.herd ? 3 : 5)));
+
+    let hop = Math.max(0, Math.sin(ph)) * .08, sq = 1 + Math.sin(ph * 2) * .03, rx = 0, rz = 0;
+    const [aL, aR] = c.arms;
+    aL.rotation.set(0, 0, -.45); aR.rotation.set(0, 0, .45);
+    if (look) { hop = 0; sq = 1; }
+    else switch (sp.anim) {
+      case 'rub': { // scheming: nubs together in front, rubbing
+        const r = Math.sin(t * 14) * .18;
+        aL.rotation.set(-1.15, 0, -.95 + r); aR.rotation.set(-1.15, 0, .95 + r);
+        hop *= .5; rz = Math.sin(t * 1.3) * .05; break; }
+      case 'sniff': { // nose in the air
+        rx = -.16 + Math.sin(t * 1.7) * .05; aR.rotation.set(-2.2, 0, .3 + Math.sin(t * 2) * .1); hop *= .3; break; }
+      case 'lick': { // fork up, tongue going
+        aR.rotation.set(-2.0, 0, .2 + Math.sin(t * 2.2) * .15);
+        if (c.tongue) c.tongue.rotation.z = Math.sin(t * 6) * .5;
+        rz = Math.sin(t * 2.2) * .06; break; }
+      case 'snicker': { // tiny fast shoulder-shaking giggle, pie clutched
+        aL.rotation.set(-1.3, 0, -.6); aR.rotation.set(-1.3, 0, .6);
+        hop = Math.abs(Math.sin(t * 22)) * .04; rz = Math.sin(t * 22) * .03; rx = .1;
+        b.position.x = Math.sin(t * 1.1) * .02; break; }
+      case 'flail': { // perpetual panic
+        aL.rotation.set(0, 0, -2.5 + Math.sin(t * 17) * .5); aR.rotation.set(0, 0, 2.5 + Math.sin(t * 19 + 1) * .5);
+        hop = Math.abs(Math.sin(t * 11)) * .22; rz = Math.sin(t * 23) * .04;
+        if (c.tongue) c.tongue.scale.y = .6 + Math.sin(t * 30) * .1; break; }
+      case 'herd': { // in perfect unison: same phase for everyone
+        const u = t * 4.5; hop = Math.max(0, Math.sin(u)) * .16; sq = 1 + Math.sin(u * 2) * .05; break; }
+    }
+    if (shock > 0 && !sp.herd) { hop += Math.max(0, Math.sin((1.6 - shock) * 9)) * .25 * shock; }
+    b.position.y = hop;
+    b.scale.set(c.s / Math.sqrt(sq), c.s * sq, c.s / Math.sqrt(sq));
+    b.rotation.x = rx; b.rotation.z = rz;
+    c.cs.scale.set(.95 * c.s * (1 - hop * .6), 1, .8 * c.s * (1 - hop * .6));
+
+    // eyes: blink, pupils shrink on shock, lock onto the camera when staring
+    const blink = ((t + c.ph * 3) % 4.2) < .12;
+    c.root.worldToLocal(camLocal.copy(camera.position));
+    for (const e of c.eyes) {
+      e.lid.rotation.x = blink && !look ? 1.6 : (look && sp.herd ? -1.5 : e.lid.userData.rest);
+      const ps = (shock > 0 ? .4 : look ? 1.15 : 1) * e.pupil.userData.scale;
+      e.pupil.scale.setScalar(ease(e.pupil.scale.x, ps, Math.min(1, dt * 12)));
+      tmp.copy(e.pupil.userData.base);
+      if (look) tmp.set(0, e.r * .1, e.r * .8);
+      e.pupil.position.lerp(tmp, Math.min(1, dt * 10));
+    }
+  }
+
+  // flying blobs
+  for (let i = blobs.length - 1; i >= 0; i--) {
+    const bl = blobs[i]; bl.life += dt;
+    bl.v.y -= 22 * dt; bl.m.position.addScaledVector(bl.v, dt);
+    const fl = bl.m.userData.floor + bl.r * .6; if (bl.m.position.y < fl) { bl.m.position.y = fl; bl.v.y *= -.35; bl.v.x *= .6; bl.v.z *= .6; bl.m.scale.set(bl.r * 1.3, bl.r * .6, bl.r * 1.3); }
+    if (bl.life > 1.1) { const k = Math.max(0, 1 - (bl.life - 1.1) / .4); bl.m.scale.multiplyScalar(k > 0 ? .9 : 0); }
+    if (bl.life > 1.5) { scene.remove(bl.m); blobs.splice(i, 1); }
+  }
+  // puddles: spread, eyes roll out and settle, blink at you, then the jelly re-forms
+  for (let i = puddles.length - 1; i >= 0; i--) {
+    const pd = puddles[i]; pd.t += dt; const s = pd.ch.s;
+    const grow = Math.min(1, pd.t / .35), shrink = pd.t > 4.2 ? Math.max(0, 1 - (pd.t - 4.2) / .3) : 1, k = grow * shrink;
+    pd.pud.scale.set(1.15 * s * k, .12 * s * k, .95 * s * k);
+    for (const l of pd.lobes) { const r = l.userData.r * k; l.scale.set(r, r * .28, r); }
+    for (const e of pd.eyes) {
+      e.eg.position.lerp(e.target, Math.min(1, dt * 6));
+      e.eg.rotation.x = ease(e.eg.rotation.x, -.5, dt * 4);
+      e.lid.rotation.x = ((pd.t % 1.8) > 1.65 || pd.t > 4) ? 1.6 : -1.5;
+      e.eg.scale.setScalar(shrink);
+    }
+    if (pd.t > 4.5) {
+      scene.remove(pd.g); puddles.splice(i, 1);
+      const c = pd.ch; c.alive = true; c.root.visible = true; c.popT = 0; c.reformT = 0;
+    }
+  }
+  // re-form with an elastic boing
+  for (const c of chars) if (c.reformT !== undefined) {
+    c.reformT += dt; const x = Math.min(1, c.reformT / .5);
+    const e = 1 - Math.pow(2, -8 * x) * Math.cos(x * Math.PI * 3.2);
+    c.body.scale.multiplyScalar(Math.max(.01, e));
+    if (x >= 1) delete c.reformT;
+  }
+
+  // tags under the characters
+  for (const c of chars) if (c.tagEl) {
+    tmp.set(c.root.position.x, -.2, c.root.position.z + 1.6).project(camera);
+    const half = c.tagEl.offsetWidth / 2 + 6;
+    c.tagEl.style.left = Math.min(innerWidth - half, Math.max(half, (tmp.x * .5 + .5) * innerWidth)) + 'px';
+    c.tagEl.style.top = (-tmp.y * .5 + .5) * innerHeight + 'px';
+  }
+  tmp.set(0, 2.6, -4.6).project(camera);
+  herdTag.style.left = (tmp.x * .5 + .5) * innerWidth + 'px';
+  herdTag.style.top = (-tmp.y * .5 + .5) * innerHeight - 30 + 'px';
+  herdTag.style.transform = 'translate(-50%, -100%)';
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+document.fonts.ready.then(resize);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

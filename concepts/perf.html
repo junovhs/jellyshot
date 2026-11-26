@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Jellyshot · perf bench</title>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+</script>
+<style>
+/* Phone performance bench for the jelly characters. Loads Judge Gumbo pre-baked at three LODs
+   (scripts/bake-gumbo.mjs), renders the scenes we're choosing between, and prints numbers worth
+   screenshotting. Tap ▶ Run for the scripted benchmark; tap a chip to sit in one scene live. */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #bfe0f4; font: 600 13px/1.25 ui-rounded, system-ui, sans-serif; color: #2a2140; -webkit-user-select: none; user-select: none; }
+canvas#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.hud { position: fixed; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); top: max(8px, env(safe-area-inset-top));
+  display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 14px; background: rgba(20, 16, 40, .78); color: #fff; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.hud .fps { font: 800 30px/1 ui-rounded, system-ui; min-width: 2.2em; text-align: right; font-variant-numeric: tabular-nums; }
+.hud .fps.good { color: #7dffa8; } .hud .fps.ok { color: #ffd84a; } .hud .fps.bad { color: #ff6b7d; }
+.hud .meta { flex: 1; font-size: 11px; opacity: .9; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; }
+.hud canvas { width: 120px; height: 36px; flex: none; }
+.dock { position: fixed; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); bottom: max(8px, env(safe-area-inset-bottom));
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border-radius: 14px; background: rgba(20, 16, 40, .78); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+button { font: 800 12px/1 ui-rounded, system-ui; border: 0; border-radius: 10px; padding: 9px 10px; background: #e2cff8; color: #2a2140; cursor: pointer; touch-action: manipulation; }
+button.on { background: #ff8fb5; color: #fff; }
+button.run { background: #7dffa8; font-size: 14px; padding: 10px 14px; }
+#status { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); padding: 12px 18px; border-radius: 14px; background: rgba(20, 16, 40, .85); color: #fff; font-size: 15px; text-align: center; }
+#status:empty { display: none; }
+.results { position: fixed; inset: 0; overflow: auto; background: #fff8ee; padding: max(14px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); display: none; -webkit-user-select: text; user-select: text; }
+.results.show { display: block; }
+.results h1 { margin: 0 0 2px; font: 800 20px/1.1 ui-rounded, system-ui; color: #c2245e; }
+.results .dev { font-size: 11px; color: #5a4a70; margin-bottom: 10px; }
+.results table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 12px; }
+.results th { text-align: right; font-size: 10px; color: #6a5a80; padding: 2px 4px; font-weight: 700; }
+.results th:first-child, .results td:first-child { text-align: left; }
+.results td { text-align: right; padding: 6px 4px; border-top: 1px solid #ecdcc8; }
+.results td:first-child { font-weight: 700; }
+.results td small { display: block; font-weight: 600; color: #7a6a90; font-size: 10px; }
+.good { color: #12884a; } .ok { color: #b07800; } .bad { color: #d0284a; }
+.results td.fpsv { font: 800 16px ui-rounded, system-ui; }
+.results .notes { margin-top: 10px; font-size: 11px; color: #5a4a70; }
+.results .row { display: flex; gap: 8px; margin-top: 12px; }
+.results textarea { width: 100%; height: 90px; margin-top: 8px; font: 10px ui-monospace, monospace; display: none; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="hud"><div class="fps" id="fps">--</div><div class="meta" id="meta">loading…</div><canvas id="spark" width="240" height="72"></canvas></div>
+<div class="dock" id="dock"><button class="run" id="run">▶ Run benchmark</button></div>
+<div id="status">loading Gumbo…</div>
+<div class="results" id="results"></div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
+import { RoomEnvironment } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/environments/RoomEnvironment.js';
+import { fakeJelly, wobbly, jiggleUniforms } from './jelly-material.js';
+
+const $ = id => document.getElementById(id);
+const status = t => { $('status').textContent = t; };
+
+/* ======================================================================
+   Renderer
+   ====================================================================== */
+const canvas = $('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.info.autoReset = false;
+const MAX_DPR = Math.min(devicePixelRatio, 2);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#bfe0f4');
+scene.fog = new THREE.Fog('#cde6f2', 45, 95);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), .04).texture;
+scene.environmentIntensity = .5;
+scene.add(new THREE.HemisphereLight('#d8ecff', '#8fb86a', 1.2));
+const key = new THREE.DirectionalLight('#fff1dc', 2.5);
+key.position.set(-14, 26, 14); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 4; key.shadow.bias = -.0005; key.shadow.normalBias = .03;
+Object.assign(key.shadow.camera, { left: -28, right: 28, top: 28, bottom: -28, near: 1, far: 80 });
+scene.add(key);
+const rim = new THREE.DirectionalLight('#ffe2f0', 1.2); rim.position.set(12, 8, -18); scene.add(rim);
+
+const ground = new THREE.Mesh(new THREE.CircleGeometry(60, 64).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#94d26a', roughness: .9 }));
+ground.receiveShadow = true; scene.add(ground);
+const plaza = new THREE.Mesh(new THREE.CircleGeometry(6, 48).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#ffc9d9', roughness: .9 }));
+plaza.position.set(0, .01, -6); plaza.receiveShadow = true; scene.add(plaza);
+
+/* ======================================================================
+   Materials. 'real' = the transmission jelly from gumbo.html (costs an extra scene pass);
+   'fake' = no transmission: clearcoat gloss + a view-angle rim glow + a little inner light.
+   ====================================================================== */
+const U = jiggleUniforms(), T = U.uTime;
+const wob = mat => wobbly(mat, U);
+const MAT = {
+  real: wob(new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .08, transmission: .96, thickness: .9, ior: 1.34,
+    attenuationColor: '#ff7a1a', attenuationDistance: 1.05, clearcoat: 1, clearcoatRoughness: .05, emissive: '#ff7a1a', emissiveIntensity: .03 })),
+  fake: fakeJelly(U),
+  crowd: fakeJelly(U),
+  clay: wob(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .85 })),
+  gloss: wob(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .2 })),
+};
+
+
+/* ======================================================================
+   Load the baked LODs
+   ====================================================================== */
+const LOD = {}, loadInfo = {};
+async function loadLODs() {
+  const t0 = performance.now();
+  const man = await (await fetch('assets/gumbo-lods.json', { cache: 'no-store' })).json();
+  for (const [lod, m] of Object.entries(man)) {
+    const t1 = performance.now();
+    const buf = await (await fetch(m.file, { cache: 'no-store' })).arrayBuffer();
+    LOD[lod] = {};
+    for (const [grp, g] of Object.entries(m.groups)) {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(buf, g.pos, g.verts * 3), 3));
+      geo.setAttribute('normal', new THREE.BufferAttribute(new Int8Array(buf, g.nor, g.verts * 3), 3, true));
+      geo.setAttribute('color', new THREE.BufferAttribute(new Uint8Array(buf, g.col, g.verts * 3), 3, true));
+      geo.setIndex(new THREE.BufferAttribute(new Uint32Array(buf, g.idx, g.tris * 3), 1));
+      geo.computeBoundingSphere();
+      LOD[lod][grp] = geo;
+    }
+    loadInfo[lod] = { tris: m.tris, kb: Math.round(m.bytes / 1024), ms: Math.round(performance.now() - t1) };
+  }
+  loadInfo.totalMs = Math.round(performance.now() - t0);
+}
+
+/* ======================================================================
+   The cast: up to 50 named Gumbos (3 meshes each, LOD-swappable) + an instanced crowd
+   ====================================================================== */
+const named = [];
+let rs = 11; const rnd = () => (rs = (rs * 16807) % 2147483647) / 2147483647;
+const spots = [];
+while (spots.length < 50) {
+  const x = (rnd() - .5) * 34, z = -24 + rnd() * 30;
+  if (spots.every(s => Math.hypot(s.x - x, s.z - z) > 2.6)) spots.push({ x, z, s: .55 + rnd() * .6, r: (rnd() - .5) * 1.6, ph: rnd() * 6 });
+}
+function makeNamed() {
+  for (const sp of spots) {
+    const g = new THREE.Group(); g.position.set(sp.x, 0, sp.z); g.rotation.y = sp.r; g.scale.setScalar(sp.s);
+    const m = {};
+    for (const grp of ['jelly', 'clay', 'gloss']) {
+      const mesh = new THREE.Mesh(LOD.mid[grp], grp === 'jelly' ? MAT.fake : MAT[grp]);
+      mesh.castShadow = true; mesh.receiveShadow = grp !== 'jelly';
+      g.add(mesh); m[grp] = mesh;
+    }
+    scene.add(g);
+    named.push({ g, m, sp, lod: 'mid' });
+  }
+}
+// crowd: the concept's simple gumdrop, instanced (1 draw call for bodies, 1 for eyes)
+const CROWD_MAX = 300;
+let crowdBody, crowdEyes;
+function makeCrowd() {
+  const prof = [[0, 0], [.78, 0], [.95, .1], [1.0, .3], [.96, .62], [.84, .92], [.62, 1.16], [.34, 1.3], [0, 1.34]];
+  const pts = new THREE.SplineCurve(prof.map(([x, y]) => new THREE.Vector2(x, y))).getPoints(14).map(p => new THREE.Vector2(Math.max(0, p.x), p.y));
+  pts[pts.length - 1].x = 0;
+  const body = new THREE.LatheGeometry(pts, 20);
+  crowdBody = new THREE.InstancedMesh(body, MAT.crowd, CROWD_MAX);
+  const eye = new THREE.SphereGeometry(.2, 10, 8); eye.translate(0, .8, .82);
+  const eye2 = eye.clone().translate(.24, 0, 0); eye.translate(-.24, 0, 0);
+  const eyes = new THREE.BufferGeometry().copy(eye); // two eyes merged
+  const pos = new Float32Array([...eye.getAttribute('position').array, ...eye2.getAttribute('position').array]);
+  const nor = new Float32Array([...eye.getAttribute('normal').array, ...eye2.getAttribute('normal').array]);
+  const n = eye.getAttribute('position').count, idx = [...eye.index.array, ...[...eye2.index.array].map(i => i + n)];
+  eyes.setAttribute('position', new THREE.BufferAttribute(pos, 3)); eyes.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); eyes.deleteAttribute('uv'); eyes.setIndex(idx);
+  crowdEyes = new THREE.InstancedMesh(eyes, new THREE.MeshStandardMaterial({ color: '#fff', roughness: .2 }), CROWD_MAX);
+  // crowd colour goes through vertex colours, so give the body a white colour attribute and tint per instance
+  body.setAttribute('color', new THREE.BufferAttribute(new Float32Array(body.getAttribute('position').count * 3).fill(1), 3));
+  const cols = ['#ff86c4', '#4fdcb9', '#ff9a3c', '#a68cff', '#4a8dff', '#ffd84a', '#ff5a6e', '#3cc8e0', '#8ad84a'];
+  const c = new THREE.Color();
+  crowdBody.userData.spots = [];
+  for (let i = 0; i < CROWD_MAX; i++) {
+    let x, z, ok = false;
+    for (let t = 0; t < 40 && !ok; t++) { x = (rnd() - .5) * 40; z = -28 + rnd() * 36; ok = spots.every(s => Math.hypot(s.x - x, s.z - z) > 1.6); }
+    crowdBody.userData.spots.push({ x, z, s: .4 + rnd() * .25, r: rnd() * 6, ph: rnd() * 6 });
+    crowdBody.setColorAt(i, c.set(cols[i % cols.length]));
+  }
+  crowdBody.castShadow = true; crowdEyes.castShadow = false;
+  scene.add(crowdBody, crowdEyes);
+}
+
+/* ======================================================================
+   Cameras. 'scope' mimics the game: a wide eye camera renders the periphery at quarter
+   resolution (shown soft and darkened), then the scope camera renders the glass at full res.
+   'hero' is a single full-screen close-up of one character.
+   ====================================================================== */
+const PERCH = new THREE.Vector3(0, 16, 30);
+const scopeCam = new THREE.PerspectiveCamera(12, 1, .5, 200);
+const eyeCam = new THREE.PerspectiveCamera(48, 1, .5, 200);
+const heroCam = new THREE.PerspectiveCamera(30, 1, .1, 100);
+const rtEye = new THREE.WebGLRenderTarget(4, 4);
+const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+  uniforms: { tex: { value: rtEye.texture } }, depthTest: false, depthWrite: false,
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
+  fragmentShader: 'uniform sampler2D tex; varying vec2 vUv; void main(){ vec3 c = texture2D(tex, vUv).rgb; vec2 d = vUv - .5; gl_FragColor = vec4(c * (.55 - dot(d, d) * .6), 1.); }',
+}));
+const quadScene = new THREE.Scene(); quadScene.add(quad);
+const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const aimPt = new THREE.Vector3();
+
+/* ======================================================================
+   Scenarios
+   ====================================================================== */
+const SCEN = [
+  { id: 'hero-real', label: 'Hero close-up', sub: '1 × 40k tris · real jelly', named: 1, lod: 'hero', crowd: 0, jelly: 'real', shadows: true, dpr: 'max', view: 'hero' },
+  { id: 'hero-fake', label: 'Hero close-up', sub: '1 × 40k tris · fake jelly', named: 1, lod: 'hero', crowd: 0, jelly: 'fake', shadows: true, dpr: 'max', view: 'hero' },
+  { id: 'n50-real', label: '50 named · mid', sub: '50 × 10k · real jelly', named: 50, lod: 'mid', crowd: 0, jelly: 'real', shadows: true, dpr: 'max', view: 'scope' },
+  { id: 'n50-fake', label: '50 named · mid', sub: '50 × 10k · fake jelly', named: 50, lod: 'mid', crowd: 0, jelly: 'fake', shadows: true, dpr: 'max', view: 'scope' },
+  { id: 'fest', label: 'Festival', sub: '50 named (LOD) + 200 crowd · fake', named: 50, lod: 'auto', crowd: 200, jelly: 'fake', shadows: true, dpr: 'max', view: 'scope' },
+  { id: 'fest-noshadow', label: 'Festival', sub: '… no shadows', named: 50, lod: 'auto', crowd: 200, jelly: 'fake', shadows: false, dpr: 'max', view: 'scope' },
+  { id: 'fest-dpr1', label: 'Festival', sub: '… at 1× resolution', named: 50, lod: 'auto', crowd: 200, jelly: 'fake', shadows: true, dpr: 1, view: 'scope' },
+  { id: 'fest-real', label: 'Festival', sub: '… real jelly (worst case)', named: 50, lod: 'auto', crowd: 200, jelly: 'real', shadows: true, dpr: 'max', view: 'scope' },
+];
+let cur = null;
+function apply(sc) {
+  cur = sc;
+  const dpr = sc.dpr === 'max' ? MAX_DPR : sc.dpr;
+  renderer.setPixelRatio(dpr); resize();
+  key.castShadow = sc.shadows; renderer.shadowMap.enabled = sc.shadows;
+  scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });   // shadow toggle needs a recompile
+  named.forEach((n, i) => {
+    n.g.visible = i < sc.named;
+    n.m.jelly.material = MAT[sc.jelly];
+    setLOD(n, sc.lod === 'auto' ? 'mid' : sc.lod);
+  });
+  if (sc.view === 'hero') {   // the one character stands front and centre
+    const n = named[0]; n.g.position.set(0, 0, -6); n.g.rotation.y = .25; n.g.scale.setScalar(1);
+  } else { const n = named[0]; n.g.position.set(n.sp.x, 0, n.sp.z); n.g.rotation.y = n.sp.r; n.g.scale.setScalar(n.sp.s); }
+  crowdBody.count = crowdEyes.count = sc.crowd; crowdBody.visible = crowdEyes.visible = sc.crowd > 0;
+  document.querySelectorAll('.chip').forEach(b => b.classList.toggle('on', b.dataset.id === sc.id));
+}
+function setLOD(n, lod) {
+  if (n.lod === lod) return;
+  n.lod = lod;
+  for (const grp of ['jelly', 'clay', 'gloss']) n.m[grp].geometry = LOD[lod][grp];
+}
+
+/* ======================================================================
+   Frame
+   ====================================================================== */
+let W = 1, H = 1;
+function resize() {
+  W = innerWidth; H = innerHeight;
+  renderer.setSize(W, H, false);
+  const dpr = renderer.getPixelRatio();
+  rtEye.setSize(Math.max(2, Math.round(W * dpr / 4)), Math.max(2, Math.round(H * dpr / 4)));
+  eyeCam.aspect = heroCam.aspect = W / H; eyeCam.updateProjectionMatrix();
+  heroCam.fov = W / H < .8 ? 42 : 30; heroCam.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+
+const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v3 = new THREE.Vector3(), s3 = new THREE.Vector3(), eul = new THREE.Euler();
+function simulate(t) {
+  T.value = t;
+  for (let i = 0; i < named.length; i++) {
+    const n = named[i]; if (!n.g.visible) continue;
+    const b = Math.sin(t * 2 + n.sp.ph) * .02;
+    n.g.scale.set(n.g.scale.x, (cur.view === 'hero' && i === 0 ? 1 : n.sp.s) * (1 + b), n.g.scale.z);
+  }
+  if (cur.crowd) {
+    const sp = crowdBody.userData.spots;
+    for (let i = 0; i < cur.crowd; i++) {
+      const p = sp[i], hop = Math.max(0, Math.sin(t * 4 + p.ph)) * .15 * p.s;
+      q.setFromEuler(eul.set(0, p.r, 0)); v3.set(p.x, hop, p.z); s3.set(p.s, p.s * (1 + Math.sin(t * 8 + p.ph) * .04), p.s);
+      m4.compose(v3, q, s3); crowdBody.setMatrixAt(i, m4); crowdEyes.setMatrixAt(i, m4);
+    }
+    crowdBody.instanceMatrix.needsUpdate = crowdEyes.instanceMatrix.needsUpdate = true;
+  }
+}
+function draw(t) {
+  renderer.info.reset();
+  if (cur.view === 'hero') {
+    const a = t * .3;
+    heroCam.position.set(Math.sin(a) * 5.4, 1.8, -6 + Math.cos(a) * 5.4); heroCam.lookAt(0, 1.2, -6);
+    renderer.setRenderTarget(null); renderer.setViewport(0, 0, W, H); renderer.setScissorTest(false);
+    renderer.render(scene, heroCam);
+    return;
+  }
+  // the rifle drifts across the festival in a slow figure-eight, like a player scanning
+  aimPt.set(Math.sin(t * .23) * 12, 0, -9 + Math.sin(t * .46) * 9);
+  scopeCam.position.copy(PERCH); scopeCam.lookAt(aimPt);
+  eyeCam.position.copy(PERCH); eyeCam.lookAt(aimPt.x * .8, 0, aimPt.z * .8 - 2);
+  if (cur.lod === 'auto') {   // LOD by distance from where the scope is looking (and how magnified it is)
+    for (const n of named) if (n.g.visible) {
+      const d = Math.hypot(n.g.position.x - aimPt.x, n.g.position.z - aimPt.z);
+      setLOD(n, d < 5 ? 'hero' : d < 12 ? 'mid' : 'far');
+    }
+  }
+  renderer.setScissorTest(false);
+  renderer.setRenderTarget(rtEye); renderer.render(scene, eyeCam);
+  renderer.setRenderTarget(null); renderer.setViewport(0, 0, W, H); renderer.render(quadScene, quadCam);
+  const S = Math.round(Math.min(W, H) * .9), x = Math.round((W - S) / 2), y = Math.round((H - S) / 2);
+  scopeCam.aspect = 1; scopeCam.updateProjectionMatrix();
+  renderer.setViewport(x, y, S, S); renderer.setScissor(x, y, S, S); renderer.setScissorTest(true);
+  renderer.autoClear = false; renderer.clearDepth(); renderer.render(scene, scopeCam); renderer.autoClear = true;
+  renderer.setScissorTest(false);
+}
+
+/* ======================================================================
+   HUD: live fps, frame time sparkline, draw calls, triangles
+   ====================================================================== */
+const spark = $('spark').getContext('2d');
+const hist = new Float32Array(120); let hi = 0;
+let fpsAcc = 0, fpsN = 0, fpsT = 0;
+function hud(dt, cpu) {
+  hist[hi++ % hist.length] = dt;
+  fpsAcc += dt; fpsN++;
+  if (fpsAcc > 400) {
+    const fps = 1000 / (fpsAcc / fpsN);
+    const el = $('fps'); el.textContent = Math.round(fps); el.className = 'fps ' + (fps >= 55 ? 'good' : fps >= 30 ? 'ok' : 'bad');
+    const r = renderer.info.render;
+    $('meta').innerHTML = `${cur.label} <b>${cur.sub}</b><br>${(fpsAcc / fpsN).toFixed(1)} ms · cpu ${cpu.toFixed(1)} ms · ${r.calls} calls · ${(r.triangles / 1000).toFixed(0)}k tris · ${renderer.getPixelRatio().toFixed(1)}× ${Math.round(W * renderer.getPixelRatio())}×${Math.round(H * renderer.getPixelRatio())}`;
+    fpsAcc = fpsN = 0;
+  }
+  const w = 240, h = 72; spark.clearRect(0, 0, w, h);
+  spark.strokeStyle = 'rgba(255,255,255,.25)'; spark.lineWidth = 1;
+  for (const ms of [16.7, 33.3]) { const yy = h - ms / 50 * h; spark.beginPath(); spark.moveTo(0, yy); spark.lineTo(w, yy); spark.stroke(); }
+  spark.strokeStyle = '#7dffa8'; spark.lineWidth = 2; spark.beginPath();
+  for (let i = 0; i < hist.length; i++) { const v = hist[(hi + i) % hist.length], yy = h - Math.min(v, 50) / 50 * h; i ? spark.lineTo(i * 2, yy) : spark.moveTo(0, yy); }
+  spark.stroke();
+}
+
+/* ======================================================================
+   Benchmark: each scenario warms up for 1.2 s, then records 4 s of frames
+   ====================================================================== */
+let bench = null;
+const results = [];
+function startBench() {
+  results.length = 0;
+  bench = { i: 0, t0: performance.now(), frames: [], cpu: [], calls: 0, tris: 0 };
+  apply(SCEN[0]);
+  $('results').classList.remove('show');
+}
+function benchTick(now, dt, cpu) {
+  const el = now - bench.t0, sc = SCEN[bench.i];
+  status(`${bench.i + 1}/${SCEN.length} · ${sc.label}\n${sc.sub}`);
+  if (el > 1200) { bench.frames.push(dt); bench.cpu.push(cpu); bench.calls = renderer.info.render.calls; bench.tris = Math.max(bench.tris, renderer.info.render.triangles); }
+  if (el < 5200) return;
+  const f = [...bench.frames].sort((a, b) => a - b), n = f.length;
+  const avg = f.reduce((a, b) => a + b, 0) / n;
+  results.push({ id: sc.id, label: sc.label, sub: sc.sub, fps: 1000 / avg, p50: f[Math.floor(n * .5)], p95: f[Math.floor(n * .95)], max: f[n - 1],
+    jank: f.filter(x => x > 25).length / n * 100, cpu: bench.cpu.reduce((a, b) => a + b, 0) / n, calls: bench.calls, tris: bench.tris, frames: n });
+  bench.i++;
+  if (bench.i >= SCEN.length) { bench = null; status(''); sculptTest().then(showResults); return; }
+  bench.t0 = now; bench.frames = []; bench.cpu = []; bench.tris = 0;
+  apply(SCEN[bench.i]);
+}
+// how long this device takes to sculpt one mid-detail body live (the reason we bake offline)
+let sculptMs = null;
+async function sculptTest() {
+  status('timing a live sculpt…');
+  await new Promise(r => setTimeout(r, 50));
+  const { bodySDF, bodyColor } = await import('./gumbo-model.js');
+  const { sculpt } = await import('./sculpt.js');
+  const t0 = performance.now();
+  sculpt(bodySDF, bodyColor, [-1.35, -.02, -1.3], [1.35, 1.8, 1.3], .024);
+  sculptMs = Math.round(performance.now() - t0);
+  status('');
+}
+
+/* ======================================================================
+   Results card (screenshot this)
+   ====================================================================== */
+function gpuName() {
+  const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info');
+  return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+}
+const refresh = { min: 1e9 };
+function device() {
+  const ua = navigator.userAgent;
+  const os = (ua.match(/iPhone OS [\d_]+|iPad; CPU OS [\d_]+|Android [\d.]+|Mac OS X [\d_]+|Windows NT [\d.]+|Linux/) || ['?'])[0].replace(/_/g, '.');
+  const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+  return { os, gpu: gpuName(), screen: `${screen.width}×${screen.height} @${devicePixelRatio}×`, cores: navigator.hardwareConcurrency || '?', mem: navigator.deviceMemory || '?',
+    standalone, refreshHz: refresh.min < 1e9 ? Math.round(1000 / refresh.min) : '?', ua };
+}
+const cls = fps => (fps >= 55 ? 'good' : fps >= 30 ? 'ok' : 'bad');
+function showResults() {
+  const d = device();
+  const rows = results.map(r => `<tr><td>${r.label}<small>${r.sub}</small></td><td class="fpsv ${cls(r.fps)}">${r.fps.toFixed(0)}</td>
+    <td>${r.p95.toFixed(1)}<small>p50 ${r.p50.toFixed(1)}</small></td><td>${r.max.toFixed(0)}</td><td class="${r.jank > 5 ? 'bad' : r.jank > 1 ? 'ok' : 'good'}">${r.jank.toFixed(1)}%</td>
+    <td>${r.cpu.toFixed(1)}</td><td>${r.calls}<small>${(r.tris / 1000).toFixed(0)}k tris</small></td></tr>`).join('');
+  const L = loadInfo;
+  $('results').innerHTML = `<h1>Jellyshot perf · ${new Date().toLocaleString()}</h1>
+    <div class="dev">${d.os} · GPU: ${d.gpu} · ${d.screen} · ${d.cores} cores · mem ${d.mem} GB · ~${d.refreshHz} Hz · ${d.standalone ? 'installed app' : 'browser tab'}<br>
+    Loaded LODs in ${L.totalMs} ms: hero ${L.hero.tris.toLocaleString()} tris (${L.hero.kb} KB), mid ${L.mid.tris.toLocaleString()} (${L.mid.kb} KB), far ${L.far.tris.toLocaleString()} (${L.far.kb} KB)
+    · live sculpt of one mid body: <b>${sculptMs ?? '–'} ms</b></div>
+    <table><tr><th>scene</th><th>fps</th><th>p95 ms</th><th>worst</th><th>jank</th><th>cpu ms</th><th>calls</th></tr>${rows}</table>
+    <div class="notes">fps = average over 4 s after 1.2 s warm-up. p95 = 95th-percentile frame time. jank = frames over 25 ms.
+    cpu = JS + draw submission per frame (GPU time isn't measurable in Safari). Phones throttle when warm: run it twice.</div>
+    <div class="row"><button class="run" id="again">▶ Run again</button><button id="copy">Copy as text</button><button id="close">Live view</button></div>
+    <textarea id="dump" readonly></textarea>`;
+  $('results').classList.add('show');
+  const text = JSON.stringify({ device: d, load: L, sculptMs, results: results.map(r => ({ ...r, fps: +r.fps.toFixed(1), p50: +r.p50.toFixed(1), p95: +r.p95.toFixed(1), max: +r.max.toFixed(1), jank: +r.jank.toFixed(1), cpu: +r.cpu.toFixed(2) })) });
+  $('again').onclick = startBench;
+  $('close').onclick = () => $('results').classList.remove('show');
+  $('copy').onclick = async () => {
+    try { await navigator.clipboard.writeText(text); $('copy').textContent = 'Copied ✓'; }
+    catch { const ta = $('dump'); ta.style.display = 'block'; ta.value = text; ta.select(); $('copy').textContent = 'Select + copy below'; }
+  };
+  apply(SCEN.find(s => s.id === 'fest'));
+}
+
+/* ======================================================================
+   Boot
+   ====================================================================== */
+const clock = { last: 0, start: 0 };
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = clock.last ? now - clock.last : 16.7; clock.last = now;
+  if (dt > 4) refresh.min = Math.min(refresh.min, dt);
+  const c0 = performance.now();
+  simulate((now - clock.start) / 1000);
+  draw((now - clock.start) / 1000);
+  const cpu = performance.now() - c0;
+  hud(dt, cpu);
+  if (bench) benchTick(now, dt, cpu);
+}
+(async () => {
+  try { await loadLODs(); } catch (e) { status('Could not load baked LODs: run scripts/bake-gumbo.mjs\n' + e.message); return; }
+  makeNamed(); makeCrowd();
+  for (const sc of SCEN) {
+    const b = document.createElement('button'); b.className = 'chip'; b.dataset.id = sc.id;
+    b.textContent = sc.label === 'Festival' && sc.id !== 'fest' ? sc.sub.replace('… ', '') : `${sc.label} · ${sc.jelly}`;
+    b.onclick = () => { bench = null; status(''); apply(sc); };
+    $('dock').appendChild(b);
+  }
+  $('run').onclick = startBench;
+  apply(SCEN.find(s => s.id === 'fest'));
+  status('');
+  // compile every material variant up front so the benchmark doesn't time shader compiles
+  renderer.compile(scene, scopeCam);
+  clock.start = performance.now();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
