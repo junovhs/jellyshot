@@ -121,6 +121,7 @@ function killNPC(n, info = {}) {
   if (where === 'water') { splashAt(n.x, n.y); splashAt(n.x + 8, n.y - 3); }
   else { blobs(n.x, by, n.col, 26 + (n.kind === 'target' ? 20 : 0)); }
   sfx(n.kind === 'target' ? 'popBig' : 'pop');
+  G.hitmark = 1; G.hitmarkC = n.kind === 'target' ? '#ff2d63' : '#ffffff';
   hitstop(n.kind === 'target' ? .07 : .035);
   shake(n.kind === 'target' ? 7 : 3);
 
@@ -373,6 +374,7 @@ function impact(b) {
   if (hit) G.hits++;
   if (hit?.what === 'prop') {
     const r = hit.p.shot(hit.h, b.ammo);
+    if (r === 'prop') { G.hitmark = 1; G.hitmarkC = '#ffd36b'; }
     if (r === 'lure') lure(b.x, b.y);
     if (b.ammo === 'fizz') fizz(b.x, b.y, null);
     return;
@@ -540,6 +542,8 @@ function update(dt, raw) {
   if (want && G.breath > 0) { G.steady = Math.min(1, G.steady + raw * 5); G.breath -= raw * .3 / G.rifle.breath; if (G.breath <= 0) { G.breath = 0; G.breathLock = true; sfx('gasp'); } }
   else { G.steady = Math.max(0, G.steady - raw * 4); G.breath = Math.min(1, G.breath + raw * .2); if (G.breathLock && G.breath > .4) G.breathLock = false; }
   G.kick = Math.max(0, G.kick - raw * 2.6);
+  G.hitmark = Math.max(0, (G.hitmark || 0) - raw * 2.5);
+  if (G.steady > .5) { G.beatT = (G.beatT || 0) - raw; if (G.beatT <= 0) { G.beatT = .85 - (1 - G.breath) * .35; sfx('beat'); } }
   G.recoil = Math.max(0, (G.recoil || 0) - raw * 50);
   G.flash = Math.max(0, (G.flash || 0) - raw * 5);
   G.shake = Math.max(0, G.shake - raw * 30);
@@ -648,6 +652,11 @@ function render() {
   }
   g.globalAlpha = 1;
   drawOverhead();
+  // sparkles on discovered opportunities
+  for (const p of G.props) if (p.opp && G.disc.has(p.opp) && p.dx != null && p.state !== 'boom' && !['smashed', 'broken', 'blown', 'down', 'fallen', 'crashed', 'deflated', 'gone', 'collapse'].includes(p.state)) {
+    const tw = .6 + Math.sin(G.clock * 4 + p.dx) * .4;
+    g.globalAlpha = tw; txt('✦', p.dx + 18 / S, p.dy - (p.id === 'balloon' ? p.h : 0) - 14 / S, 14 / S, '#ffd36b'); g.globalAlpha = 1;
+  }
   for (const p of G.props) p.drawSky?.();
   // impact marks
   for (const m of G.marks) { g.globalAlpha = clamp(m.life, 0, 1) * .7; circ(m.x, m.y, 2 / S * 1.5, '#50334f'); g.globalAlpha = 1; }
@@ -691,6 +700,28 @@ function drawScope(cx, cy, R) {
   g.beginPath(); g.arc(cx, cy, R - 8, Math.PI * .62, Math.PI * .62 + Math.PI * .26 * G.breath); g.strokeStyle = G.breathLock ? '#ff4d6d' : '#c1f6ffaa'; g.lineWidth = 4; g.lineCap = 'round'; g.stroke();
   if (G.reloading > 0) { const k = 1 - G.reloading / G.rifle.reload; g.beginPath(); g.arc(cx, cy, 22, -Math.PI / 2, -Math.PI / 2 + TAU * k); g.strokeStyle = '#ffe066'; g.lineWidth = 3; g.stroke(); txt('RELOADING', cx, cy + 36, 10, '#ffe066'); }
   if (G.flash > 0) circ(cx, cy, R, `rgba(255,242,210,${G.flash * (REDUCE ? .06 : .18)})`);
+  // hit marker
+  if (G.hitmark > 0) {
+    const k = G.hitmark, d1 = 14 + (1 - k) * 8, d2 = d1 + 10, c = G.hitmarkC || '#fff';
+    g.globalAlpha = Math.min(1, k * 2);
+    for (const [sx, sy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) ln(cx + sx * d1, cy + sy * d1, cx + sx * d2, cy + sy * d2, c, 3);
+    g.globalAlpha = 1;
+  }
+  // edge arrows toward targets outside the scope
+  const S = scale(), [sx0, sy0] = sway();
+  for (const id of ['mayor', 'baroness', 'judge']) {
+    const n = G.byId[id]; if (!n?.alive) continue;
+    const ny = n.inBalloon ? 262 - (G.props.find(p => p.id === 'balloon')?.h || 0) : n.y - n.r;
+    const dx = (n.x - G.cam.x) * S - sx0, dy = (ny - G.cam.y) * S - sy0, d = Math.hypot(dx, dy);
+    if (d < R - 12) continue;
+    const a = Math.atan2(dy, dx), ax = cx + Math.cos(a) * (R - 16), ay = cy + Math.sin(a) * (R - 16);
+    g.save(); g.translate(ax, ay); g.rotate(a);
+    g.globalAlpha = .85 + Math.sin(G.clock * 6) * .15;
+    poly([8, 0, -6, -7, -3, 0, -6, 7], n.react?.type === 'flee' ? '#ffb84c' : '#ff2d63');
+    g.restore();
+    txt(TARGET_INFO[id].short[0], cx + Math.cos(a) * (R - 32), cy + Math.sin(a) * (R - 32), 9, '#ffd0dc');
+    g.globalAlpha = 1;
+  }
 }
 
 /* ---------- minimap ---------- */
@@ -1061,6 +1092,7 @@ function sfx(n, k = 1) {
     case 'reload': tone(600, .05, 'square', .03); tone(420, .05, 'square', .03, null, .12); break;
     case 'cock': tone(300, .05, 'square', .04); noise(.04, .06, 4000, 'highpass', .05); break;
     case 'click': tone(1200, .03, 'square', .02); break;
+    case 'beat': tone(55, .12, 'sine', .09, 40); tone(50, .1, 'sine', .07, 38, .14); break;
     case 'gasp': noise(.35, .05, 1400, 'bandpass'); break;
   }
 }
