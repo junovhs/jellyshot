@@ -1,6 +1,6 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "jellyshot", "runtimeExecutable": "npx", "runtimeArgs": ["--yes", "http-server", "-p", "5177", "-c-1", "-s"], "port": 5177 }
+    { "name": "jellyshot", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 5177 }
   ]
 }

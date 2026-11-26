@@ -13,12 +13,11 @@
   <link rel="apple-touch-icon" href="icon.svg">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <title>JELLYSHOT</title>
-  <link rel="stylesheet" href="style.css?v=10">
 </head>
 
 <body>
   <main id="game" aria-label="Jellyshot game">
-    <canvas id="world" tabindex="0" aria-label="Sniper scope. Drag to aim, pinch to zoom."></canvas>
+    <canvas id="world" tabindex="0" aria-label="Sniper scope. Drag to aim, pinch to zoom, pinch out to lower the rifle."></canvas>
 
     <div class="hud" id="hudwrap" hidden>
       <div class="topbar">
@@ -39,6 +38,7 @@
         </div>
         <div class="rightbox">
           <div class="tools">
+            <button class="control ffbtn" id="ff" aria-label="Fast forward" title="Fast forward (F)">▸▸</button>
             <button class="control" id="intelBtn" aria-label="Intel and pause" title="Intel (Tab)"><svg viewBox="0 0 24 24">
                 <path d="M4 6h16M4 12h16M4 18h10" />
               </svg></button>
@@ -68,8 +68,8 @@
           <button class="ammo" id="ammo" aria-label="Switch ammo" data-type="std"><span id="ammoName">GUMMY</span><span class="mag" id="mag"></span></button>
           <div class="row">
             <button class="chip" id="zoom" aria-label="Cycle zoom">1.0×</button>
+            <button class="chip small" id="surveyBtn" aria-label="Lower rifle to survey" title="Survey (E / right-click)"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg></button>
             <button class="chip small" id="reloadBtn" aria-label="Reload">⟳</button>
-            <button class="chip small" id="ff" aria-label="Fast forward">▸▸</button>
           </div>
         </div>
         <div class="rightctl">
@@ -83,6 +83,7 @@
       </div>
       <button id="extract" class="extract" hidden>FINISH CONTRACT ▸</button>
       <div class="hint" id="hint">DRAG TO AIM · HOLD BREATH TO STEADY · FIRE TO POP</div>
+      <div class="surveyhint" id="surveyhint">SURVEYING · TAP ANYWHERE TO RAISE THE SCOPE THERE</div>
     </div>
 
     <div class="combo" id="combo" aria-hidden="true"></div>
@@ -120,8 +121,9 @@
         <div class="controls">
           <b>HOW TO PLAY</b>
           <p><b>Drag</b> to aim · <b>pinch</b> or tap <b>zoom</b> · hold <b>BREATH</b> to steady · <b>FIRE</b> to pop.<br>
+            Lower the rifle with <b>👁</b> (or pinch all the way out) to <b>survey</b> the whole festival, then tap anywhere to raise the scope there. The rifle also comes down while you reload.<br>
             Tap the <b>map</b> to jump the scope. <b>▸▸</b> fast-forwards time. <b>☰</b> opens intel (pauses).<br>
-            Keyboard: WASD/arrows · Space fire · Shift breath · Z zoom · R reload · Q ammo · F fast-forward · Tab intel. Click to fire.</p>
+            Keyboard: WASD/arrows · Space or click fire · Shift breath · Z/wheel zoom · E or right-click survey · R reload · Q ammo · F fast-forward · Tab intel.</p>
           <p><b>Puddles</b> in the open get noticed. Pop jellies in <b>water, bushes or chocolate</b> to hide them. Too much panic and the targets run for the exits.</p>
         </div>
       </div>
@@ -165,10 +167,7 @@
       </div>
     </section>
   </main>
-  <script src="js/data.js?v=10"></script>
-  <script src="js/world.js?v=10"></script>
-  <script src="js/npc.js?v=10"></script>
-  <script src="js/game.js?v=10"></script>
+  <script type="module" src="/src/main.ts"></script>
 </body>
 
 </html>

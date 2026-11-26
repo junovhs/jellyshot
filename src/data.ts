@@ -1,14 +1,16 @@
-'use strict';
 /* =====================================================================
    JELLYSHOT — contract data: world layout, cast, schedules, dialogue,
    challenges and progression. Everything that makes the Jubilee tick.
    ===================================================================== */
+import type { Ellipse, Pt } from "./util";
 
-const WORLD = { w: 2000, h: 1300 };
-const MISSION_LEN = 300; // seconds of festival
-const TAU = Math.PI * 2;
+export const WORLD = { w: 2000, h: 1300 };
+export const MISSION_LEN = 300; // seconds of festival
 
-const PAL = {
+export const TARGET_IDS = ['mayor', 'baroness', 'judge'] as const;
+export type TargetId = typeof TARGET_IDS[number];
+
+export const PAL = {
   pink: ['#ff599c', '#ffd0e5', '#ba2871'],
   lime: ['#83dc65', '#dcffac', '#409c49'],
   sky: ['#57c9f6', '#c1f6ff', '#2688bd'],
@@ -21,11 +23,12 @@ const PAL = {
   navy: ['#6a86ea', '#dbe2ff', '#3a4fae'],
   lemon: ['#f2e85a', '#fffbc8', '#b5a51e'],
   rose: ['#ff8fb0', '#ffe3ec', '#c95378']
-};
-const PAL_KEYS = Object.keys(PAL);
+} satisfies Record<string, [string, string, string]>;
+export type PalKey = keyof typeof PAL;
+export const PAL_KEYS = Object.keys(PAL) as PalKey[];
 
 /* ---------- key places ---------- */
-const LOC = {
+export const LOC = {
   fountain: { x: 1000, y: 640 },
   podium: { x: 1000, y: 302 },
   shed: { x: 1262, y: 300 },
@@ -45,15 +48,16 @@ const LOC = {
   lemonade: { x: 770, y: 1066 },
   cotton: { x: 1232, y: 1066 },
   crane: { x: 1128, y: 262 }
-};
+} satisfies Record<string, { x: number; y: number }>;
 
-const WATER = [
+export interface Water extends Ellipse { id: 'pond' | 'lily' | 'choc'; name: string }
+export const WATER: Water[] = [
   { id: 'pond', x: 420, y: 935, rx: 235, ry: 132, name: 'the duck pond' },
   { id: 'lily', x: 1560, y: 770, rx: 88, ry: 46, name: 'the lily pond' },
   { id: 'choc', x: 1000, y: 640, rx: 70, ry: 38, name: 'the chocolate fountain' }
 ];
 
-const BUSHES = [
+export const BUSHES: Ellipse[] = [
   { x: 1415, y: 560, rx: 46, ry: 26 }, { x: 1470, y: 545, rx: 40, ry: 22 },
   { x: 1690, y: 720, rx: 44, ry: 26 }, { x: 1440, y: 790, rx: 50, ry: 26 },
   { x: 1700, y: 600, rx: 38, ry: 22 }, { x: 790, y: 230, rx: 52, ry: 26 },
@@ -63,7 +67,7 @@ const BUSHES = [
   { x: 1300, y: 1180, rx: 44, ry: 24 }, { x: 700, y: 1180, rx: 46, ry: 24 }
 ];
 
-const PATHS = [
+export const PATHS: Pt[][] = [
   [[1000, 1300], [1000, 1060], [1000, 760]],
   [[1000, 540], [1000, 360]],
   [[880, 600], [720, 540], [600, 520]],
@@ -76,12 +80,9 @@ const PATHS = [
   [[1110, 420], [1250, 330]]
 ];
 
-const EXITS = {
-  gate: { x: 1000, y: 1300 }
-};
-
 /* ---------- festival schedule ---------- */
-const PHASES = [
+export interface Phase { t: number; id: string; name: string; sub: string }
+export const PHASES: Phase[] = [
   { t: 0, id: 'arrive', name: 'ARRIVALS', sub: 'Guests mingle in the square' },
   { t: 50, id: 'cake', name: 'THE BIG CAKE CEREMONY', sub: 'The Mayor speaks at the stage' },
   { t: 100, id: 'pie', name: 'THE GREAT PIE JUDGING', sub: 'Judge Gumbo tastes the entries' },
@@ -91,7 +92,7 @@ const PHASES = [
 ];
 
 /* ---------- dialogue ---------- */
-const LINES = {
+export const LINES = {
   greet: ['Welcome, welcome!', 'Vote Wobbleton!', 'Lovely to see you!', 'Mind the fountain, it\'s chocolate.', 'Have you SEEN my sash?', 'Ha ha! Ha. Ha.'],
   speech: ['Citizens of Gumdrop Hollow!', 'This cake... is a metaphor.', 'Nine years of FAIR jam contests!', 'Applause here, please.', 'I am a humble jelly.', 'The cake is HUGE. Like my heart.'],
   speechAlt: ['The cake fell, but I shall speak!', 'This was ALWAYS the plan.', 'A fountain is basically a stage.', 'Someone fire the crane guy.'],
@@ -146,10 +147,12 @@ const LINES = {
   balloonGone: ['My balloon! Carriage it is.'],
   hermit: ['Visitors?!', 'Is this... a party?', 'I haven’t been out since 1994.', 'Hello, people!', 'So many faces.', 'What is a jubilee?'],
   vendorChase: ['MY BALLOONS!', 'Come back!', 'That\'s my whole stock!']
-};
+} satisfies Record<string, string[]>;
+export type LineKey = keyof typeof LINES;
+export const isLineKey = (k: unknown): k is LineKey => typeof k === 'string' && Object.hasOwn(LINES, k);
 
 /* ---------- the handler (your voice in the ear) ---------- */
-const HANDLER = {
+export const HANDLER = {
   intro: [
     'Afternoon. Welcome to the Gumdrop Jubilee.',
     'Three marks: the Mayor, the Baroness, the Judge. The Sugarplum Syndicate.',
@@ -183,7 +186,8 @@ const HANDLER = {
 };
 
 /* ---------- people ---------- */
-const TARGET_INFO = {
+export interface TargetInfo { name: string; short: string; dossier: string; sched: string[] }
+export const TARGET_INFO: Record<TargetId, TargetInfo> = {
   mayor: {
     name: 'Mayor Wobbleton', short: 'MAYOR',
     dossier: 'Host of the Jubilee. Rigged the Great Jam Contest nine years running. Loves ducks, speeches and the sound of his own wobble.',
@@ -201,7 +205,7 @@ const TARGET_INFO = {
   }
 };
 
-const OPPS = {
+export const OPPS = {
   cake: { name: 'The Big Cake', hint: 'A one-ton cake dangles over the podium by a single rope. The ceremony starts with 4:10 left on the clock.' },
   oven: { name: 'The Rickety Oven', hint: 'The pie tent oven is held together with hope. A shot will make it overheat… and blow.' },
   gumball: { name: 'Giant Gumball Machine', hint: 'Thin glass. Lots of gumballs. A steep path downhill.' },
@@ -217,10 +221,21 @@ const OPPS = {
   pump: { name: 'Fountain Pump', hint: 'The chocolate fountain’s pump is over-pressurised. Shoot it and anyone at the rim gets fondue’d. The Mayor and the Baroness chat there until 4:10 is left.' },
   sign: { name: 'The Welcome Sign', hint: 'A heavy sign hangs over the south gate by two chains. Everyone leaving walks right under it, even targets fleeing a lockdown.' },
   fountain: { name: 'The Chocolate Fountain', hint: 'Anything popped in the chocolate is hidden from view. Same goes for ponds and bushes.' }
-};
+} satisfies Record<string, { name: string; hint: string }>;
+export type OppId = keyof typeof OPPS;
+export const OPP_IDS = Object.keys(OPPS) as OppId[];
 
-/* civilians: built by plan helpers in npc.js */
-const CAST_CIVS = [
+/* civilians: built by plan helpers in npc.ts */
+export type Hat = 'none' | 'tophat' | 'tophat2' | 'tiara' | 'chef' | 'guard' | 'bow' | 'bonnet' | 'cap' | 'straw' | 'beret' | 'hard' | 'paper' | 'beanie';
+export type HotKey = 'plaza' | 'stalls' | 'icecream' | 'busker' | 'garden' | 'pondside' | 'pie' | 'maypoleWatch';
+export type ItemKind = 'bunch' | 'banjo' | 'rod' | 'can' | 'camera' | 'pie' | 'fan';
+export interface CivDef {
+  id: string; name: string; role: string; col: PalKey; hat: Hat;
+  plan: 'contestant' | 'vendor' | 'fisher' | 'gardener' | 'crane' | 'follow' | 'mc' | 'attendee' | 'kid' | 'partner' | 'dancer';
+  slot?: number; lines?: LineKey; at?: Pt; act?: string; label?: string; item?: ItemKind;
+  who?: string; off?: Pt; home?: HotKey; alt?: HotKey; dances?: boolean; partner?: string; parent?: string; kid?: boolean;
+}
+export const CAST_CIVS: CivDef[] = [
   // id, name, role, col, size, hat, kind-specific
   { id: 'granny', name: 'Granny Marmalade', role: 'Pie contestant · the client', col: 'cocoa', hat: 'bonnet', plan: 'contestant', slot: 0, lines: 'granny' },
   { id: 'barnaby', name: 'Barnaby Crumb', role: 'Pie contestant', col: 'gold', hat: 'none', plan: 'contestant', slot: 1 },
@@ -261,7 +276,8 @@ const CAST_CIVS = [
   { id: 'lars', name: 'Licorice Lars', role: 'Festival-goer · suspicious type', col: 'navy', hat: 'beanie', plan: 'attendee', home: 'garden', alt: 'stalls', dances: false }
 ];
 
-const CAST_GUARDS = [
+export interface GuardDef { id: string; name: string; role: string; follow?: TargetId; off?: Pt; patrol?: Pt[] }
+export const CAST_GUARDS: GuardDef[] = [
   { id: 'g_mayor', name: 'Officer Gumm', role: 'Bodyguard · protects the Mayor', follow: 'mayor', off: [-34, 10] },
   { id: 'g_baroness', name: 'Sgt. Drops', role: 'Bodyguard · protects the Baroness', follow: 'baroness', off: [34, 10] },
   { id: 'g_judge', name: 'Constable Chew', role: 'Bodyguard · protects the Judge', follow: 'judge', off: [-32, 12] },
@@ -271,7 +287,8 @@ const CAST_GUARDS = [
 ];
 
 /* ---------- challenges (hour to hour) ---------- */
-const CHALLENGES = [
+export interface Challenge { id: string; group: string; name: string; desc: string }
+export const CHALLENGES: Challenge[] = [
   { id: 'cake', group: 'Assassinations', name: 'Let Them Eat Cake', desc: 'Pop a target with the Big Cake.' },
   { id: 'fondue', group: 'Assassinations', name: 'Fondue for Two', desc: 'Pop the Mayor and the Baroness together with the fountain pump.' },
   { id: 'cake3', group: 'Assassinations', name: 'Party\'s Over', desc: 'Pop all three targets with the Big Cake.' },
@@ -309,13 +326,13 @@ const CHALLENGES = [
   { id: 'opps', group: 'Collectibles', name: 'Eagle Eye', desc: 'Discover every opportunity in one contract.' }
 ];
 
-const DUCKS = [[330, 900], [470, 980], [560, 1010], [990, 650], [1585, 772], [250, 960]];
-const GNOMES = [[1880, 1200], [120, 1180], [1900, 160], [760, 160], [1460, 1230]];
+export const DUCKS: Pt[] = [[330, 900], [470, 980], [560, 1010], [990, 650], [1585, 772], [250, 960]];
+export const GNOMES: Pt[] = [[1880, 1200], [120, 1180], [1900, 160], [760, 160], [1460, 1230]];
 
 /* ---------- rifle progression ---------- */
 // cumulative XP needed to reach a level: 0, 5k, 15k, 30k, 50k, 75k ...
-const xpForLevel = l => 2500 * l * (l - 1);
-const UNLOCKS = [
+export const xpForLevel = (l: number): number => 2500 * l * (l - 1);
+export const UNLOCKS: { lvl: number; text: string }[] = [
   { lvl: 1, text: 'Gummy Rifle · 4-round magazine · 2.0× zoom' },
   { lvl: 2, text: 'Scope upgrade · 2.6× zoom' },
   { lvl: 3, text: 'FIZZ ROUNDS · non-lethal shove (3 per contract)' },
@@ -326,7 +343,8 @@ const UNLOCKS = [
   { lvl: 8, text: 'Speed loader · 40% faster reloads' },
   { lvl: 10, text: 'Golden Scope · pure bragging rights' }
 ];
-function rifleFor(level) {
+export interface Rifle { maxZoom: number; mag: number; fizz: number; bomb: number; breath: number; reload: number; golden: boolean }
+export function rifleFor(level: number): Rifle {
   return {
     maxZoom: level >= 7 ? 3.2 : level >= 2 ? 2.6 : 2.0,
     mag: level >= 4 ? 6 : 4,

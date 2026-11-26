@@ -1,10 +1,15 @@
-'use strict';
 /* =====================================================================
    NPCs: every jelly has a schedule, a job, people they care about,
    and a way of freaking out. Plans are lists of timed steps.
    ===================================================================== */
+import { CAST_CIVS, CAST_GUARDS, LINES, LOC, PAL, PAL_KEYS, TARGET_IDS, TARGET_INFO, WORLD, isLineKey, type Hat, type HotKey, type PalKey } from "./data";
+import { circ, ell, g, ln, poly, ringS, rrect, txt } from "./draw";
+import { award, escapeTarget, killNPC, leave } from "./rules";
+import { G, type Dyn, type NPC, type Reaction, type ReactType, type Step } from "./state";
+import { TAU, clamp, dist, pick, rand, type Ellipse, type Pt } from "./util";
+import { onDock, waterAt } from "./world";
 
-const HOT = {
+export const HOT: Record<HotKey, Ellipse> = {
   plaza: { x: 1000, y: 712, rx: 240, ry: 110 },
   stalls: { x: 1000, y: 1108, rx: 230, ry: 46 },
   icecream: { x: 806, y: 872, rx: 70, ry: 32 },
@@ -14,12 +19,12 @@ const HOT = {
   pie: { x: 560, y: 590, rx: 96, ry: 30 },
   maypoleWatch: { x: 1350, y: 1080, rx: 120, ry: 22 }
 };
-const HOTNAME = { plaza: 'the square', stalls: 'the market stalls', icecream: 'the ice cream cart', busker: 'the busker', garden: 'the garden', pondside: 'the pond', pie: 'the pie tent', maypoleWatch: 'the maypole' };
-const SHED_SPOTS = [[1222, 320], [1302, 320], [1262, 340]];
-const BENCH_SPOTS = [[1488, 706], [1532, 706], [1510, 724]];
-const meet = i => () => G.flags.meetBench ? BENCH_SPOTS[i] : SHED_SPOTS[i];
+const HOTNAME: Record<HotKey, string> = { plaza: 'the square', stalls: 'the market stalls', icecream: 'the ice cream cart', busker: 'the busker', garden: 'the garden', pondside: 'the pond', pie: 'the pie tent', maypoleWatch: 'the maypole' };
+const SHED_SPOTS: Pt[] = [[1222, 320], [1302, 320], [1262, 340]];
+const BENCH_SPOTS: Pt[] = [[1488, 706], [1532, 706], [1510, 724]];
+const meet = (i: number) => (): Pt => G.flags.meetBench ? BENCH_SPOTS[i] : SHED_SPOTS[i];
 
-function pointIn(h) {
+function pointIn(h: Ellipse): Pt {
   for (let k = 0; k < 20; k++) {
     const a = Math.random() * TAU, d = Math.sqrt(Math.random());
     const x = h.x + Math.cos(a) * h.rx * d, y = h.y + Math.sin(a) * h.ry * d;
@@ -29,7 +34,7 @@ function pointIn(h) {
 }
 
 /* ---------- plan builders ---------- */
-function targetPlans() {
+function targetPlans(): Record<typeof TARGET_IDS[number], Step[]> {
   const ce = () => G.flags.cakeEarly;
   return {
     mayor: [
@@ -63,54 +68,55 @@ function targetPlans() {
   };
 }
 
-function attendeePlan(c) {
+function attendeePlan(c: { home?: HotKey; alt?: HotKey; dances?: boolean }): Step[] {
+  const home = c.home ?? 'plaza', alt = c.alt ?? 'stalls';
   const j = () => rand(0, 8);
-  const crowd = [rand(866, 1134), rand(366, 452)];
-  const pie = [rand(462, 666), rand(548, 606)];
-  const view = [rand(870, 1130), rand(705, 820)];
-  const p = [
-    { t: 0, hot: c.home, act: 'wander', label: `Browsing ${HOTNAME[c.home]}` },
+  const crowd: Pt = [rand(866, 1134), rand(366, 452)];
+  const pie: Pt = [rand(462, 666), rand(548, 606)];
+  const view: Pt = [rand(870, 1130), rand(705, 820)];
+  const p: Step[] = [
+    { t: 0, hot: home, act: 'wander', label: `Browsing ${HOTNAME[home]}` },
     { t: 44 + j(), at: crowd, act: 'cheer', label: 'Watching the cake ceremony' },
-    Math.random() < .55 ? { t: 100 + j(), at: pie, act: 'watch', label: 'Watching the pie judging' } : { t: 100 + j(), hot: c.alt, act: 'wander', label: `Wandering ${HOTNAME[c.alt]}` },
+    Math.random() < .55 ? { t: 100 + j(), at: pie, act: 'watch', label: 'Watching the pie judging' } : { t: 100 + j(), hot: alt, act: 'wander', label: `Wandering ${HOTNAME[alt]}` },
     c.dances ? { t: 158 + j(), circle: true, act: 'dance', label: 'Dancing round the maypole' } : { t: 158 + j(), hot: 'maypoleWatch', act: 'watch', label: 'Watching the maypole dance' },
-    { t: 220 + j(), hot: c.alt, act: 'wander', label: `Wandering ${HOTNAME[c.alt]}` },
+    { t: 220 + j(), hot: alt, act: 'wander', label: `Wandering ${HOTNAME[alt]}` },
     { t: 266 + j(), at: view, act: 'watch', label: 'Waiting for the fireworks' }
   ];
   return p;
 }
 
-function buildCast() {
-  const out = [];
+export function buildCast(): NPC[] {
+  const out: NPC[] = [];
   const TP = targetPlans();
-  const tdef = {
-    mayor: { col: 'lime', r: 18, hat: 'tophat', sash: true, lines: null },
+  const tdef: Record<typeof TARGET_IDS[number], { col: PalKey; r: number; hat: Hat; sash?: boolean; item?: 'fan' }> = {
+    mayor: { col: 'lime', r: 18, hat: 'tophat', sash: true },
     baroness: { col: 'grape', r: 17, hat: 'tiara', item: 'fan' },
     judge: { col: 'peach', r: 17, hat: 'chef' }
   };
-  for (const id of ['mayor', 'baroness', 'judge']) {
+  for (const id of TARGET_IDS) {
     out.push(mkNPC({ id, kind: 'target', name: TARGET_INFO[id].name, role: 'TARGET · ' + TARGET_INFO[id].short, speed: 64, plan: TP[id], ...tdef[id] }));
   }
   for (const gd of CAST_GUARDS) {
-    const plan = gd.follow ? [{ t: 0, follow: gd.follow, off: gd.off, act: 'guard', lines: 'bodyguard', label: `Guarding ${TARGET_INFO[gd.follow].name}` }]
-      : [{ t: 0, patrol: gd.patrol, act: 'guard', lines: 'guard', label: 'On patrol' }];
+    const plan: Step[] = gd.follow ? [{ t: 0, follow: gd.follow, off: gd.off, act: 'guard', lines: 'bodyguard', label: `Guarding ${TARGET_INFO[gd.follow].name}` }]
+      : [{ t: 0, patrol: gd.patrol ?? [], act: 'guard', lines: 'guard', label: 'On patrol' }];
     out.push(mkNPC({ id: gd.id, kind: 'guard', name: gd.name, role: gd.role, col: 'navy', r: 15, hat: 'guard', speed: 50, plan, protects: gd.follow }));
   }
-  let circleIds = ['baroness'];
+  const circleIds = ['baroness'];
   for (const c of CAST_CIVS) {
-    let plan, extra = {};
+    let plan: Step[] = [], extra: Partial<NPC> = {};
     switch (c.plan) {
       case 'attendee': plan = attendeePlan(c); if (c.dances) circleIds.push(c.id); break;
-      case 'partner': plan = [{ t: 0, follow: c.who, off: [20, 6], act: 'copy', lines: 'couple', label: `Out with ${CAST_CIVS.find(x => x.id === c.who).name}` }]; break;
+      case 'partner': plan = [{ t: 0, follow: c.who, off: [20, 6], act: 'copy', lines: 'couple', label: `Out with ${CAST_CIVS.find(x => x.id === c.who)?.name}` }]; break;
       case 'kid': {
         const k = out.filter(n => n.parent === c.parent).length + (c.parent === 'praline' ? 2 : 0);
-        const f = { follow: c.parent, off: [k % 2 ? 22 : -22, 14], act: 'copy', lines: 'kid', label: `Tagging along with ${c.parent === 'gelato' ? 'Mama' : 'Papa'}` };
+        const f = { follow: c.parent, off: [k % 2 ? 22 : -22, 14] as Pt, act: 'copy', lines: 'kid' as const, label: `Tagging along with ${c.parent === 'gelato' ? 'Mama' : 'Papa'}` };
         plan = [{ t: 0, ...f }];
         for (const bt of [20, 126, 200]) { plan.push({ t: bt + k * 6, at: [762 + k * 16, 846], act: 'buy', label: 'Buying ice cream' }); plan.push({ t: bt + k * 6 + 12, ...f }); }
         extra = { r: 10, speed: 54 };
         break;
       }
       case 'contestant': {
-        const s = c.slot;
+        const s = c.slot ?? 0;
         plan = [
           { t: 0, hot: 'pie', act: 'wander', item: 'pie', label: 'Fussing over a pie' },
           { t: 44 + rand(0, 6), at: [rand(870, 1130), rand(368, 450)], act: 'cheer', item: 'pie', label: 'Watching the cake ceremony' },
@@ -121,15 +127,15 @@ function buildCast() {
         ];
         break;
       }
-      case 'vendor': plan = [{ t: 0, at: c.at, act: c.act, lines: c.lines, label: c.label }];
+      case 'vendor': plan = [{ t: 0, at: c.at, act: c.act ?? 'idle', lines: c.lines, label: c.label ?? '' }];
         if (c.id === 'bill') plan.push({ t: 158, at: [1452, 952], act: 'music', lines: 'music', label: 'Playing for the maypole' }, { t: 222, at: c.at, act: 'music', lines: 'music', label: 'Playing the banjo' });
         break;
-      case 'dancer': plan = [
-        { t: 0, at: [1118 + c.slot * 46, 820], act: 'dance', label: 'Dancing to the banjo' },
+      case 'dancer': { const sl = c.slot ?? 0; plan = [
+        { t: 0, at: [1118 + sl * 46, 820], act: 'dance', label: 'Dancing to the banjo' },
         { t: 156, circle: true, act: 'dance', label: 'Dancing round the maypole' },
-        { t: 224, at: [1118 + c.slot * 46, 820], act: 'dance', label: 'Dancing to the banjo' },
+        { t: 224, at: [1118 + sl * 46, 820], act: 'dance', label: 'Dancing to the banjo' },
         { t: 266, at: [rand(870, 1130), rand(705, 820)], act: 'watch', label: 'Waiting for the fireworks' }];
-        circleIds.push(c.id); break;
+        circleIds.push(c.id); break; }
       case 'fisher': plan = [{ t: 0, at: [534, 902], act: 'fish', label: 'Fishing off the dock' }, { t: 205, at: [534, 902], act: 'sleep', label: 'Napping on the dock' }]; break;
       case 'gardener': plan = [{ t: 0, patrol: [[1440, 600], [1560, 640], [1660, 700], [1480, 740], [1700, 560]], act: 'water', lines: 'garden', label: 'Tending the flowers' }]; break;
       case 'crane': plan = [
@@ -144,7 +150,7 @@ function buildCast() {
         { t: 160, at: [1270, 1040], act: 'cheer', label: 'Hyping the maypole dance' },
         { t: 222, hot: 'plaza', act: 'wander', label: 'Mingling' },
         { t: 266, at: [1000, 360], act: 'mc', label: 'Announcing the fireworks' }]; break;
-      case 'follow': plan = [{ t: 0, follow: c.who, off: c.off, act: c.act, lines: c.lines, label: c.label }]; break;
+      case 'follow': plan = [{ t: 0, follow: c.who, off: c.off, act: c.act ?? 'idle', lines: c.lines, label: c.label ?? '' }]; break;
     }
     out.push(mkNPC({
       id: c.id, kind: c.kid ? 'kid' : 'civ', name: c.name, role: c.role, col: c.col, hat: c.hat, r: rand(12.5, 15), speed: rand(38, 46),
@@ -152,52 +158,54 @@ function buildCast() {
     }));
   }
   // maypole ring slots
-  circleIds.forEach((id, i) => { const n = out.find(o => o.id === id); n.ring = i / circleIds.length * TAU; });
+  circleIds.forEach((id, i) => { const n = out.find(o => o.id === id); if (n) n.ring = i / circleIds.length * TAU; });
   // children know their parents and vice versa
-  for (const n of out) if (n.parent) { const p = out.find(o => o.id === n.parent); (p.kids ||= []).push(n.id); }
+  for (const n of out) if (n.parent) { const p = out.find(o => o.id === n.parent); if (p) (p.kids ||= []).push(n.id); }
   return out;
 }
 
-function mkNPC(o) {
-  const n = Object.assign({
+export type NPCInit = Pick<NPC, 'id' | 'col'> & Partial<NPC>;
+export function mkNPC(o: NPCInit): NPC {
+  const n: NPC = {
     alive: true, x: 0, y: 0, r: 14, speed: 42, react: null, plan: [], stepI: -1, step: null, wander: null, pause: 0, pi: 0,
-    acting: 'idle', face: 1, sayT: rand(1, 7), bubble: null, phase: rand(0, TAU), vx: 0, vy: 0, hasCone: false, item: null, kind: 'civ',
-    balloons: 6, inBalloon: false, dying: 0, kb: null, lift: 0, seen: new Set(), hp: 1, startled: 0, moving: 0, replyT: 0
-  }, o);
+    acting: 'idle', face: 1, sayT: rand(1, 7), bubble: null, phase: rand(0, TAU), vx: 0, vy: 0, hasCone: false, kind: 'civ',
+    balloons: 6, inBalloon: false, dying: 0, kb: null, startled: 0, moving: 0, replyT: 0, name: '', role: '',
+    ...o
+  };
   if (n.item === 'bunch') n.balloons = 6;
   return n;
 }
 
-function placeAtStart(n) {
+export function placeAtStart(n: NPC): void {
   const s = n.plan[0];
-  let p;
-  if (s.follow) { const l = G.byId[s.follow]; placeAtStart(l); p = [l.x + s.off[0], l.y + s.off[1]]; }
+  let p: Pt;
+  if (s.follow) { const l = G.byId[s.follow]; const off = s.off ?? [0, 0]; placeAtStart(l); p = [l.x + off[0], l.y + off[1]]; }
   else if (s.patrol) p = s.patrol[0];
   else if (s.circle) p = [1350, 968];
   else if (s.hot) p = pointIn(typeof s.hot === 'string' ? HOT[s.hot] : s.hot);
-  else p = typeof s.at === 'function' ? s.at() : s.at;
+  else p = s.at ? val(s.at) : [n.x, n.y];
   n.x = p[0] + rand(-2, 2); n.y = p[1] + rand(-2, 2);
 }
 
-const val = v => typeof v === 'function' ? v() : v;
-function stepLabel(n) {
+export const val = <T,>(v: Dyn<T>): T => typeof v === 'function' ? (v as () => T)() : v;
+export function stepLabel(n: NPC): string {
   if (!n.alive) return n.escaped ? 'Escaped' : 'Popped';
   if (n.inBalloon) return G.byId.baroness === n && G.T > 200 ? 'Leaving by balloon' : 'Arriving by balloon';
-  if (n.react) return ({ investigate: 'Investigating a noise', panic: 'Panicking', mourn: 'Grieving', guard: 'Securing a puddle', argue: 'Demanding a refund', sad: 'Crying', bees: 'Fleeing bees!', fall: 'Falling', flee: 'Fleeing!', cower: 'Cowering', look: 'Shocked', chase: 'Chasing balloons', dazed: 'Dazed', lost: 'Looking for someone' })[n.react.type] || 'Distracted';
+  if (n.react) return ({ investigate: 'Investigating a noise', panic: 'Panicking', mourn: 'Grieving', guard: 'Securing a puddle', argue: 'Demanding a refund', sad: 'Crying', bees: 'Fleeing bees!', fall: 'Falling', flee: 'Fleeing!', cower: 'Cowering', look: 'Shocked', chase: 'Chasing balloons', dazed: 'Dazed', lost: 'Looking for someone' } as Partial<Record<ReactType, string>>)[n.react.type] || 'Distracted';
   return val(n.step?.label) || 'Enjoying the Jubilee';
 }
 
 /* ---------- reactions ---------- */
-function react(n, type, o = {}) {
+export function react(n: NPC, type: ReactType, o: Partial<Reaction> = {}): void {
   if (!n.alive || n.dying) return;
   const cur = n.react;
-  const prio = { fall: 9, bees: 8, flee: 7, mourn: 6, guard: 5, panic: 4, argue: 4, chase: 3, dazed: 3, cower: 3, sad: 2, look: 2, investigate: 1, lost: 1 };
-  if (cur && prio[cur.type] > (prio[type] || 0) && cur.type !== 'investigate') return;
+  const prio: Record<ReactType, number> = { fall: 9, bees: 8, flee: 7, mourn: 6, guard: 5, panic: 4, argue: 4, chase: 3, dazed: 3, cower: 3, sad: 2, look: 2, investigate: 1, lost: 1 };
+  if (cur && prio[cur.type] > prio[type] && cur.type !== 'investigate') return;
   n.react = { type, time: 6, at: G.T, ...o };
   n.wander = null;
 }
 
-function updateNPC(n, dt) {
+export function updateNPC(n: NPC, dt: number): void {
   if (!n.alive) return;
   if (n.inBalloon) { n.x = 1665; n.y = 280; n.acting = 'idle'; tickSpeech(n, dt); return; }
   // knockback from fizz rounds
@@ -214,30 +222,32 @@ function updateNPC(n, dt) {
     return;
   }
 
-  if (n.pose) { n.poseT -= dt; if (n.poseT <= 0 || n.react) n.pose = null; else { n.acting = 'idle'; n.moving = 0; tickSpeech(n, dt); return; } }
-  let goal = null, act = 'idle', spd = n.speed;
+  if (n.pose) { n.poseT = (n.poseT ?? 0) - dt; if (n.poseT <= 0 || n.react) n.pose = null; else { n.acting = 'idle'; n.moving = 0; tickSpeech(n, dt); return; } }
+  let goal: Pt | null = null, act = 'idle', spd = n.speed;
   const R = n.react;
   if (R) {
     R.time -= dt;
+    const rx = R.x ?? n.x, ry = R.y ?? n.y;
     switch (R.type) {
-      case 'investigate': goal = [R.x + (R.ox ||= rand(-18, 18)), R.y + (R.oy ||= rand(-8, 8))]; act = 'look'; spd *= 1.15; break;
-      case 'panic': if (!R.g) { let dx = n.x - R.x, dy = n.y - R.y, d = Math.hypot(dx, dy) || 1; R.g = [clamp(n.x + dx / d * 170, 40, WORLD.w - 40), clamp(n.y + dy / d * 120, 40, WORLD.h - 40)]; } goal = R.g; act = 'panic'; spd = 110; break;
-      case 'mourn': goal = [R.x + (R.ox ||= rand(-22, 22)), R.y - 10]; act = 'mourn'; break;
-      case 'guard': goal = [R.x + (R.ox ||= rand(-30, 30)), R.y + (R.oy ||= rand(-16, 16))]; act = 'alert'; spd = 80; break;
-      case 'argue': goal = [R.x + (R.ox ||= rand(-14, 14)), R.y]; act = 'argue'; spd = 70; break;
+      case 'investigate': goal = [rx + (R.ox ||= rand(-18, 18)), ry + (R.oy ||= rand(-8, 8))]; act = 'look'; spd *= 1.15; break;
+      case 'panic': if (!R.g) { const dx = n.x - rx, dy = n.y - ry, d = Math.hypot(dx, dy) || 1; R.g = [clamp(n.x + dx / d * 170, 40, WORLD.w - 40), clamp(n.y + dy / d * 120, 40, WORLD.h - 40)]; } goal = R.g; act = 'panic'; spd = 110; break;
+      case 'mourn': goal = [rx + (R.ox ||= rand(-22, 22)), ry - 10]; act = 'mourn'; break;
+      case 'guard': goal = [rx + (R.ox ||= rand(-30, 30)), ry + (R.oy ||= rand(-16, 16))]; act = 'alert'; spd = 80; break;
+      case 'argue': goal = [rx + (R.ox ||= rand(-14, 14)), ry]; act = 'argue'; spd = 70; break;
       case 'sad': act = 'sad'; break;
       case 'look': act = 'look'; break;
       case 'cower': act = 'cower'; break;
-      case 'dazed': act = 'dazed'; if (R.time <= 0 && R.x != null) { n.react = null; react(n, 'investigate', { x: R.x, y: R.y, time: 5 }); return; } break;
-      case 'chase': goal = [R.x, R.y]; act = 'panic'; spd = 90; break;
-      case 'lost': goal = R.g ||= [R.x + rand(-60, 60), R.y + rand(-40, 40)]; act = 'sad'; if (dist(n.x, n.y, ...goal) < 6) R.g = null; break;
+      case 'dazed': act = 'dazed'; if (R.time <= 0 && R.x != null) { n.react = null; react(n, 'investigate', { x: rx, y: ry, time: 5 }); return; } break;
+      case 'chase': goal = [rx, ry]; act = 'panic'; spd = 90; break;
+      case 'lost': { const lg: Pt = R.g ||= [rx + rand(-60, 60), ry + rand(-40, 40)]; goal = lg; act = 'sad'; if (dist(n.x, n.y, ...lg) < 6) R.g = null; break; }
       case 'bees': goal = [1560 + (R.ox ||= rand(-30, 30)), 770]; act = 'panic'; spd = 135; R.time = 99;
         if (Math.random() < dt * 1.5) say(n, pick(LINES.bees), 1);
         if (waterAt(n.x, n.y)?.id === 'lily') { killNPC(n, { cause: 'bees', accident: true, concealed: true }); return; }
         break;
-      case 'flee': goal = R.g; act = 'panic'; spd = n.kind === 'target' ? 52 : 110; R.time = 99;
-        if (dist(n.x, n.y, ...goal) < 14) { if (n.kind === 'target') { if (n.id === 'baroness' && R.balloon) { /* balloon handles boarding */ } else return escapeTarget(n); } else return leave(n); }
+      case 'flee': { const fg: Pt = R.g ?? [1000, 1296]; goal = fg; act = 'panic'; spd = n.kind === 'target' ? 52 : 110; R.time = 99;
+        if (dist(n.x, n.y, ...fg) < 14) { if (n.kind === 'target') { if (n.id === 'baroness' && R.balloon) { /* balloon handles boarding */ } else return escapeTarget(n); } else return leave(n); }
         break;
+      }
     }
     if (R.type === 'guard' && R.time <= 0 && R.p && !R.p.secured) { R.p.secured = true; say(n, pick(['Area secured.', 'Nobody touch the puddle.', 'Cordoned off.']), 2); }
     if (R.type !== 'bees' && R.type !== 'flee' && R.time <= 0) { n.react = null; n.stepI = -1; }
@@ -245,37 +255,37 @@ function updateNPC(n, dt) {
   if (!n.react) {
     // ---- scheduled behaviour ----
     let i = 0; for (let k = 0; k < n.plan.length; k++) if (n.plan[k].t <= G.T) i = k;
-    if (i !== n.stepI) { n.stepI = i; n.step = n.plan[i]; n.wander = null; n.pause = 0; n.pi = 0; n.arrived = false; if (n.step.item !== undefined || n.kind !== 'kid') n.carry = n.step.item; }
+    if (i !== n.stepI || !n.step) { n.stepI = i; n.step = n.plan[i]; n.wander = null; n.pause = 0; n.pi = 0; if (n.step.item !== undefined || n.kind !== 'kid') n.carry = n.step.item; }
     const s = n.step;
     act = s.act;
     if (s.follow) {
       const l = G.byId[s.follow];
       if (l && l.alive && !l.inBalloon) {
         const side = l.face < 0 ? -1 : 1;
-        goal = [l.x + s.off[0] * (s.off[0] && n.kind === 'guard' ? 1 : side), l.y + s.off[1]];
+        const off = s.off ?? [0, 0];
+        goal = [l.x + off[0] * (off[0] && n.kind === 'guard' ? 1 : side), l.y + off[1]];
         if (act === 'copy') act = l.acting === 'walk' ? 'idle' : l.acting;
         spd = Math.max(n.speed, l.react?.type === 'flee' ? 100 : l.speed * 1.1);
         if (l.react?.type === 'flee') spd = 100;
       } else if (l && l.inBalloon) { goal = [1640, 300]; act = 'look'; }
       else { // lost their person
-        act = 'sad'; goal = n.lostG ||= [n.x + rand(-50, 50), n.y + rand(-30, 30)];
-        if (dist(n.x, n.y, ...goal) < 5) n.lostG = null;
+        act = 'sad'; const lg: Pt = n.lostG ||= [n.x + rand(-50, 50), n.y + rand(-30, 30)]; goal = lg;
+        if (dist(n.x, n.y, ...lg) < 5) n.lostG = null;
       }
     } else if (s.circle) {
       if (G.flags.maypoleDown) { goal = n.circG ||= pointIn(HOT.maypoleWatch); act = 'look'; }
-      else { const a = n.ring + G.T * .55; goal = [1350 + Math.cos(a) * 78, 968 + Math.sin(a) * 44]; spd = n.speed * 1.6; if (G.flags.banjoBroken && G.T > 158) act = 'boo'; }
+      else { const a = (n.ring ?? 0) + G.T * .55; goal = [1350 + Math.cos(a) * 78, 968 + Math.sin(a) * 44]; spd = n.speed * 1.6; if (G.flags.banjoBroken && G.T > 158) act = 'boo'; }
     } else if (s.patrol) {
-      goal = s.patrol[n.pi % s.patrol.length];
-      if (dist(n.x, n.y, ...goal) < 6) { n.pause += dt; act = s.act; if (n.pause > 1.6) { n.pause = 0; n.pi++; } }
+      const pg = s.patrol[n.pi % s.patrol.length]; goal = pg;
+      if (dist(n.x, n.y, ...pg) < 6) { n.pause += dt; act = s.act; if (n.pause > 1.6) { n.pause = 0; n.pi++; } }
     } else if (s.hot) {
       const h = typeof s.hot === 'string' ? HOT[s.hot] : s.hot;
-      if (!n.wander) n.wander = pointIn(h);
-      goal = n.wander;
-      if (dist(n.x, n.y, ...goal) < 6) { n.pause += dt; act = s.act === 'wander' ? 'idle' : s.act; if (n.pause > (n.pauseLen ||= rand(2, 6))) { n.pause = 0; n.pauseLen = 0; n.wander = pointIn(h); } }
+      const wg = n.wander ||= pointIn(h); goal = wg;
+      if (dist(n.x, n.y, ...wg) < 6) { n.pause += dt; act = s.act === 'wander' ? 'idle' : s.act; if (n.pause > (n.pauseLen ||= rand(2, 6))) { n.pause = 0; n.pauseLen = 0; n.wander = pointIn(h); } }
     } else {
-      goal = val(s.at);
+      const ag = s.at ? val(s.at) : [n.x, n.y] as Pt; goal = ag;
       if (s.exit) { spd = 28; if (n.kind === 'target' && n.y > 1288) return escapeTarget(n); }
-      if (s.act === 'buy' && dist(n.x, n.y, ...goal) < 8) { n.pause += dt; if (n.pause > 2.4 && !n.hasCone) { n.hasCone = true; say(n, pick(LINES.kidCone), 2); } }
+      if (s.act === 'buy' && dist(n.x, n.y, ...ag) < 8) { n.pause += dt; if (n.pause > 2.4 && !n.hasCone) { n.hasCone = true; say(n, pick(LINES.kidCone), 2); } }
     }
     // dancers boo when the banjo is broken
     if (G.flags.banjoBroken && act === 'dance' && n.step && !s.circle && dist(n.x, n.y, LOC.busker.x, LOC.busker.y) < 140) act = 'boo';
@@ -307,9 +317,9 @@ function updateNPC(n, dt) {
   tickSpeech(n, dt);
 }
 
-function tickSpeech(n, dt) {
+function tickSpeech(n: NPC, dt: number): void {
   if (n.bubble) { n.bubble.life -= dt; if (n.bubble.life <= 0) n.bubble = null; }
-  if (n.replyT > 0) { n.replyT -= dt; if (n.replyT <= 0 && n.alive && !n.react) say(n, pick(LINES[n.replyPool] || LINES.chat), 2.4); }
+  if (n.replyT > 0) { n.replyT -= dt; if (n.replyT <= 0 && n.alive && !n.react) say(n, pick(LINES[n.replyPool ?? 'chat']), 2.4); }
   n.sayT -= dt;
   if (n.sayT <= 0) {
     n.sayT = rand(5, 11);
@@ -324,7 +334,7 @@ function tickSpeech(n, dt) {
     }
   }
 }
-function linePool(n) {
+function linePool(n: NPC): readonly string[] | null {
   const a = n.acting;
   if (n.react) {
     const t = n.react.type;
@@ -342,25 +352,25 @@ function linePool(n) {
     if (t === 'fall') return null;
     return LINES.panic;
   }
-  const s = n.step; const l = s && val(s.lines);
+  const s = n.step; const l = s?.lines !== undefined ? val(s.lines) : undefined;
   if (n.id === 'granny' && Math.random() < .5) return LINES.granny;
   if (n.id === 'bill' && G.flags.banjoBroken) return LINES.sadBusker;
   if (a === 'boo') return LINES.boo;
-  if (l && LINES[l]) return LINES[l];
-  if (n.lines && LINES[n.lines]) return LINES[n.lines];
+  if (isLineKey(l)) return LINES[l];
+  if (isLineKey(n.lines)) return LINES[n.lines];
   if (n.kind === 'kid') return n.hasCone ? LINES.kidCone : LINES.kid;
-  return ({ greet: LINES.greet, speech: LINES.speech, chat: LINES.chat, cheer: LINES.cheer, clap: LINES.cheer, watch: LINES.watch, present: LINES.present, taste: LINES.taste, inspect: LINES.inspect, dance: LINES.dance, music: LINES.music, fish: LINES.fish, water: LINES.garden, photo: LINES.photo, guard: n.protects ? LINES.bodyguard : LINES.guard, idle: n.partner ? LINES.couple : LINES.chat, feed: LINES.feed, admire: LINES.admire, whisper: LINES.whisper, leave: LINES.leave, sniff: LINES.sniff, crane: LINES.crane, tinker: LINES.tinker, mc: LINES.mc, sleep: LINES.sleep, sad: LINES.sad, look: LINES.investigate })[a] || null;
+  return ({ greet: LINES.greet, speech: LINES.speech, chat: LINES.chat, cheer: LINES.cheer, clap: LINES.cheer, watch: LINES.watch, present: LINES.present, taste: LINES.taste, inspect: LINES.inspect, dance: LINES.dance, music: LINES.music, fish: LINES.fish, water: LINES.garden, photo: LINES.photo, guard: n.protects ? LINES.bodyguard : LINES.guard, idle: n.partner ? LINES.couple : LINES.chat, feed: LINES.feed, admire: LINES.admire, whisper: LINES.whisper, leave: LINES.leave, sniff: LINES.sniff, crane: LINES.crane, tinker: LINES.tinker, mc: LINES.mc, sleep: LINES.sleep, sad: LINES.sad, look: LINES.investigate } as Record<string, string[]>)[a] || null;
 }
-function say(n, t, life = 2.6) { if (!n || !n.alive) return; n.bubble = { t, life, max: life }; }
+export function say(n: NPC | null | undefined, t: string, life = 2.6): void { if (!n || !n.alive) return; n.bubble = { t, life, max: life }; }
 
 /* ---------- held items (world-space hit points) ---------- */
-function itemPos(n) { const hop = n.hopNow || 0; return [n.x + n.face * n.r * 1.0, n.y - n.r * .35 - hop]; }
-function conePos(n) { const [x, y] = itemPos(n); return [x, y - 9]; }
-function bunchPos(n, i) { const s = n.face; const bx = n.x + s * n.r * 1.25, by = n.y - n.r * 4.2 - (n.hopNow || 0); const o = [[0, 0], [-10, 4], [10, 4], [-5, -9], [6, -10], [0, 12]][i]; return [bx + o[0] + Math.sin(G.clock * 1.5 + i) * 2, by + o[1]]; }
-const BOBBER = [470, 922];
+export function itemPos(n: NPC): Pt { const hop = n.hopNow || 0; return [n.x + n.face * n.r * 1.0, n.y - n.r * .35 - hop]; }
+export function conePos(n: NPC): Pt { const [x, y] = itemPos(n); return [x, y - 9]; }
+export function bunchPos(n: NPC, i: number): Pt { const s = n.face; const bx = n.x + s * n.r * 1.25, by = n.y - n.r * 4.2 - (n.hopNow || 0); const o = ([[0, 0], [-10, 4], [10, 4], [-5, -9], [6, -10], [0, 12]] as Pt[])[i]; return [bx + o[0] + Math.sin(G.clock * 1.5 + i) * 2, by + o[1]]; }
+export const BOBBER: Pt = [470, 922];
 
 /* ---------- drawing ---------- */
-function drawNPC(n, lift = 0) {
+export function drawNPC(n: NPC, lift = 0): void {
   const r = n.r, c = PAL[n.col], a = n.acting, t = G.clock;
   let bob = Math.sin(t * 11 + n.phase), hop = 0, sx = 1, sy = 1, jitter = 0, rot = 0;
   if (a === 'walk' || n.moving) hop = Math.abs(bob) * 2.2;
@@ -422,7 +432,7 @@ function drawNPC(n, lift = 0) {
   if (a === 'mourn' || a === 'sad') for (const k of [-1, 1]) { const ty = ((t * 1.6 + k * .3) % 1) * r * .9; ell(ex + k * r * .36, -r * .2 + ty, r * .07, r * .11, '#7fd9ff'); }
   if (a === 'panic' || a === 'alert') ell(-f * r * .7, -r * .9 + Math.sin(t * 10) * 2, r * .1, r * .16, '#c1f6ff');
   drawItem(n, r, f, a);
-  if (n.hat && n.hat !== 'none') drawHat(n.hat, r, n.col);
+  if (n.hat && n.hat !== 'none') drawHat(n.hat, r);
   g.restore();
   // effects above head
   const top = y - r * 1.5 - (n.hat === 'tophat' || n.hat === 'chef' ? r * .9 : n.hat && n.hat !== 'none' ? r * .4 : 0);
@@ -430,7 +440,7 @@ function drawNPC(n, lift = 0) {
   if (a === 'dazed') for (let i = 0; i < 3; i++) { const an = t * 5 + i * TAU / 3; txt('✦', n.x + Math.cos(an) * r * .8, top + Math.sin(an) * 3, 8, '#ffcc4c'); }
   if (a === 'music' && !G.flags.banjoBroken && Math.sin(t * 2 + n.phase) > 0) txt('♪', n.x + 14 + Math.sin(t * 3) * 4, top - ((t * 14) % 20), 12, '#a8608d');
   if (a === 'photo' && Math.sin(t * 2.3 + n.phase) > .97) circ(n.x + n.face * r, y - r * .5, 10, '#ffffffdd');
-  if (n.warn > 0 && n.alive) { const wx = n.x + (n.kind === 'target' ? 16 : 0), wy = top - 16; ringS(wx, wy, 7, '#ffe06688', 2); g.beginPath(); g.moveTo(wx, wy); g.arc(wx, wy, 7, -Math.PI / 2, -Math.PI / 2 + TAU * Math.min(1, n.warn)); g.closePath(); g.fillStyle = '#ffe066cc'; g.fill(); txt('?', wx, wy + .5, 9, '#50334f'); }
+  if (n.warn && n.alive) { const wx = n.x + (n.kind === 'target' ? 16 : 0), wy = top - 16; ringS(wx, wy, 7, '#ffe06688', 2); g.beginPath(); g.moveTo(wx, wy); g.arc(wx, wy, 7, -Math.PI / 2, -Math.PI / 2 + TAU * Math.min(1, n.warn)); g.closePath(); g.fillStyle = '#ffe066cc'; g.fill(); txt('?', wx, wy + .5, 9, '#50334f'); }
   if (n.kind === 'target' && !lift) {
     const my = top - 12 + Math.sin(t * 4) * 2;
     poly([n.x - 6, my - 6, n.x + 6, my - 6, n.x, my + 2], '#ff3d6e');
@@ -439,7 +449,7 @@ function drawNPC(n, lift = 0) {
   if (n.kind === 'target' && lift) { const my = top - 12; poly([n.x - 6, my - 6, n.x + 6, my - 6, n.x, my + 2], '#ff3d6e'); }
 }
 
-function drawItem(n, r, f, a) {
+function drawItem(n: NPC, r: number, f: number, a: string): void {
   const it = n.carry || n.item;
   const ix = f * r * 1.0, iy = -r * .35;
   if (n.hasCone) {
@@ -471,7 +481,7 @@ function drawItem(n, r, f, a) {
   }
 }
 
-function drawHat(type, r, col, ox = 0, oy = null, s = 1) {
+export function drawHat(type: Hat, r: number, ox = 0, oy: number | null = null, s = 1): void {
   g.save(); g.translate(ox, oy ?? -r * 1.02); g.scale(s, s);
   switch (type) {
     case 'tophat': rrect(-r * .55, -r * .05, r * 1.1, r * .16, 3, '#2a2035'); rrect(-r * .36, -r * .9, r * .72, r * .9, 3, '#2a2035'); rrect(-r * .36, -r * .3, r * .72, r * .14, 0, '#ff5c9e'); break;
@@ -491,16 +501,16 @@ function drawHat(type, r, col, ox = 0, oy = null, s = 1) {
   g.restore();
 }
 
-function drawBubble(n, S) {
+export function drawBubble(n: NPC, S: number): void {
   const b = n.bubble; if (!b) return;
-  const lift = n.inBalloon ? G.props.find(p => p.id === 'balloon').h + 6 : 0;
+  const lift = n.inBalloon ? (G.props.find(p => p.id === 'balloon')?.h ?? 0) + 6 : 0;
   const fs = 12 / S, pad = 5 / S;
   g.font = `800 ${fs}px ui-rounded, "Avenir Next", system-ui, sans-serif`;
   const w = g.measureText(b.t).width + pad * 2, h = fs + pad * 1.6;
   const x = n.x, y = n.y - lift - n.r * 2.3 - (n.hat === 'tophat' || n.hat === 'chef' ? n.r * .9 : 0) - 10 / S;
   const k = Math.min(1, (b.max - b.life) * 8, b.life * 3);
   g.save(); g.globalAlpha = k;
-  const hot = ['panic', 'alert', 'mourn', 'flee', 'bees'].includes(n.react?.type) || n.acting === 'panic';
+  const hot = ['panic', 'alert', 'mourn', 'flee', 'bees'].includes(n.react?.type ?? '') || n.acting === 'panic';
   rrect(x - w / 2, y - h, w, h, h / 2, hot ? '#ff4d6d' : '#fffaf2');
   poly([x - 4 / S, y - 1 / S, x + 4 / S, y - 1 / S, x, y + 5 / S], hot ? '#ff4d6d' : '#fffaf2');
   txt(b.t, x, y - h / 2, fs, hot ? '#fff' : '#50334f', 'center', 800);
