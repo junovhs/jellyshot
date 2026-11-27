@@ -5,7 +5,7 @@
    never black: the glass shows the magnified world, and around it you see
    the same scene un-magnified, out of focus and in the tube's shadow, with
    sunlight leaking past the rim. Lowering the rifle (survey) pulls focus
-   to that wide view so you can scan the whole festival.
+   to that wide view so you can scan the whole beach.
    ===================================================================== */
 import { TARGET_IDS, TARGET_INFO, WATER, WORLD } from "./data";
 import { circ, ell, ellS, g, ln, poly, ringS, txt, withCtx } from "./draw";
@@ -229,7 +229,7 @@ function glassEffects(cx: number, cy: number, R: number, sx: number, sy: number)
   ringS(cx, cy, R - 5, 'rgba(127,217,255,.14)', 2);
 }
 
-/** The candy-lacquered tube around the glass, with a zoom drum on the left. */
+/** The lacquered tube around the glass, with a zoom drum on the left. */
 function tube(cx: number, cy: number, R: number): void {
   const T = R * .09, gold = G.rifle.golden;
   const body = g.createLinearGradient(cx - R, cy - R, cx + R, cy + R);
@@ -316,7 +316,7 @@ export function drawMini(mini: HTMLCanvasElement, mg: CanvasRenderingContext2D):
   mg.scale(k, k);
   mg.fillStyle = '#dcb488'; mg.beginPath(); mg.ellipse(1000, 648, 298, 180, 0, 0, TAU); mg.fill();
   mg.fillStyle = '#2fc4a8'; mg.fillRect(826, 222, 348, 100);
-  for (const wt of WATER) { mg.fillStyle = wt.id === 'choc' ? '#7a4630' : '#2bb5c8'; mg.beginPath(); mg.ellipse(wt.x, wt.y, wt.rx, wt.ry, 0, 0, TAU); mg.fill(); }
+  for (const wt of WATER) { mg.fillStyle = wt.id === 'choc' ? '#fffaf2' : '#2bb5c8'; mg.beginPath(); mg.ellipse(wt.x, wt.y, wt.rx, wt.ry, 0, 0, TAU); mg.fill(); }
   for (const p of G.puddles) if (p.found && !p.concealed) { mg.fillStyle = '#ff4d6d'; mg.beginPath(); mg.arc(p.x, p.y, 24, 0, TAU); mg.fill(); }
   for (const n of G.npcs) {
     if (!n.alive) continue;

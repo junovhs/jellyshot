@@ -77,7 +77,7 @@ export function hudTick(): void {
     const o = id && OPPS[id];
     const pid = a.what === 'prop' ? a.p.id : null;
     tag.className = 'aimtag show prop';
-    $('aimName').textContent = o ? o.name : pid === 'ducks' ? 'Rubber Duck' : pid === 'gnomes' ? 'Gumdrop Gnome' : 'Something';
+    $('aimName').textContent = o ? o.name : pid === 'ducks' ? 'Rubber Duck' : pid === 'gnomes' ? 'Plastic Flamingo' : 'Something';
     $('aimRole').textContent = pid === 'ducks' ? `Collectible · ${G.stats.ducks}/6` : pid === 'gnomes' ? `Collectible · ${G.stats.gnomes}/5` : 'OPPORTUNITY';
     $('aimAct').textContent = o && id && G.disc.has(id) ? o.hint : 'Hold steady to study it…';
   } else tag.className = 'aimtag';
@@ -97,9 +97,9 @@ export function updateAmmoUI(): void {
 
 /* ---------- overlays: briefing / intel / end ---------- */
 const PORTRAIT = {
-  mayor: { col: 'lime', r: 22, hat: 'tophat', sash: true },
-  baroness: { col: 'grape', r: 22, hat: 'tiara', item: 'fan' },
-  judge: { col: 'peach', r: 22, hat: 'chef' }
+  brayden: { col: 'lemon', r: 22, hat: 'backcap', look: 'crypto', item: 'phone' },
+  skylar: { col: 'pink', r: 22, hat: 'sunhat', look: 'influencer', item: 'selfie' },
+  rick: { col: 'peach', r: 23, hat: 'captain', look: 'tycoon' }
 } as const;
 function portrait(cv: HTMLCanvasElement, id: TargetId): void {
   const c = cv.getContext('2d'), dpr = Math.min(2, devicePixelRatio || 1);
@@ -188,7 +188,7 @@ export function openIntel(): void {
   }));
   renderChallenges($('intelCh'), new Set(SAVE.done));
   $('intelJobs').replaceChildren(...G.jobs.map(j => li((j.done ? '✓ ' : '○ ') + j.text, j.done ? 'done' : '')));
-  $('intelStats').textContent = `${fmt(MISSION_LEN - G.T)} left · ${G.stats.kills.length} popped · ${G.disc.size}/${OPP_IDS.length} opportunities · ducks ${G.stats.ducks}/6 · gnomes ${G.stats.gnomes}/5`;
+  $('intelStats').textContent = `${fmt(MISSION_LEN - G.T)} left · ${G.stats.kills.length} popped · ${G.disc.size}/${OPP_IDS.length} opportunities · ducks ${G.stats.ducks}/6 · flamingos ${G.stats.gnomes}/5`;
   $('intel').hidden = false;
 }
 let onResume: () => void = () => { };

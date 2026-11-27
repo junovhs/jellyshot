@@ -1,5 +1,5 @@
 /* =====================================================================
-   World: map queries, the festival grounds, decor, ground and overhead
+   World: map queries, the beach, decor, ground and overhead
    layers. Shootable opportunity props live in props.ts.
    ===================================================================== */
 import { BUSHES, PAL, PATHS, WATER, WORLD, type Water } from "./data";
@@ -115,34 +115,31 @@ function podium() {
   rrect(980, 282, 40, 10, 4, '#ffd36b');
   txt('★', 1000, 302, 12, '#ffd36b');
 }
-function pieTent() {
+function pieTent() {   // the BBQ cook-off tent
   const x = 560, y = 448;
-  poly([x - 120, y, x - 100, y - 70, x + 100, y - 70, x + 120, y], '#fff3dc');
-  for (let i = 0; i < 6; i++) { const a = x - 100 + i * 40; poly([a, y - 70, a + 20, y - 70, a + 26, y, a + 2, y].map((v, k) => k % 2 ? v : v - 10 + (k === 4 || k === 6 ? 0 : 10)), '#ff7fb2'); }
-  poly([x - 112, y - 66, x, y - 112, x + 112, y - 66], '#ff5c9e');
-  poly([x - 70, y - 82, x, y - 112, x + 70, y - 82], '#ffd0e5');
+  poly([x - 120, y, x - 100, y - 70, x + 100, y - 70, x + 120, y], '#fff6ea');
+  for (let i = 0; i < 6; i++) { const a = x - 100 + i * 40; poly([a, y - 70, a + 20, y - 70, a + 26, y, a + 2, y].map((v, k) => k % 2 ? v : v - 10 + (k === 4 || k === 6 ? 0 : 10)), '#ff6b5a'); }
+  poly([x - 112, y - 66, x, y - 112, x + 112, y - 66], '#ff5a4a');
+  poly([x - 70, y - 82, x, y - 112, x + 70, y - 82], '#ffb08a');
   circ(x, y - 114, 6, '#ffe066');
-  rrect(x - 52, y - 62, 104, 22, 8, '#fff0cc');
-  txt('PIE CONTEST', x, y - 51, 11, '#c2407f');
+  rrect(x - 56, y - 62, 112, 22, 8, '#fff0cc');
+  txt('BBQ COOK-OFF', x, y - 51, 11, '#c0392b');
 }
-function pieTable() {
+function pieTable() {   // the judging table, ribs on plates
   rrect(470, 488, 180, 12, 4, '#fff8ec');
-  rrect(470, 498, 180, 14, 3, '#ffb3d1');
+  rrect(470, 498, 180, 14, 3, '#ff9a8a');
   for (let i = 0; i < 9; i++) rrect(474 + i * 20, 498, 10, 14, 2, '#ffffff');
-  const pies = G.flags.ovenBoom ? 2 : 5;
-  for (let i = 0; i < pies; i++) { const px = 490 + i * 36; ell(px, 487, 13, 5, '#d48a4a'); ell(px, 485, 11, 4, '#f6c27a'); circ(px - 3, 484, 2, '#e0457a'); }
+  const plates = G.flags.ovenBoom ? 2 : 5;
+  for (let i = 0; i < plates; i++) { const px = 490 + i * 36; ell(px, 487, 13, 5, '#fffaf2'); rrect(px - 9, 481, 18, 5, 2, '#9a4a2a'); for (let k = 0; k < 4; k++) rrect(px - 8 + k * 4.6, 479, 1.8, 3, .8, '#fff3df'); }
 }
-function fountainTop() {
-  const x = 1000, y = 640;
-  ell(x, y + 6, 22, 8, '#5a2c1a');
-  rrect(x - 9, y - 50, 18, 54, 6, '#f6d2e0');
-  ell(x, y - 50, 32, 11, '#f6d2e0');
-  ell(x, y - 52, 27, 8, '#7a4630');
-  const t = G.clock;
-  for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + t * .6; const dx = Math.cos(a) * 26, dy = Math.sin(a) * 8; ln(x + dx * .9, y - 50 + dy, x + dx * 1.25, y - 20 + dy * 1.6, '#8a5236', 4); }
-  rrect(x - 4, y - 78, 8, 28, 4, '#f6d2e0');
-  circ(x, y - 82, 9, '#7a4630');
-  circ(x - 2, y - 85, 3, '#a8704f');
+function fountainTop() {   // the foam cannon tower in the middle of the foam pit
+  const x = 1000, y = 640, t = G.clock;
+  ell(x, y + 6, 22, 8, '#c8d8e0');
+  rrect(x - 9, y - 50, 18, 54, 6, '#3a7aff');
+  rrect(x - 9, y - 30, 18, 6, 2, '#ffe066');
+  rrect(x - 16, y - 70, 32, 22, 8, '#2a5ad0');
+  ell(x, y - 70, 14, 8, '#fffaf2');
+  for (let i = 0; i < 7; i++) { const ph = (t * .6 + i / 7) % 1, a = i * 2.4; circ(x + Math.cos(a) * (8 + ph * 40), y - 74 - ph * 30 + ph * ph * 50, 5 + ph * 5, `rgba(255,255,255,${.85 * (1 - ph * .6)})`); }
 }
 function iceCart() {
   const x = 790, y = 802;
@@ -163,25 +160,27 @@ function stall(x: number, y: number, c1: string, c2: string, label: string) {
   ln(x - 42, y - 34, x - 42, y - 62, '#e8cfa8', 3); ln(x + 42, y - 34, x + 42, y - 62, '#e8cfa8', 3);
   txt(label, x, y - 18, 10, '#a3477f');
 }
-function carriage() {
+function carriage() {   // the Grand Flamingo resort shuttle (a stretched golf cart)
   const x = 1000, y = 1210;
-  ell(x, y + 6, 70, 13, '#5a3f6a30');
-  circ(x - 40, y - 4, 16, '#9a5a8a'); circ(x + 40, y - 4, 16, '#9a5a8a');
-  circ(x - 40, y - 4, 9, '#ffd36b'); circ(x + 40, y - 4, 9, '#ffd36b');
-  g.beginPath(); g.ellipse(x, y - 34, 52, 34, 0, Math.PI, 0); g.fillStyle = '#ffb3d1'; g.fill();
-  rrect(x - 52, y - 36, 104, 22, 8, '#ff7fb2');
-  rrect(x - 14, y - 62, 28, 26, 8, '#fff0cc');
-  circ(x, y - 72, 6, '#ffd36b');
-  // gummy horse
-  ell(x + 92, y - 18, 24, 15, '#ffb84c'); circ(x + 114, y - 34, 12, '#ffb84c'); circ(x + 118, y - 37, 2, '#50334f');
-  ln(x + 80, y - 6, x + 80, y + 6, '#d58c21', 5); ln(x + 104, y - 6, x + 104, y + 6, '#d58c21', 5);
+  ell(x, y + 6, 74, 13, '#5a3f6a30');
+  circ(x - 44, y - 4, 13, '#2a2035'); circ(x + 44, y - 4, 13, '#2a2035');
+  circ(x - 44, y - 4, 6, '#c8c8d0'); circ(x + 44, y - 4, 6, '#c8c8d0');
+  rrect(x - 66, y - 34, 132, 26, 8, '#fffaf2');
+  rrect(x - 66, y - 22, 132, 8, 3, '#ff86b0');
+  for (const dx of [-36, 0, 36]) rrect(x + dx - 14, y - 44, 28, 12, 4, '#2fc4a8');
+  ln(x - 60, y - 34, x - 60, y - 74, '#c8c8d0', 4); ln(x + 60, y - 34, x + 60, y - 74, '#c8c8d0', 4);
+  rrect(x - 70, y - 82, 140, 12, 5, '#ff86b0');
+  for (let i = 0; i < 7; i++) rrect(x - 68 + i * 20, y - 82, 10, 12, 0, '#fffaf2');
+  txt('GRAND FLAMINGO', x, y - 18, 9, '#c2407f');
 }
-function shed() {
+function shed() {   // the fireworks hut
   const x = 1300, y = 252, gone = G.flags.shedGone;
-  rrect(x - 50, y - 62, 100, 62, 4, gone ? '#5b4458' : '#d6a3c8');
+  rrect(x - 50, y - 62, 100, 62, 4, gone ? '#5b4458' : '#c8945e');
   if (!gone) {
-    poly([x - 58, y - 60, x, y - 98, x + 58, y - 60], '#a8608d');
-    rrect(x - 14, y - 40, 28, 40, 3, '#a8608d');
+    for (let i = 0; i < 6; i++) rrect(x - 48 + i * 16, y - 60, 12, 58, 2, i % 2 ? '#d8a870' : '#c8945e');
+    poly([x - 60, y - 58, x, y - 100, x + 60, y - 58], '#4fb04a');
+    poly([x - 44, y - 66, x, y - 94, x + 44, y - 66], '#8cbf5a');
+    rrect(x - 14, y - 40, 28, 40, 3, '#8a5a3a');
     txt('⚠ BOOM', x, y - 50, 9, '#fff0cc');
   } else { for (let i = 0; i < 5; i++) ln(x - 40 + i * 20, y - 62, x - 46 + i * 22, y - 80 - (i % 2) * 10, '#3a2a3a', 5); }
 }
@@ -207,7 +206,7 @@ export function drawGround(detail = true): void {
   g.beginPath(); g.roundRect(10, 10, WORLD.w - 20, WORLD.h - 20, 135); g.fillStyle = '#f3d6a0'; g.fill();
   // dune
   for (let k = 0; k < 4; k++) ell(300, 262 - k * 6, 190 - k * 26, 110 - k * 16, ['#e8c68c', '#edcd94', '#f1d49c', '#f5dba6'][k]);
-  // the volleyball sand (maypole meadow) and the balloon pad
+  // the volleyball court and the parasail pad
   ell(1350, 975, 120, 66, '#f8e2b4'); ellS(1350, 975, 92, 50, '#ffffffb0', 3);
   ell(1665, 262, 70, 34, '#f8e2b4'); ellS(1665, 262, 56, 26, '#ff7fb2aa', 4); txt('H', 1665, 262, 22, '#ff7fb2aa');
   // the dune-grass patch
@@ -231,12 +230,12 @@ export function drawGround(detail = true): void {
   rrect(826, 222, 348, 100, 10, '#e0b98e');
   for (let i = 0; i < 8; i++) ln(840 + i * 44, 226, 840 + i * 44, 318, '#c89a6a', 2);
   rrect(826, 318, 348, 16, 6, '#2a8a9a');
-  // fountain basin
-  if (G.flags.chocFlood) { ell(1000, 650, 150, 82, '#5a2c1a'); ell(996, 646, 140, 74, '#7a4630'); for (const [a, b] of [[-120, 30], [110, 40], [60, -50], [-70, -55]]) ell(1000 + a, 650 + b, 26, 12, '#7a4630'); }
+  // the foam pit
+  if (G.flags.chocFlood) { ell(1000, 650, 150, 82, '#e0eef4'); ell(996, 646, 140, 74, '#fffaf2'); for (const [a, b] of [[-120, 30], [110, 40], [60, -50], [-70, -55]]) ell(1000 + a, 650 + b, 26, 12, '#fffaf2'); }
   ell(1000, 646, 82, 46, '#e8d8c0');
   ell(1000, 642, 78, 43, '#fff6ea');
-  ell(1000, 642, 70, 37, '#7a4630');
-  for (let i = 0; i < 3; i++) ellS(1000, 642, 30 + ((G.clock * 18 + i * 14) % 40), 16 + ((G.clock * 18 + i * 14) % 40) * .5, '#a8704f88', 2);
+  ell(1000, 642, 70, 37, '#5fd8d8');
+  for (let i = 0; i < 14; i++) { const a = i * 2.39, d = .25 + (i % 5) * .15; circ(1000 + Math.cos(a) * 62 * d, 642 + Math.sin(a) * 32 * d, 11 + Math.sin(G.clock * 2 + i) * 2, i % 3 ? '#fffaf2' : '#e8f8ff'); }
   // lagoons
   for (const w of WATER) if (w.id !== 'choc') {
     ell(w.x, w.y + 4, w.rx + 18, w.ry + 12, '#dcb27c');

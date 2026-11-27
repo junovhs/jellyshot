@@ -6,6 +6,8 @@ import type { Ellipse, Pt } from "./util";
 
 /* ---------- people ---------- */
 export type Kind = 'target' | 'guard' | 'civ' | 'kid' | 'portrait';
+/** The targets' signature outfits, drawn over the body. */
+export type Look = 'crypto' | 'influencer' | 'tycoon';
 export type Dyn<T> = T | (() => T);
 
 export interface Step {
@@ -42,7 +44,7 @@ export interface Bubble { t: string; life: number; max: number }
 
 export interface NPC {
   id: string; kind: Kind; name: string; role: string;
-  col: PalKey; r: number; hat?: Hat; sash?: boolean;
+  col: PalKey; r: number; hat?: Hat; look?: Look;
   item?: ItemKind; carry?: ItemKind; lines?: LineKey;
   speed: number; plan: Step[];
   protects?: string; partner?: string; parent?: string; kids?: string[];

@@ -20,10 +20,10 @@ const JOB_GEN: (() => Omit<Job, 'done'>)[] = [
   () => { const gd = pick(CAST_GUARDS); return { text: `Headshot ${gd.name}`, test: (n, i) => n.id === gd.id && !!i.head }; },
   () => { const c = pick(adults()); return { text: `Pop ${c.name} in the first 2 minutes`, test: n => n.id === c.id && G.T < 120 }; },
   () => ({ text: 'Headshot a target while they’re walking', test: (n, i) => n.kind === 'target' && !!i.head && !!i.moving }),
-  () => ({ text: 'Pop a guard hiding in a bush', test: (n, _i, p) => n.kind === 'guard' && p.where === 'bush' }),
+  () => ({ text: 'Pop a guard hiding in the dune grass', test: (n, _i, p) => n.kind === 'guard' && p.where === 'bush' }),
   () => ({ text: 'Pop 3 jellies within a few seconds', test: () => G.combo >= 3 }),
-  () => ({ text: 'Pop a target while they’re dancing', test: n => n.kind === 'target' && n.acting === 'dance' }),
-  () => ({ text: 'Dunk a guard in the pond', test: (n, _i, p) => n.kind === 'guard' && p.where === 'water' && waterAt(n.x, n.y)?.id === 'pond' }),
+  () => ({ text: 'Pop a target while they’re in the conga', test: n => n.kind === 'target' && n.acting === 'dance' }),
+  () => ({ text: 'Dunk a guard in the lagoon', test: (n, _i, p) => n.kind === 'guard' && p.where === 'water' && waterAt(n.x, n.y)?.id === 'pond' }),
   () => ({ text: 'Pop a bodyguard before their boss', test: n => !!n.protects && G.byId[n.protects].alive })
 ];
 const rollJobs = (): Job[] => shuffle(JOB_GEN).slice(0, 3).map(f => ({ ...f(), done: false }));
@@ -72,7 +72,7 @@ export function crowdSay(x: number, y: number, r: number, pool: LineKey, count: 
 export function fallIn(n: NPC, cause: string, delay: number): void {
   if (!n.alive || n.dying) return;
   n.react = null; n.dying = .55 + delay; n.fallCause = cause; n.sink = 0;
-  say(n, pick(['WHOA!', 'Eep!', 'Not the pond!', 'Glub!']), 1.4);
+  say(n, pick(['WHOA!', 'Eep!', 'Not the lagoon!', 'Glub!']), 1.4);
 }
 export function beeChase(n: NPC): void { react(n, 'bees', { time: 99 }); say(n, pick(LINES.bees), 1.6); }
 export function shake(v: number): void { if (!REDUCE) G.shake = Math.max(G.shake, v); }
@@ -87,10 +87,10 @@ export function accident(list: NPC[], cause: string): void {
   if (cause === 'cake' && tk.length === 3) award('cake3');
   if (cause === 'fireworks' && tk.length === 3) award('fireworks');
   if (cause === 'gumball' && tk.length) award('gumball');
-  if (cause === 'maypole' && tk.includes('baroness')) award('maypole');
-  if (cause === 'oven' && tk.includes('judge')) award('oven');
+  if (cause === 'maypole' && tk.includes('skylar')) award('maypole');
+  if (cause === 'oven' && tk.includes('rick')) award('oven');
   const n = (G.evKills[ev] || []).length;
-  if (n >= 2) { toast(`${n}× ACCIDENT!`, cause === 'cake' ? 'Let them eat cake' : 'Tragic. Truly.'); addScore((n - 1) * 250); }
+  if (n >= 2) { toast(`${n}× ACCIDENT!`, cause === 'cake' ? 'To the moon' : 'Tragic. Truly.'); addScore((n - 1) * 250); }
   if (tk.length) handler(pick(HANDLER.accident));
 }
 /* ---------- the pop ---------- */
@@ -144,8 +144,8 @@ export function killNPC(n: NPC, info: KillInfo = {}): void {
     toast('TARGET POPPED', n.name.toUpperCase());
     if (!info.accident) handler(pick(HANDLER.pop));
     if (info.cause === 'bees') { award('bees'); if (G.flags.meetBench && G.T >= 220) award('benchbees'); }
-    if (info.cause === 'dock' && n.id === 'mayor') award('dock');
-    if (info.cause === 'balloon' && n.id === 'baroness') award('balloon');
+    if (info.cause === 'dock' && n.id === 'brayden') award('dock');
+    if (info.cause === 'balloon' && n.id === 'skylar') award('balloon');
     if (!TARGET_IDS.some(id => G.byId[id].alive)) {
       setTimeout(() => handler(HANDLER.allDown), 900);
       setExtractVisible(true);
@@ -156,7 +156,7 @@ export function killNPC(n: NPC, info: KillInfo = {}): void {
     }
   }
   if (n.id === 'dmitri' && G.flags.proposing) { award('coldfeet'); G.flags.proposing = false; }
-  if (n.id === 'granny') { award('client'); setTimeout(() => handler(HANDLER.client), 600); }
+  if (n.id === 'doris') { award('client'); setTimeout(() => handler(HANDLER.client), 600); }
   if (wasMourning && (G.byId[wasMourning]?.partner === n.id || n.partner === wasMourning)) award('widow');
   if (G.stats.collateral === 12) handler(HANDLER.collateral);
   if (G.stats.concealed >= 5) award('concealed');
@@ -215,7 +215,7 @@ function triggerLockdown(): void {
     if (!n.alive || n.dying) continue;
     if (n.kind === 'target') {
       const bal = G.props.find(p => p.id === 'balloon');
-      if (n.id === 'baroness' && bal?.state === 'landed') react(n, 'flee', { g: [1665, 280], balloon: true });
+      if (n.id === 'skylar' && bal?.state === 'landed') react(n, 'flee', { g: [1665, 280], balloon: true });
       else if (!n.inBalloon) react(n, 'flee', { g: [1000, 1296] });
     } else if (n.kind === 'guard') { if (!n.protects) react(n, 'investigate', { x: 1000, y: 1100, time: 20 }); }
     else if (Math.random() < .45) react(n, 'flee', { g: [1000 + rand(-40, 40), 1296] });
@@ -503,22 +503,22 @@ function timeline(): void {
     if (ph.id === 'farewell') handler(HANDLER.farewell);
   }
   const cue = (k: string, t: number, fn: () => void) => { if (G.T >= t && !G.cues.has(k)) { G.cues.add(k); fn(); } };
-  cue('arrivals', 18, () => { if (G.byId.mayor.alive && G.byId.baroness.alive) handler(HANDLER.arrivals); });
+  cue('arrivals', 18, () => { if (G.byId.brayden.alive && G.byId.skylar.alive) handler(HANDLER.arrivals); });
   cue('cakeSoon', 36, () => { if (!G.flags.cakeDown) handler(HANDLER.cakeSoon); });
-  cue('pie2', 114, () => { if (G.byId.mayor.alive) handler(HANDLER.pie2); });
-  cue('pie3', 128, () => { if (G.byId.baroness.alive) handler(HANDLER.pie3); });
+  cue('pie2', 114, () => { if (G.byId.brayden.alive) handler(HANDLER.pie2); });
+  cue('pie3', 128, () => { if (G.byId.skylar.alive) handler(HANDLER.pie3); });
   cue('oneMin', MISSION_LEN - 60, () => { if (TARGET_IDS.some(id => G.byId[id].alive)) handler(HANDLER.oneMin); });
   // ---- little scripted scenes that make the town feel alive ----
   const A = (id: string): NPC | null => { const n = G.byId[id]; return n && n.alive && !n.react ? n : null; };
-  cue('crane', 47, () => { const k = A('kranz'); if (k && !G.flags.cakeDown) say(k, 'Cake is UP! Nobody sneeze.', 3); });
-  cue('mcCake', 56, () => { const m = A('sprinkles'); if (m) say(m, G.flags.cakeEarly ? 'Uh... the ceremony has MOVED to the fountain!' : 'Give it up for MAYOR WOBBLETON!', 3); });
-  cue('nibbles', 118, () => { const n = A('nibbles'); if (n) say(n, '*sneaks a pie*', 2.5); });
-  cue('granny1', 140, () => { const n = A('granny'); if (n) say(n, G.byId.judge.alive ? 'He’s not even CHEWING!' : 'Well. No judge. Pity.', 3); });
+  cue('crane', 47, () => { const k = A('kranz'); if (k && !G.flags.cakeDown) say(k, 'Coin is UP! Nobody sneeze.', 3); });
+  cue('mcCake', 56, () => { const m = A('sprinkles'); if (m) say(m, G.flags.cakeEarly ? 'Uh... the launch has MOVED to the foam pit!' : 'Give it up for BRAYDEN "MOONBOY" KESSLER!', 3); });
+  cue('nibbles', 118, () => { const n = A('nibbles'); if (n) say(n, '*sneaks a rib*', 2.5); });
+  cue('doris1', 140, () => { const n = A('doris'); if (n) say(n, G.byId.rick.alive ? 'He’s not even CHEWING!' : 'Well. No judge. Pity.', 3); });
   cue('results', 156, () => {
-    const m = A('sprinkles'), j = G.byId.judge;
+    const m = A('sprinkles'), j = G.byId.rick;
     if (!m) return;
-    if (j.alive) { say(m, 'And the winner is... BARNABY CRUMB!', 3.5); setTimeout(() => { say(A('barnaby'), 'I WON?! I used store-bought!', 3); say(A('granny'), 'RIGGED! RIGGED, I SAY!', 3); }, 1600); }
-    else { say(m, 'The judge is... unavailable. Everyone wins!', 3.5); setTimeout(() => say(A('granny'), 'Heh. Heh heh heh.', 3), 1600); }
+    if (j.alive) { say(m, 'And the winner is... THE GRAND FLAMINGO KITCHEN!', 3.5); setTimeout(() => { say(A('barnaby'), 'That’s HIS OWN restaurant!', 3); say(A('doris'), 'RIGGED! RIGGED, I SAY!', 3); }, 1600); }
+    else { say(m, 'The judge is... unavailable. Everyone wins!', 3.5); setTimeout(() => say(A('doris'), 'Heh. Heh heh heh.', 3), 1600); }
   });
   cue('propose', 204, () => {
     const d = A('dmitri'), t = A('dot');

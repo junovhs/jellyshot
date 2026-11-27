@@ -2,10 +2,10 @@
    NPCs: every jelly has a schedule, a job, people they care about,
    and a way of freaking out. Plans are lists of timed steps.
    ===================================================================== */
-import { CAST_CIVS, CAST_GUARDS, LINES, LOC, PAL, PAL_KEYS, TARGET_IDS, TARGET_INFO, WORLD, isLineKey, type Hat, type HotKey, type PalKey } from "./data";
+import { CAST_CIVS, CAST_GUARDS, LINES, LOC, PAL, PAL_KEYS, TARGET_IDS, TARGET_INFO, WORLD, isLineKey, type Hat, type HotKey, type ItemKind, type PalKey } from "./data";
 import { circ, ell, g, ln, poly, ringS, rrect, txt } from "./draw";
 import { award, escapeTarget, killNPC, leave } from "./rules";
-import { G, type Dyn, type NPC, type Reaction, type ReactType, type Step } from "./state";
+import { G, type Dyn, type Look, type NPC, type Reaction, type ReactType, type Step } from "./state";
 import { TAU, clamp, dist, pick, rand, type Ellipse, type Pt } from "./util";
 import { onDock, waterAt } from "./world";
 
@@ -19,7 +19,7 @@ export const HOT: Record<HotKey, Ellipse> = {
   pie: { x: 560, y: 590, rx: 96, ry: 30 },
   maypoleWatch: { x: 1350, y: 1080, rx: 120, ry: 22 }
 };
-const HOTNAME: Record<HotKey, string> = { plaza: 'the square', stalls: 'the market stalls', icecream: 'the ice cream cart', busker: 'the busker', garden: 'the garden', pondside: 'the pond', pie: 'the pie tent', maypoleWatch: 'the maypole' };
+const HOTNAME: Record<HotKey, string> = { plaza: 'the deck', stalls: 'the drink stands', icecream: 'the ice cream cart', busker: 'Kazoo Kevin', garden: 'the dune grass', pondside: 'the lagoon', pie: 'the BBQ tent', maypoleWatch: 'the volleyball court' };
 const SHED_SPOTS: Pt[] = [[1222, 320], [1302, 320], [1262, 340]];
 const BENCH_SPOTS: Pt[] = [[1488, 706], [1532, 706], [1510, 724]];
 const meet = (i: number) => (): Pt => G.flags.meetBench ? BENCH_SPOTS[i] : SHED_SPOTS[i];
@@ -37,32 +37,32 @@ function pointIn(h: Ellipse): Pt {
 function targetPlans(): Record<typeof TARGET_IDS[number], Step[]> {
   const ce = () => G.flags.cakeEarly;
   return {
-    mayor: [
-      { t: 0, at: [1000, 594], act: 'greet', label: 'Greeting guests at the fountain' },
-      { t: 50, at: () => ce() ? [1000, 594] : [1000, 300], act: 'speech', lines: () => ce() ? 'speechAlt' : 'speech', label: 'Giving a speech' },
-      { t: 100, at: [598, 905], act: 'feed', label: 'Feeding the ducks on the dock' },
-      { t: 160, at: [334, 262], act: 'admire', label: 'Admiring the gumball machine' },
-      { t: 220, at: meet(0), act: 'whisper', label: 'At a secret Syndicate meeting' },
-      { t: 270, at: [976, 1196], act: 'leave', label: 'Waiting for the carriage' },
+    brayden: [
+      { t: 0, at: [1000, 594], act: 'greet', label: 'Hyping $JIGGLE by the foam pit' },
+      { t: 50, at: () => ce() ? [1000, 594] : [1000, 300], act: 'speech', lines: () => ce() ? 'speechAlt' : 'speech', label: 'Pitching $JIGGLE' },
+      { t: 100, at: [598, 905], act: 'feed', label: 'Showing off a jet ski on the dock' },
+      { t: 160, at: [334, 262], act: 'admire', label: 'Filming an ad by the coconut pile' },
+      { t: 220, at: meet(0), act: 'whisper', label: 'Splitting the $JIGGLE money' },
+      { t: 270, at: [976, 1196], act: 'leave', label: 'Waiting for the shuttle' },
       { t: 288, at: [990, 1302], act: 'leave', exit: true, label: 'Leaving through the gate' }
     ],
-    baroness: [
-      { t: 0, at: [1665, 284], act: 'idle', label: 'Arriving by balloon' },
-      { t: 16, at: [1044, 600], act: 'chat', label: 'Chatting with the Mayor' },
-      { t: 50, at: () => ce() ? [1046, 598] : [1052, 300], act: 'clap', lines: 'cheer', label: 'Standing by the podium' },
-      { t: 100, at: [1598, 692], act: 'sniff', label: 'Smelling the flowers' },
-      { t: 160, circle: true, act: 'dance', label: 'Dancing round the maypole' },
-      { t: 220, at: meet(1), act: 'whisper', label: 'At a secret Syndicate meeting' },
-      { t: 270, at: () => G.flags.balloonGone ? [1026, 1200] : [1665, 280], act: 'leave', label: () => G.flags.balloonGone ? 'Waiting for the carriage' : 'Heading to her balloon' },
-      { t: 289, at: () => G.flags.balloonGone ? [1012, 1302] : [1665, 280], act: 'leave', exit: true, label: () => G.flags.balloonGone ? 'Leaving through the gate' : 'Boarding her balloon' }
+    skylar: [
+      { t: 0, at: [1665, 284], act: 'idle', label: 'Arriving by parasail' },
+      { t: 16, at: [1044, 600], act: 'chat', label: 'Filming Brayden for content' },
+      { t: 50, at: () => ce() ? [1046, 598] : [1052, 300], act: 'clap', lines: 'cheer', label: 'Filming the launch' },
+      { t: 100, at: [1598, 692], act: 'sniff', label: 'Shooting content under the palms' },
+      { t: 160, circle: true, act: 'dance', label: 'In the conga round the net pole' },
+      { t: 220, at: meet(1), act: 'whisper', label: 'Splitting the $JIGGLE money' },
+      { t: 270, at: () => G.flags.balloonGone ? [1026, 1200] : [1665, 280], act: 'leave', label: () => G.flags.balloonGone ? 'Waiting for the shuttle' : 'Heading to her parasail' },
+      { t: 289, at: () => G.flags.balloonGone ? [1012, 1302] : [1665, 280], act: 'leave', exit: true, label: () => G.flags.balloonGone ? 'Leaving through the gate' : 'Strapping into her parasail' }
     ],
-    judge: [
-      { t: 0, hot: { x: 590, y: 540, rx: 60, ry: 20 }, act: 'inspect', label: 'Inspecting the pie tent' },
+    rick: [
+      { t: 0, hot: { x: 590, y: 540, rx: 60, ry: 20 }, act: 'inspect', label: 'Collecting "fees" at the BBQ tent' },
       { t: 50, at: () => ce() ? [956, 598] : [948, 300], act: 'clap', lines: 'cheer', label: 'Standing on stage' },
-      { t: 100, at: [606, 478], act: 'taste', label: 'Tasting pies' },
-      { t: 160, at: [270, 262], act: 'admire', label: 'Admiring the gumball machine' },
-      { t: 220, at: meet(2), act: 'whisper', label: 'At a secret Syndicate meeting' },
-      { t: 270, at: [1024, 1212], act: 'leave', label: 'Waiting for the carriage' },
+      { t: 100, at: [606, 478], act: 'taste', label: 'Judging the ribs' },
+      { t: 160, at: [270, 262], act: 'admire', label: 'Admiring the coconut pile' },
+      { t: 220, at: meet(2), act: 'whisper', label: 'Splitting the $JIGGLE money' },
+      { t: 270, at: [1024, 1212], act: 'leave', label: 'Waiting for the shuttle' },
       { t: 290, at: [1010, 1302], act: 'leave', exit: true, label: 'Leaving through the gate' }
     ]
   };
@@ -76,9 +76,9 @@ function attendeePlan(c: { home?: HotKey; alt?: HotKey; dances?: boolean }): Ste
   const view: Pt = [rand(870, 1130), rand(705, 820)];
   const p: Step[] = [
     { t: 0, hot: home, act: 'wander', label: `Browsing ${HOTNAME[home]}` },
-    { t: 44 + j(), at: crowd, act: 'cheer', label: 'Watching the cake ceremony' },
-    Math.random() < .55 ? { t: 100 + j(), at: pie, act: 'watch', label: 'Watching the pie judging' } : { t: 100 + j(), hot: alt, act: 'wander', label: `Wandering ${HOTNAME[alt]}` },
-    c.dances ? { t: 158 + j(), circle: true, act: 'dance', label: 'Dancing round the maypole' } : { t: 158 + j(), hot: 'maypoleWatch', act: 'watch', label: 'Watching the maypole dance' },
+    { t: 44 + j(), at: crowd, act: 'cheer', label: 'Watching the $JIGGLE launch' },
+    Math.random() < .55 ? { t: 100 + j(), at: pie, act: 'watch', label: 'Watching the BBQ judging' } : { t: 100 + j(), hot: alt, act: 'wander', label: `Wandering ${HOTNAME[alt]}` },
+    c.dances ? { t: 158 + j(), circle: true, act: 'dance', label: 'In the conga round the net pole' } : { t: 158 + j(), hot: 'maypoleWatch', act: 'watch', label: 'Watching the volleyball final' },
     { t: 220 + j(), hot: alt, act: 'wander', label: `Wandering ${HOTNAME[alt]}` },
     { t: 266 + j(), at: view, act: 'watch', label: 'Waiting for the fireworks' }
   ];
@@ -88,10 +88,10 @@ function attendeePlan(c: { home?: HotKey; alt?: HotKey; dances?: boolean }): Ste
 export function buildCast(): NPC[] {
   const out: NPC[] = [];
   const TP = targetPlans();
-  const tdef: Record<typeof TARGET_IDS[number], { col: PalKey; r: number; hat: Hat; sash?: boolean; item?: 'fan' }> = {
-    mayor: { col: 'lime', r: 18, hat: 'tophat', sash: true },
-    baroness: { col: 'grape', r: 17, hat: 'tiara', item: 'fan' },
-    judge: { col: 'peach', r: 17, hat: 'chef' }
+  const tdef: Record<typeof TARGET_IDS[number], { col: PalKey; r: number; hat: Hat; look: Look; item?: ItemKind }> = {
+    brayden: { col: 'lemon', r: 17, hat: 'backcap', look: 'crypto', item: 'phone' },
+    skylar: { col: 'pink', r: 17, hat: 'sunhat', look: 'influencer', item: 'selfie' },
+    rick: { col: 'peach', r: 19, hat: 'captain', look: 'tycoon' }
   };
   for (const id of TARGET_IDS) {
     out.push(mkNPC({ id, kind: 'target', name: TARGET_INFO[id].name, role: 'TARGET · ' + TARGET_INFO[id].short, speed: 64, plan: TP[id], ...tdef[id] }));
@@ -101,7 +101,7 @@ export function buildCast(): NPC[] {
       : [{ t: 0, patrol: gd.patrol ?? [], act: 'guard', lines: 'guard', label: 'On patrol' }];
     out.push(mkNPC({ id: gd.id, kind: 'guard', name: gd.name, role: gd.role, col: 'navy', r: 15, hat: 'guard', speed: 50, plan, protects: gd.follow }));
   }
-  const circleIds = ['baroness'];
+  const circleIds = ['skylar'];
   for (const c of CAST_CIVS) {
     let plan: Step[] = [], extra: Partial<NPC> = {};
     switch (c.plan) {
@@ -109,7 +109,7 @@ export function buildCast(): NPC[] {
       case 'partner': plan = [{ t: 0, follow: c.who, off: [20, 6], act: 'copy', lines: 'couple', label: `Out with ${CAST_CIVS.find(x => x.id === c.who)?.name}` }]; break;
       case 'kid': {
         const k = out.filter(n => n.parent === c.parent).length + (c.parent === 'praline' ? 2 : 0);
-        const f = { follow: c.parent, off: [k % 2 ? 22 : -22, 14] as Pt, act: 'copy', lines: 'kid' as const, label: `Tagging along with ${c.parent === 'gelato' ? 'Mama' : 'Papa'}` };
+        const f = { follow: c.parent, off: [k % 2 ? 22 : -22, 14] as Pt, act: 'copy', lines: 'kid' as const, label: `Tagging along with ${c.parent === 'gelato' ? 'Mom' : 'Dad'}` };
         plan = [{ t: 0, ...f }];
         for (const bt of [20, 126, 200]) { plan.push({ t: bt + k * 6, at: [762 + k * 16, 846], act: 'buy', label: 'Buying ice cream' }); plan.push({ t: bt + k * 6 + 12, ...f }); }
         extra = { r: 10, speed: 54 };
@@ -118,36 +118,36 @@ export function buildCast(): NPC[] {
       case 'contestant': {
         const s = c.slot ?? 0;
         plan = [
-          { t: 0, hot: 'pie', act: 'wander', item: 'pie', label: 'Fussing over a pie' },
-          { t: 44 + rand(0, 6), at: [rand(870, 1130), rand(368, 450)], act: 'cheer', item: 'pie', label: 'Watching the cake ceremony' },
-          { t: 98, at: [506 + s * 44, 540], act: 'present', item: 'pie', label: 'Presenting a pie to the Judge' },
+          { t: 0, hot: 'pie', act: 'wander', item: 'pie', label: 'Fussing over a rack of ribs' },
+          { t: 44 + rand(0, 6), at: [rand(870, 1130), rand(368, 450)], act: 'cheer', item: 'pie', label: 'Watching the $JIGGLE launch' },
+          { t: 98, at: [506 + s * 44, 540], act: 'present', item: 'pie', label: 'Presenting ribs to Big Rick' },
           { t: 160, hot: s % 2 ? 'icecream' : 'stalls', act: 'wander', label: 'Waiting for the results' },
-          { t: 222, hot: 'plaza', act: 'wander', label: 'Gossiping in the square' },
+          { t: 222, hot: 'plaza', act: 'wander', label: 'Gossiping on the deck' },
           { t: 266, at: [rand(870, 1130), rand(705, 820)], act: 'watch', label: 'Waiting for the fireworks' }
         ];
         break;
       }
       case 'vendor': plan = [{ t: 0, at: c.at, act: c.act ?? 'idle', lines: c.lines, label: c.label ?? '' }];
-        if (c.id === 'bill') plan.push({ t: 158, at: [1452, 952], act: 'music', lines: 'music', label: 'Playing for the maypole' }, { t: 222, at: c.at, act: 'music', lines: 'music', label: 'Playing the banjo' });
+        if (c.id === 'bill') plan.push({ t: 158, at: [1452, 952], act: 'music', lines: 'music', label: 'Playing for the conga' }, { t: 222, at: c.at, act: 'music', lines: 'music', label: 'Playing the ukulele' });
         break;
       case 'dancer': { const sl = c.slot ?? 0; plan = [
-        { t: 0, at: [1118 + sl * 46, 820], act: 'dance', label: 'Dancing to the banjo' },
-        { t: 156, circle: true, act: 'dance', label: 'Dancing round the maypole' },
-        { t: 224, at: [1118 + sl * 46, 820], act: 'dance', label: 'Dancing to the banjo' },
+        { t: 0, at: [1118 + sl * 46, 820], act: 'dance', label: 'Dancing to the ukulele' },
+        { t: 156, circle: true, act: 'dance', label: 'In the conga round the net pole' },
+        { t: 224, at: [1118 + sl * 46, 820], act: 'dance', label: 'Dancing to the ukulele' },
         { t: 266, at: [rand(870, 1130), rand(705, 820)], act: 'watch', label: 'Waiting for the fireworks' }];
         circleIds.push(c.id); break; }
       case 'fisher': plan = [{ t: 0, at: [534, 902], act: 'fish', label: 'Fishing off the dock' }, { t: 205, at: [534, 902], act: 'sleep', label: 'Napping on the dock' }]; break;
-      case 'gardener': plan = [{ t: 0, patrol: [[1440, 600], [1560, 640], [1660, 700], [1480, 740], [1700, 560]], act: 'water', lines: 'garden', label: 'Tending the flowers' }]; break;
+      case 'gardener': plan = [{ t: 0, patrol: [[1440, 600], [1560, 640], [1660, 700], [1480, 740], [1700, 560]], act: 'water', lines: 'garden', label: 'Sweeping the dunes with a metal detector' }]; break;
       case 'crane': plan = [
-        { t: 0, at: [1150, 316], act: 'crane', label: 'Operating the cake crane' },
+        { t: 0, at: [1150, 316], act: 'crane', label: 'Minding the coin rope' },
         { t: 98, at: [1236, 300], act: 'tinker', label: 'Prepping the fireworks' },
         { t: 212, hot: 'stalls', act: 'wander', label: 'On a very long break' },
         { t: 266, at: [1000, 380], act: 'watch', label: 'Waiting to light the fireworks' }]; break;
       case 'mc': plan = [
         { t: 0, hot: 'plaza', act: 'wander', label: 'Warming up the crowd' },
-        { t: 44, at: [928, 300], act: 'mc', label: 'Hosting the cake ceremony' },
-        { t: 100, at: [646, 524], act: 'mc', label: 'Announcing the pie judging' },
-        { t: 160, at: [1270, 1040], act: 'cheer', label: 'Hyping the maypole dance' },
+        { t: 44, at: [928, 300], act: 'mc', label: 'Hosting the $JIGGLE launch' },
+        { t: 100, at: [646, 524], act: 'mc', label: 'Announcing the BBQ judging' },
+        { t: 160, at: [1270, 1040], act: 'cheer', label: 'Hyping the volleyball final' },
         { t: 222, hot: 'plaza', act: 'wander', label: 'Mingling' },
         { t: 266, at: [1000, 360], act: 'mc', label: 'Announcing the fireworks' }]; break;
       case 'follow': plan = [{ t: 0, follow: c.who, off: c.off, act: c.act ?? 'idle', lines: c.lines, label: c.label ?? '' }]; break;
@@ -157,7 +157,7 @@ export function buildCast(): NPC[] {
       plan, partner: c.partner, parent: c.parent, item: c.item, lines: c.lines, ...extra
     }));
   }
-  // maypole ring slots
+  // conga ring slots round the net pole
   circleIds.forEach((id, i) => { const n = out.find(o => o.id === id); if (n) n.ring = i / circleIds.length * TAU; });
   // children know their parents and vice versa
   for (const n of out) if (n.parent) { const p = out.find(o => o.id === n.parent); if (p) (p.kids ||= []).push(n.id); }
@@ -190,9 +190,9 @@ export function placeAtStart(n: NPC): void {
 export const val = <T,>(v: Dyn<T>): T => typeof v === 'function' ? (v as () => T)() : v;
 export function stepLabel(n: NPC): string {
   if (!n.alive) return n.escaped ? 'Escaped' : 'Popped';
-  if (n.inBalloon) return G.byId.baroness === n && G.T > 200 ? 'Leaving by balloon' : 'Arriving by balloon';
-  if (n.react) return ({ investigate: 'Investigating a noise', panic: 'Panicking', mourn: 'Grieving', guard: 'Securing a puddle', argue: 'Demanding a refund', sad: 'Crying', bees: 'Fleeing bees!', fall: 'Falling', flee: 'Fleeing!', cower: 'Cowering', look: 'Shocked', chase: 'Chasing balloons', dazed: 'Dazed', lost: 'Looking for someone' } as Partial<Record<ReactType, string>>)[n.react.type] || 'Distracted';
-  return val(n.step?.label) || 'Enjoying the Jubilee';
+  if (n.inBalloon) return G.byId.skylar === n && G.T > 200 ? 'Leaving by parasail' : 'Arriving by parasail';
+  if (n.react) return ({ investigate: 'Investigating a noise', panic: 'Panicking', mourn: 'Grieving', guard: 'Securing a puddle', argue: 'Demanding a refund', sad: 'Crying', bees: 'Fleeing seagulls!', fall: 'Falling', flee: 'Fleeing!', cower: 'Cowering', look: 'Shocked', chase: 'Chasing balloons', dazed: 'Dazed', lost: 'Looking for someone' } as Partial<Record<ReactType, string>>)[n.react.type] || 'Distracted';
+  return val(n.step?.label) || 'Enjoying spring break';
 }
 
 /* ---------- reactions ---------- */
@@ -245,7 +245,7 @@ export function updateNPC(n: NPC, dt: number): void {
         if (waterAt(n.x, n.y)?.id === 'lily') { killNPC(n, { cause: 'bees', accident: true, concealed: true }); return; }
         break;
       case 'flee': { const fg: Pt = R.g ?? [1000, 1296]; goal = fg; act = 'panic'; spd = n.kind === 'target' ? 52 : 110; R.time = 99;
-        if (dist(n.x, n.y, ...fg) < 14) { if (n.kind === 'target') { if (n.id === 'baroness' && R.balloon) { /* balloon handles boarding */ } else return escapeTarget(n); } else return leave(n); }
+        if (dist(n.x, n.y, ...fg) < 14) { if (n.kind === 'target') { if (n.id === 'skylar' && R.balloon) { /* balloon handles boarding */ } else return escapeTarget(n); } else return leave(n); }
         break;
       }
     }
@@ -353,7 +353,7 @@ function linePool(n: NPC): readonly string[] | null {
     return LINES.panic;
   }
   const s = n.step; const l = s?.lines !== undefined ? val(s.lines) : undefined;
-  if (n.id === 'granny' && Math.random() < .5) return LINES.granny;
+  if (n.id === 'doris' && Math.random() < .5) return LINES.client;
   if (n.id === 'bill' && G.flags.banjoBroken) return LINES.sadBusker;
   if (a === 'boo') return LINES.boo;
   if (isLineKey(l)) return LINES[l];
@@ -405,7 +405,18 @@ export function drawNPC(n: NPC, lift = 0): void {
   g.bezierCurveTo(r * .91, r * .49, -r * .91, r * .49, -r * .94, r * .03);
   g.fillStyle = grad; g.fill();
   ell(-r * .28, -r * .86, r * .39, r * .14, '#ffffffb5');
-  if (n.sash) { g.save(); g.beginPath(); g.moveTo(-r * .9, -r * .7); g.lineTo(-r * .6, -r * .9); g.lineTo(r * .9, r * .1); g.lineTo(r * .6, r * .3); g.closePath(); g.fillStyle = '#ff5c9e'; g.fill(); g.restore(); circ(r * .1, -r * .32, r * .14, '#ffd36b'); }
+  if (n.look === 'tycoon') {   // Hawaiian shirt over the lower body
+    g.save(); g.beginPath(); g.moveTo(-r * .94, r * .03);
+    g.bezierCurveTo(-r * 1.15, -r * 1.44, r * 1.08, -r * 1.56, r, r * .03);
+    g.bezierCurveTo(r * .91, r * .49, -r * .91, r * .49, -r * .94, r * .03); g.clip();
+    g.fillStyle = '#2fc4a8'; g.fillRect(-r * 1.2, r * .1, r * 2.4, r * .5);
+    for (const [fx, fy, fc] of [[-.62, .2, '#ff86b0'], [-.15, .3, '#ffe066'], [.35, .22, '#ff86b0'], [.75, .14, '#ffe066']] as [number, number, string][]) { for (let k = 0; k < 5; k++) { const a = k / 5 * TAU; circ(r * fx + Math.cos(a) * r * .08, r * fy + Math.sin(a) * r * .08, r * .065, fc); } circ(r * fx, r * fy, r * .045, '#fffaf2'); }
+    g.restore();
+  }
+  if (n.look === 'crypto') {   // gold chain with a $ coin
+    for (let k = -4; k <= 4; k++) { const t = k / 4; circ(f * r * .12 + t * r * .5, r * .12 + (1 - t * t) * r * .12, r * .055, '#ffd36b'); }
+    circ(f * r * .12, r * .3, r * .13, '#ffcc4c'); txt('$', f * r * .12, r * .31, r * .2, '#b5851e');
+  }
   if (n.kind === 'guard') { rrect(-r * .7, -r * .1, r * 1.4, r * .26, 3, '#2a3a7a'); circ(r * .35, -r * .5, r * .13, '#ffd36b'); }
   // face
   const ex = f * r * .25;
@@ -421,12 +432,15 @@ export function drawNPC(n: NPC, lift = 0): void {
     if (a === 'mourn' || a === 'sad' || a === 'boo') for (const k of [-1, 1]) ln(ex + k * r * .27 - r * .15, -r * .62 - k * r * .05, ex + k * r * .27 + r * .15, -r * .62 + k * r * .05, '#50334f', 1.4);
     if (a === 'argue' || (n.kind === 'guard' && a === 'alert')) for (const k of [-1, 1]) ln(ex + k * r * .27 - r * .15, -r * .64 + k * r * .06, ex + k * r * .27 + r * .15, -r * .64 - k * r * .06, '#50334f', 1.6);
   }
+  if (n.look === 'crypto') { for (const k of [-1, 1]) { ell(ex + k * r * .27, -r * .37, r * .23, r * .19, '#2a2035'); ell(ex + k * r * .27 - r * .07, -r * .43, r * .07, r * .04, '#ffffff66'); } rrect(ex - r * .08, -r * .47, r * .16, r * .05, 1, '#ffd36b'); }
+  if (n.look === 'influencer') { for (const k of [-1, 1]) { const cx = ex + k * r * .27; poly([cx + k * r * .1, -r * .5, cx + k * r * .34, -r * .6, cx + k * r * .26, -r * .36], '#ff4f9a'); ell(cx, -r * .4, r * .22, r * .16, '#ff4f9a'); ell(cx, -r * .4, r * .17, r * .12, '#3a1030'); ell(cx - r * .06, -r * .44, r * .05, r * .03, '#ffffff77'); } }
   // mouth
   if (a === 'panic' || a === 'look' || a === 'cower' || a === 'bees') ell(ex, -r * .05, r * .13, r * .13, '#65354d');
   else if (a === 'mourn' || a === 'sad' || a === 'boo') { g.beginPath(); g.arc(ex, r * .06, r * .14, Math.PI * 1.15, Math.PI * 1.85); g.strokeStyle = '#65354d'; g.lineWidth = 1.6; g.stroke(); }
   else if (a === 'dance' || a === 'cheer' || a === 'greet' || a === 'speech' || a === 'clap') { g.beginPath(); g.arc(ex, -r * .1, r * .15, .1, Math.PI - .1); g.fillStyle = '#65354d'; g.fill(); }
   else if (a === 'taste') ell(ex, -r * .02, r * .14, r * .09 + Math.abs(Math.sin(t * 9)) * r * .05, '#65354d');
   else ell(ex, -r * .01, r * .16, r * .071, '#65354d99');
+  if (n.look === 'tycoon') { const cx = f > 0 ? ex + r * .08 : ex - r * .5; rrect(cx, -r * .06, r * .42, r * .1, r * .04, '#8a5a3a'); circ(f > 0 ? cx + r * .42 : cx, -r * .01, r * .06, '#ff7a3a'); const ph = (t * .7 + n.phase) % 1; circ((f > 0 ? cx + r * .44 : cx - r * .02) + Math.sin(t * 2) * 2, -r * .1 - ph * r * .9, r * (.06 + ph * .1), `rgba(255,255,255,${.5 * (1 - ph)})`); }
   if (n.kind === 'kid' || n.id === 'gloria' || n.id === 'clem') { ell(ex - r * .5, -r * .16, r * .12, r * .07, '#ff7fa866'); ell(ex + r * .5, -r * .16, r * .12, r * .07, '#ff7fa866'); }
   // tears / sweat
   if (a === 'mourn' || a === 'sad') for (const k of [-1, 1]) { const ty = ((t * 1.6 + k * .3) % 1) * r * .9; ell(ex + k * r * .36, -r * .2 + ty, r * .07, r * .11, '#7fd9ff'); }
@@ -457,8 +471,9 @@ function drawItem(n: NPC, r: number, f: number, a: string): void {
     circ(ix, iy - 8, 5.5, ['#ffd0e5', '#fff5b0', '#c1f6ff', '#d9ffb0'][n.id.length % 4]); circ(ix - 1.5, iy - 10, 1.4, '#e0457a');
   }
   if (!it) return;
-  if (it === 'pie') { ell(ix, iy, 9, 3.5, '#d48a4a'); ell(ix, iy - 1.5, 7.5, 2.6, '#f6c27a'); circ(ix - 2, iy - 2, 1.5, '#e0457a'); }
-  else if (it === 'fan') { g.beginPath(); g.moveTo(ix, iy + 2); g.arc(ix, iy + 2, 10, -Math.PI * .9 + Math.sin(G.clock * 6) * .2, -Math.PI * .3 + Math.sin(G.clock * 6) * .2); g.closePath(); g.fillStyle = '#ffd0e5'; g.fill(); }
+  if (it === 'pie') { ell(ix, iy, 10, 3.5, '#fffaf2'); rrect(ix - 7, iy - 4.5, 14, 5, 2, '#9a4a2a'); for (let k = 0; k < 4; k++) rrect(ix - 6 + k * 3.6, iy - 6, 1.6, 3, .8, '#fff3df'); }
+  else if (it === 'phone') { rrect(ix - 3.5, iy - 7, 7, 11, 1.5, '#2a2035'); rrect(ix - 2.5, iy - 6, 5, 8, 1, Math.sin(G.clock * 3 + n.phase) > 0 ? '#7fd9ff' : '#ffe066'); }
+  else if (it === 'selfie') { const sx = ix + f * r * .9, sy = iy - r * 1.7; ln(ix, iy, sx, sy, '#c8c8d0', 2); rrect(sx - 4, sy - 6, 8, 11, 1.5, '#ff86b0'); rrect(sx - 3, sy - 5, 6, 8, 1, '#c1f6ff'); if (Math.sin(G.clock * 2.6 + n.phase) > .96) circ(sx, sy - 1, 7, '#ffffffcc'); }
   else if (it === 'banjo') {
     if (G.flags.banjoBroken) { circ(ix, iy + 2, 7, '#e8b48a'); ln(ix, iy, ix + f * 4, iy - 14, '#a8704f', 2.5); ln(ix + f * 4, iy - 14, ix + f * 12, iy - 18, '#fff', 1); return; }
     ln(ix, iy, ix + f * 6, iy - 18, '#a8704f', 3); circ(ix, iy + 2, 7.5, '#e8b48a'); circ(ix, iy + 2, 5, '#fff3df');
@@ -469,7 +484,7 @@ function drawItem(n: NPC, r: number, f: number, a: string): void {
     if (!G.flags.fishCaught && a === 'fish') { const bx = BOBBER[0] - n.x, by = BOBBER[1] - n.y + (n.hopNow || 0); g.beginPath(); g.moveTo(tx, ty); g.quadraticCurveTo((tx + bx) / 2, ty + 20, bx, by); g.strokeStyle = '#ffffffaa'; g.lineWidth = 1; g.stroke(); }
     if (G.flags.fishCaught) { rrect(tx - 4, ty + 2, 8, 10, 2, '#6b4a3a'); rrect(tx - 4, ty + 9, 11, 4, 2, '#6b4a3a'); }
   }
-  else if (it === 'can') { rrect(ix - 5, iy - 4, 10, 9, 3, '#7fd9ff'); ln(ix + f * 5, iy - 2, ix + f * 11, iy - 7, '#7fd9ff', 2); if (a === 'water' && Math.sin(G.clock * 6) > 0) circ(ix + f * 12, iy - 4 + (G.clock * 30 % 10), 1.4, '#c1f6ff'); }
+  else if (it === 'can') { const dx = ix + f * r * .9 + Math.sin(G.clock * 2 + n.phase) * 3, dy = r * .3; ln(ix, iy, dx, dy, '#9aa0b0', 2); ell(dx, dy, 6, 2.5, '#5a6070'); rrect(ix - 2, iy - 1, 5, 5, 1.5, '#ffcc4c'); if (a === 'water' && Math.sin(G.clock * 5) > .7) txt('beep', dx, dy - 12, 6, '#50334f'); }
   else if (it === 'camera') { rrect(ix - 6, iy - 5, 12, 9, 2, '#50334f'); circ(ix, iy - .5, 3, '#c1f6ff'); }
   else if (it === 'bunch') {
     for (let i = 0; i < 6; i++) {
@@ -496,6 +511,9 @@ export function drawHat(type: Hat, r: number, ox = 0, oy: number | null = null, 
     case 'beret': ell(r * .08, -r * .08, r * .5, r * .2, '#c2407f'); circ(r * .08, -r * .26, r * .06, '#c2407f'); break;
     case 'hard': g.beginPath(); g.ellipse(0, 0, r * .52, r * .42, 0, Math.PI, 0); g.fillStyle = '#ffcc4c'; g.fill(); ell(0, 0, r * .62, r * .1, '#e0a92a'); break;
     case 'paper': poly([-r * .42, 0, r * .42, 0, r * .2, -r * .36, -r * .2, -r * .36], '#ffffff'); rrect(-r * .42, -r * .1, r * .84, r * .1, 0, '#ff8fc1'); break;
+    case 'backcap': g.beginPath(); g.ellipse(0, 0, r * .5, r * .36, 0, Math.PI, 0); g.fillStyle = '#3a7aff'; g.fill(); ell(-r * .5, -r * .04, r * .22, r * .07, '#2a5ad0'); circ(0, -r * .34, r * .05, '#2a5ad0'); break;
+    case 'sunhat': ell(0, -r * .02, r * 1.0, r * .24, '#fff0c8'); g.beginPath(); g.ellipse(0, -r * .08, r * .46, r * .38, 0, Math.PI, 0); g.fillStyle = '#ffe8b4'; g.fill(); rrect(-r * .46, -r * .2, r * .92, r * .12, 2, '#ff86b0'); ell(r * .44, -r * .16, r * .14, r * .09, '#ff4f9a'); break;
+    case 'captain': ell(0, -r * .04, r * .56, r * .14, '#2a2035'); rrect(-r * .5, -r * .5, r * 1, r * .46, r * .18, '#fffaf2'); rrect(-r * .5, -r * .16, r * 1, r * .12, 0, '#2a2035'); circ(0, -r * .32, r * .1, '#ffd36b'); break;
     case 'beanie': g.beginPath(); g.ellipse(0, 0, r * .48, r * .42, 0, Math.PI, 0); g.fillStyle = '#7fd9ff'; g.fill(); circ(0, -r * .44, r * .12, '#fff'); rrect(-r * .48, -r * .1, r * .96, r * .12, 3, '#5bb8e0'); break;
   }
   g.restore();

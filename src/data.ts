@@ -1,13 +1,13 @@
 /* =====================================================================
    JELLYSHOT — contract data: world layout, cast, schedules, dialogue,
-   challenges and progression. Everything that makes the Jubilee tick.
+   challenges and progression. Spring Break at Palmetto Point.
    ===================================================================== */
 import type { Ellipse, Pt } from "./util";
 
 export const WORLD = { w: 2000, h: 1300 };
-export const MISSION_LEN = 300; // seconds of festival
+export const MISSION_LEN = 300; // seconds of Spring Break
 
-export const TARGET_IDS = ['mayor', 'baroness', 'judge'] as const;
+export const TARGET_IDS = ['brayden', 'skylar', 'rick'] as const;
 export type TargetId = typeof TARGET_IDS[number];
 
 export const PAL = {
@@ -54,7 +54,7 @@ export interface Water extends Ellipse { id: 'pond' | 'lily' | 'choc'; name: str
 export const WATER: Water[] = [
   { id: 'pond', x: 420, y: 935, rx: 235, ry: 132, name: 'the lagoon' },
   { id: 'lily', x: 1560, y: 770, rx: 88, ry: 46, name: 'the tide pool' },
-  { id: 'choc', x: 1000, y: 640, rx: 70, ry: 38, name: 'the chocolate fountain' }
+  { id: 'choc', x: 1000, y: 640, rx: 70, ry: 38, name: 'the foam pit' }
 ];
 
 export const BUSHES: Ellipse[] = [
@@ -80,72 +80,72 @@ export const PATHS: Pt[][] = [
   [[1110, 420], [1250, 330]]
 ];
 
-/* ---------- festival schedule ---------- */
+/* ---------- the day's schedule ---------- */
 export interface Phase { t: number; id: string; name: string; sub: string }
 export const PHASES: Phase[] = [
-  { t: 0, id: 'arrive', name: 'ARRIVALS', sub: 'Guests mingle in the square' },
-  { t: 50, id: 'cake', name: 'THE BIG CAKE CEREMONY', sub: 'The Mayor speaks at the stage' },
-  { t: 100, id: 'pie', name: 'THE GREAT PIE JUDGING', sub: 'Judge Gumbo tastes the entries' },
-  { t: 160, id: 'maypole', name: 'MAYPOLE MERRIMENT', sub: 'Dancing in the south meadow' },
-  { t: 220, id: 'meeting', name: 'THE SYNDICATE MEETING', sub: 'The targets slip away to talk' },
-  { t: 270, id: 'farewell', name: 'FAREWELLS', sub: 'Targets head for the exits' }
+  { t: 0, id: 'arrive', name: 'ARRIVALS', sub: 'Spring breakers hit the deck' },
+  { t: 50, id: 'cake', name: 'THE $JIGGLE LAUNCH', sub: 'Brayden pitches his coin on stage' },
+  { t: 100, id: 'pie', name: 'THE BBQ COOK-OFF', sub: 'Big Rick judges the ribs' },
+  { t: 160, id: 'maypole', name: 'THE VOLLEYBALL FINAL', sub: 'Conga line round the net pole' },
+  { t: 220, id: 'meeting', name: 'THE DEAL', sub: 'The targets slip away to split the money' },
+  { t: 270, id: 'farewell', name: 'LAST CALL', sub: 'Targets head for the exits' }
 ];
 
 /* ---------- dialogue ---------- */
 export const LINES = {
-  greet: ['Welcome, welcome!', 'Vote Wobbleton!', 'Lovely to see you!', 'Mind the fountain, it\'s chocolate.', 'Have you SEEN my sash?', 'Ha ha! Ha. Ha.'],
-  speech: ['Citizens of Gumdrop Hollow!', 'This cake... is a metaphor.', 'Nine years of FAIR jam contests!', 'Applause here, please.', 'I am a humble jelly.', 'The cake is HUGE. Like my heart.'],
-  speechAlt: ['The cake fell, but I shall speak!', 'This was ALWAYS the plan.', 'A fountain is basically a stage.', 'Someone fire the crane guy.'],
-  chat: ['Did you try the fudge?', 'Lovely weather for it.', 'I heard the Mayor rigs the jam.', 'My cousin is a gummy worm.', 'Is that a new wobble?', 'I could eat this whole fair.', 'Shh, the Baroness is here.', 'I\'ve never been happier!', 'Is something... watching us?', 'This is the best day of my life.'],
-  cheer: ['Woo!', 'Cut the cake!', 'Speech! Speech!', 'Hooray!', 'Bravo!', 'Cake! Cake! Cake!'],
-  watch: ['Ooh.', 'Look at that!', 'So exciting!', 'I can\'t see!', 'Move your head, Gerald.'],
-  present: ['Please let it be me.', 'Gooseberry surprise!', 'My best pie yet!', 'Pick mine, Judge!', 'I used real lard.'],
-  taste: ['Mmmf. Adequate.', 'Too much crust.', 'Is this... a bribe?', 'More. For science.', 'This one tastes like money.', 'Hmm. Hmmm. HMMMM.'],
-  inspect: ['Dreadful.', 'Crumb structure: weak.', 'Where are the bribes?', 'Who baked THIS?'],
-  dance: ['Wheee!', 'Do-si-do!', 'Wobble wobble!', 'Feel the jiggle!', 'Spin me!', 'La la la!'],
-  sell_ice: ['Ice cream! Get your ice cream!', 'Two scoops, no waiting!', 'Fresh-churned!', 'Sprinkles are free!'],
-  music: ['♪ Oh my darling gumdrop ♪', '♪ plinky plunk ♪', '♪ twang twang ♪', 'Tips appreciated!', '♪ Jelly on the mountain ♪'],
-  fish: ['Nothing biting.', 'Patience...', 'In my day, ducks were ducks.', 'C\'mon, little fishy.', 'Zzz... huh?'],
-  garden: ['Grow, my pretties.', 'Who trampled the tulips?', 'Mind the bees!', 'Snip snip.'],
-  photo: ['Smile, Mayor!', 'Front page!', '*click*', 'One more!', 'Work it!'],
-  kid: ['I want ice cream!', 'Mama look!', 'Are we there yet?', 'Wheee!', 'I\'m bored.', 'Can I have a balloon?'],
+  greet: ['WAGMI, bro!', 'Buy $JIGGLE!', 'To the MOON!', 'Mind the foam, it gets everywhere.', 'Have you SEEN my chain?', 'Ha ha! Ha. Ha.'],
+  speech: ['Palmetto Point, are you READY?!', 'This coin... is a lifestyle.', '$JIGGLE only goes UP!', 'Applause here, please.', 'Grandma, put your savings IN.', 'Diamond hands, people!'],
+  speechAlt: ['The coin fell, but I shall pump!', 'This was ALWAYS the roadmap.', 'Foam is basically a stage.', 'Someone fire the rigging guy.'],
+  chat: ['Did you try the ribs?', 'Lovely weather for it.', 'I heard Big Rick rigs the cook-off.', 'My cousin is a jellyfish.', 'Is that a new wobble?', 'I could eat this whole beach.', 'Shh, Skylar is filming.', 'I\'ve never been happier!', 'Is something... watching us?', 'Best spring break EVER.'],
+  cheer: ['Woo!', 'To the moon!', 'Speech! Speech!', 'Hooray!', 'Spring break!', 'JIGGLE! JIGGLE!'],
+  watch: ['Ooh.', 'Look at that!', 'So exciting!', 'I can\'t see!', 'Move your head, Tony.'],
+  present: ['Please let it be me.', 'Fifty years of rub on these!', 'My best ribs yet!', 'Pick mine, Rick!', 'Secret sauce. Very secret.'],
+  taste: ['Mmmf. Adequate.', 'Too much char.', 'Is this... a bribe?', 'More. For science.', 'These taste like money.', 'Hmm. Hmmm. HMMMM.'],
+  inspect: ['Dreadful.', 'That\'s a vendor fee, chief.', 'Where\'s my cut?', 'Who grilled THIS?'],
+  dance: ['Wheee!', 'Conga!', 'Wobble wobble!', 'Feel the jiggle!', 'Spin me!', 'Spring break!'],
+  sell_ice: ['Ice cream! Get your ice cream!', 'Two scoops, no waiting!', 'Cold as the sea!', 'Sprinkles are free!'],
+  music: ['♪ bzz bzz-bzz bzzzz ♪', '♪ plinky plunk ♪', '♪ strum strum ♪', 'Tips appreciated!', '♪ Jelly on the beach ♪'],
+  fish: ['Nothing biting.', 'Patience...', 'Thirty years I\'ve waited.', 'C\'mon, little fishy.', 'Zzz... huh?'],
+  garden: ['Beep... beep...', 'Government chip, I bet.', 'Mind my detector!', 'BEEEP! ...a bottle cap.'],
+  photo: ['Say $JIGGLE!', 'Content!', '*click*', 'One more!', 'HAHA, so true, Brayden.'],
+  kid: ['I want ice cream!', 'Mom look!', 'Can we swim?', 'Wheee!', 'I\'m bored.', 'Can I have a balloon?'],
   kidCone: ['Mmm!', 'Best day ever!', 'Sprinkles!!', 'It\'s melting!'],
-  couple: ['I love you.', 'You\'re my gumdrop.', 'Hold my tentacle.', 'Look, a maypole!', 'Promise you\'ll never leave.'],
-  guard: ['All clear.', 'Keep moving.', 'Nothing to see here.', 'I love this job.', 'Eyes open.', 'Hmm.'],
+  couple: ['I love you.', 'You\'re my sea cucumber.', 'Hold my tentacle.', 'Look, the volleyball!', 'Promise you\'ll never leave.'],
+  guard: ['All clear.', 'Keep moving.', 'No running on the deck.', 'I love this job.', 'Eyes open.', 'Hmm.'],
   bodyguard: ['Stay close, boss.', 'Perimeter secure.', 'Eyes on the crowd.', 'Nobody touches the client.'],
-  guardAlert: ['Body jelly!', 'We have a puddle!', 'Secure the area!', 'Call it in!', 'Everybody stay calm!'],
-  panic: ['AAAAH!', 'A PUDDLE!', 'Somebody help!', 'Oh my gumdrops!', 'Was that Doug?!', 'Not again!', 'RUN!'],
-  accidentSeen: ['Oh no, an accident!', 'Such a tragedy...', 'Freak accident!', 'Somebody call a mop!'],
+  guardAlert: ['Body jelly!', 'We have a puddle!', 'Clear the beach!', 'Call it in!', 'Everybody stay calm!'],
+  panic: ['AAAAH!', 'A PUDDLE!', 'Somebody help!', 'Oh my goodness!', 'Was that Doug?!', 'Not again!', 'RUN!'],
+  accidentSeen: ['Oh no, an accident!', 'Such a tragedy...', 'Freak accident!', 'Somebody call a lifeguard!'],
   mourn: ['NOOOO!', 'Why?! WHY?!', 'You were so wobbly!', 'Come back to me!', '*sob*', 'Who will hold my tentacle?!'],
-  mournKid: ['MAMAAA!', 'PAPA?!', '*waaah*'],
+  mournKid: ['MOMMY!', 'DADDY?!', '*waaah*'],
   investigate: ['What was that?', 'Huh?', 'Hello?', 'Did someone drop something?', 'I heard a pew.', 'Weird.'],
   sad: ['My ice cream!', '*sniff*', 'Waaah!', 'Not fair!'],
   argue: ['You sold my kid a cursed cone!', 'Refund! NOW!', 'Unacceptable!', 'Your scoops are flimsy!'],
   argueBack: ['It was a perfectly good cone!', 'No refunds!', 'Physics did that, lady!'],
-  crane: ['Rope\'s holding... probably.', 'Don\'t look up, folks.', 'That cake weighs a ton.', 'Who tied this knot?'],
+  crane: ['Rope\'s holding... probably.', 'Don\'t look up, folks.', 'That coin weighs a ton.', 'Who tied this knot?'],
   tinker: ['Fuse... check.', 'Do NOT smoke near these.', 'Big finale tonight!', 'Oops. No. We\'re fine.'],
-  sniff: ['Ahh, roses.', 'Mmm, peonies.', 'Is that a bee?', 'Ugh, bees. I loathe bees.'],
-  feed: ['Here, ducky ducky!', 'Who\'s a good duck?', 'Quack quack!', 'The ducks love me.'],
-  admire: ['Biggest gumball machine in the land.', 'Think of the profits!', 'Glass is a bit thin.', 'Magnificent.'],
-  whisper: ['About the jam money...', 'Nobody can know.', 'We split it three ways.', 'Keep your voice down.', 'Granny Marmalade suspects.'],
-  leave: ['Well, that was lovely.', 'My carriage awaits!', 'Toodle-oo!', 'Time to go.'],
+  sniff: ['Golden hour, babes.', 'Like and subscribe!', 'Is that a seagull?', 'Ugh, seagulls. I loathe seagulls.'],
+  feed: ['Check out this jet ski!', 'Rented it with $JIGGLE money.', 'Vroom vroom!', 'The jet ski loves me.'],
+  admire: ['Biggest coconut pile on the coast.', 'Think of the profits!', 'That net is a bit thin.', 'Magnificent.'],
+  whisper: ['About the $JIGGLE money...', 'Nobody can know.', 'We split it three ways.', 'Keep your voice down.', 'Doris Pembrook suspects.'],
+  leave: ['Well, that was lovely.', 'My shuttle awaits!', 'Later, losers!', 'Time to go.'],
   flee: ['GET ME OUT OF HERE!', 'TO THE EXIT!', 'Protect me!', 'Not the face!'],
-  lockdownCiv: ['Stay down!', 'Is it over?', 'I just came for pie!', 'Mommy...'],
-  balloons: ['Balloons! Balloons!', 'One for a penny!', 'Every color!', 'Don\'t let go!'],
+  lockdownCiv: ['Stay down!', 'Is it over?', 'I just came for ribs!', 'Mommy...'],
+  balloons: ['Balloons! Balloons!', 'One for a dollar!', 'Every color!', 'Don\'t let go!'],
   sleep: ['Zzz...', 'Zzzz...', '*snore*'],
-  lemonade: ['Fresh lemonade!', 'Ice cold!', 'Sour as my ex!'],
-  cotton: ['Cotton candy!', 'Fluffy fluffy!', 'Spun fresh!'],
-  granny: ['That cheat Gumbo...', 'Nine years. NINE.', 'Revenge is a pie best served cold.', 'Heh heh heh.'],
+  lemonade: ['Margaritas!', 'Frozen fresh!', 'Salt on the rim!'],
+  cotton: ['Sno-cones!', 'Blue raspberry!', 'Brain freeze free of charge!'],
+  client: ['That crook Brayden...', 'My condo savings. ALL of it.', 'Revenge is a dish best served cold.', 'Heh heh heh.', '*knits furiously*'],
   boo: ['Booo!', 'Play something!', 'Lame!', 'Aww.'],
-  bees: ['BEES!!', 'NOT THE BEES!', 'AAAH BEES!'],
-  sadBusker: ['My banjo...', 'She was a family heirloom.', 'The show must go... on?'],
+  bees: ['GULLS!!', 'NOT THE GULLS!', 'AAAH MY FRIES!'],
+  sadBusker: ['My ukulele...', 'She was a family heirloom.', 'The show must go... on?'],
   bobber: ['Got one! ...a boot?', 'A BOOT!', 'Finally! ...oh.'],
-  mc: ['Give it up for the Mayor!', 'Let\'s hear it!', 'Isn\'t this magical?', 'Testing, testing.'],
+  mc: ['Give it up for BRAYDEN!', 'Let\'s hear it!', 'Make some NOISE!', 'Testing, testing.'],
   dazed: ['Whoa...', '@#%!', 'Who pushed me?', 'My wobble!'],
-  shocked: ['WHERE\'D SHE GO?', 'THE CAKE!', 'Is that... frosting?', 'Oh dear.'],
-  meeting_reroute: ['The shed is GONE. Garden bench.', 'Bench. Now.', 'This is a sign.'],
-  balloonGone: ['My balloon! Carriage it is.'],
-  hermit: ['Visitors?!', 'Is this... a party?', 'I haven’t been out since 1994.', 'Hello, people!', 'So many faces.', 'What is a jubilee?'],
+  shocked: ['WHERE\'D HE GO?', 'THE COIN!', 'Is that... gold paint?', 'Oh dear.'],
+  meeting_reroute: ['The hut is GONE. Bench.', 'Bench. Now.', 'This is a sign.'],
+  balloonGone: ['My parasail! Shuttle it is.'],
+  hermit: ['Visitors?!', 'Is this... a party?', 'I haven’t been out since 1994.', 'Hello, people!', 'So many faces.', 'What is a spring break?'],
   vendorChase: ['MY BALLOONS!', 'Come back!', 'That\'s my whole stock!']
 } satisfies Record<string, string[]>;
 export type LineKey = keyof typeof LINES;
@@ -154,30 +154,30 @@ export const isLineKey = (k: unknown): k is LineKey => typeof k === 'string' && 
 /* ---------- the handler (your voice in the ear) ---------- */
 export const HANDLER = {
   intro: [
-    'Afternoon. Welcome to the Gumdrop Jubilee.',
-    'Three marks: the Mayor, the Baroness, the Judge. The Sugarplum Syndicate.',
-    'Our client wants them popped before the festival ends. Accidents preferred. Discretion appreciated.'
+    'Afternoon. Welcome to Spring Break at Palmetto Point.',
+    'Three marks: Brayden Kessler, Skylar Lux and Big Rick Gillis. The $JIGGLE crew.',
+    'Our client wants them popped before the day is out. Accidents preferred. Discretion appreciated.'
   ],
-  arrivals: 'The Mayor and the Baroness are chatting by the chocolate fountain. That pump beside it has been making noises all morning.',
-  cakeSoon: 'The Mayor takes the stage soon. That cake is hanging by one sad little rope.',
-  cake: 'Ceremony\'s on. All three marks are on that stage. Just saying.',
-  pie: 'Pie judging. Gumbo is tasting next to an oven that has never passed inspection.',
-  pie2: 'The Mayor is feeding ducks on the dock. Docks are only as strong as their posts.',
-  pie3: 'The Baroness is sniffing flowers by a beehive. She hates bees. Interesting.',
-  maypole: 'Maypole time. The Baroness is dancing. The Mayor and the Judge are ogling that gumball machine on the hill.',
-  meeting: 'They\'re meeting in private by the fireworks shed. Fireworks are famously stable.',
-  meetingAlt: 'Shed\'s gone, so they\'ve moved to the garden bench. Under the beehive. Of course they have.',
-  farewell: 'They\'re leaving. Baroness to her balloon, the rest out through the south gate. That gate sign looks heavy.',
-  lockdown: 'They know. Lockdown — the marks are running for the exits. Stop them.',
+  arrivals: 'Brayden and Skylar are chatting by the foam pit. That cannon valve beside it has been hissing all morning.',
+  cakeSoon: 'Brayden takes the stage soon. That giant $JIGGLE coin is hanging by one sad little rope.',
+  cake: 'The launch is on. All three marks are on that stage. Just saying.',
+  pie: 'BBQ cook-off. Rick is tasting ribs next to a grill that has never passed inspection.',
+  pie2: 'Brayden is showing off a jet ski on the dock. Docks are only as strong as their posts.',
+  pie3: 'Skylar is filming under a palm with a seagull nest in it. She hates seagulls. Interesting.',
+  maypole: 'Volleyball final. Skylar is in the conga line round the net pole. Brayden and Rick are ogling the coconut pile on the dune.',
+  meeting: 'They\'re splitting the money in private by the fireworks hut. Fireworks are famously stable.',
+  meetingAlt: 'Hut\'s gone, so they\'ve moved to the bench. Under the seagull nest. Of course they have.',
+  farewell: 'They\'re leaving. Skylar to her parasail, the rest out through the south gate. That gate sign looks heavy.',
+  lockdown: 'They know. Lockdown: the marks are running for the exits. Stop them.',
   suspicious: 'People are getting twitchy. Ease off for a bit.',
   accident: ['Tragic. Truly. Nobody will suspect a thing.', 'An accident. How unfortunate.', 'Lovely work. Very... sticky.'],
-  pop: ['Mark down.', 'That\'s one less Syndicate member.', 'Clean.', 'Splendid splatter.'],
+  pop: ['Mark down.', 'That\'s one less $JIGGLE holder.', 'Clean.', 'Splendid splatter.'],
   allDown: 'All three marks popped. Leave whenever you like... or don\'t. Nobody\'s stopping you.',
   client: 'You just popped the CLIENT. Who exactly is paying us now?',
   collateral: 'That\'s a lot of collateral. I\'m not judging. Much.',
   escape: 'A mark escaped. The client will not be pleased.',
-  reroute: 'Cake\'s down early. Mayor\'s moving his speech to the fountain. Improvising, are we?',
-  balloonDown: 'Balloon\'s grounded. The Baroness will have to leave by carriage.',
+  reroute: 'Coin\'s down early. Brayden\'s moving his pitch to the foam pit. Improvising, are we?',
+  balloonDown: 'Parasail\'s grounded. Skylar will have to leave by shuttle.',
   kid: 'You shot a child\'s ice cream. I want that noted in your file.',
   banjo: 'You killed the music. Literally.',
   ghostLost: 'Someone found a puddle. So much for a ghost run.',
@@ -185,50 +185,52 @@ export const HANDLER = {
   quiet: ['Patience. Watch their routines.', 'Everyone here has a schedule. Learn it.', 'Linger your scope on odd things. Opportunities hide in plain sight.']
 };
 
+
 /* ---------- people ---------- */
 export interface TargetInfo { name: string; short: string; dossier: string; sched: string[] }
 export const TARGET_INFO: Record<TargetId, TargetInfo> = {
-  mayor: {
-    name: 'Mayor Wobbleton', short: 'MAYOR',
-    dossier: 'Host of the Jubilee. Rigged the Great Jam Contest nine years running. Loves ducks, speeches and the sound of his own wobble.',
-    sched: ['Greets guests at the chocolate fountain', 'Speech under the Big Cake (4:10 left)', 'Feeds ducks on the dock (3:20 left)', 'Admires the gumball machine (2:20 left)', 'Secret meeting (1:20 left)', 'Carriage at the south gate (0:30 left)']
+  brayden: {
+    name: 'Brayden "Moonboy" Kessler', short: 'BRAYDEN',
+    dossier: 'Crypto bro. Launched $JIGGLE and sold it to every retiree on the beach before it went to zero. Backwards cap, aviators, gold chain, phone always out.',
+    sched: ['Hyping $JIGGLE by the foam pit', 'Pitches $JIGGLE on stage, under the coin (4:10 left)', 'Shows off a jet ski on the dock (3:20 left)', 'Films an ad by the coconut pile (2:20 left)', 'Splits the money (1:20 left)', 'Shuttle at the south gate (0:30 left)']
   },
-  baroness: {
-    name: 'Baroness Fondant', short: 'BARONESS',
-    dossier: 'Sugar tycoon. Owns every beet for 400 miles. Arrives by hot air balloon. Loathes bees. Adores dancing.',
-    sched: ['Lands by balloon, chats at the fountain', 'Stands beside the podium (4:10 left)', 'Sniffs flowers in the garden (3:20 left)', 'Dances around the maypole (2:20 left)', 'Secret meeting (1:20 left)', 'Leaves by balloon (0:30 left)']
+  skylar: {
+    name: 'Skylar Lux', short: 'SKYLAR',
+    dossier: 'Influencer. Shoves kids out of her shot and fakes drownings for content. Arrives by parasail. Loathes seagulls. Adores a conga line.',
+    sched: ['Lands by parasail, films by the foam pit', 'Films the launch beside the stage (4:10 left)', 'Shoots content under the palms (3:20 left)', 'Congas round the volleyball net pole (2:20 left)', 'Splits the money (1:20 left)', 'Leaves by parasail (0:30 left)']
   },
-  judge: {
-    name: 'Judge Gumbo', short: 'JUDGE',
-    dossier: 'Pie judge. Has never awarded a ribbon he didn\'t get a cut of. Will eat absolutely anything placed in front of him.',
-    sched: ['Inspects the pie tent', 'Stands on stage for the cake (4:10 left)', 'Tastes pies beside the oven (3:20 left)', 'Admires the gumball machine (2:20 left)', 'Secret meeting (1:20 left)', 'Carriage at the south gate (0:30 left)']
+  rick: {
+    name: '"Big" Rick Gillis', short: 'RICK',
+    dossier: 'Owner of the Grand Flamingo Resort. Collects "fees" from every vendor, bribes the volleyball ref, and judges a BBQ cook-off his own kitchen always wins.',
+    sched: ['Collects "fees" at the BBQ tent', 'Stands on stage for the launch (4:10 left)', 'Judges ribs beside the grill (3:20 left)', 'Admires the coconut pile (2:20 left)', 'Splits the money (1:20 left)', 'Shuttle at the south gate (0:30 left)']
   }
 };
 
+
 export const OPPS = {
-  cake: { name: 'The Big Cake', hint: 'A one-ton cake dangles over the podium by a single rope. The ceremony starts with 4:10 left on the clock.' },
-  oven: { name: 'The Rickety Oven', hint: 'The pie tent oven is held together with hope. A shot will make it overheat… and blow.' },
-  gumball: { name: 'Giant Gumball Machine', hint: 'Thin glass. Lots of gumballs. A steep path downhill.' },
-  dock: { name: 'The Duck Dock', hint: 'Two wobbly posts hold up the dock. Anyone on it goes for a swim. Jellies can\'t swim.' },
-  hive: { name: 'The Beehive', hint: 'Angry bees chase anyone nearby straight into the tide pool.' },
-  maypole: { name: 'The Maypole', hint: 'Shoot the topknot and the pole topples south. Timing is everything.' },
-  balloon: { name: 'The Baroness\'s Balloon', hint: 'Pop it on the ground to strand her. Pop it in the air for something… worse.' },
+  cake: { name: 'The $JIGGLE Coin', hint: 'A one-ton inflatable coin full of sand dangles over the stage by a single rope. The launch starts with 4:10 left on the clock.' },
+  oven: { name: 'The Rusty Grill', hint: 'The cook-off grill is held together with hope and propane. A shot will make it overheat… and blow.' },
+  gumball: { name: 'The Coconut Pile', hint: 'A thin net holds a mountain of coconuts at the top of the dune. Steep path downhill.' },
+  dock: { name: 'The Jet-Ski Dock', hint: 'Two wobbly posts hold up the dock. Anyone on it goes for a swim. Jellies can\'t swim.' },
+  hive: { name: 'The Seagull Nest', hint: 'Angry seagulls chase anyone nearby straight into the tide pool.' },
+  maypole: { name: 'The Net Pole', hint: 'Spring-loaded and badly anchored. Shoot the clamp at the top and the pole whips south. Timing is everything.' },
+  balloon: { name: 'Skylar\'s Parasail', hint: 'Pop it on the ground to strand her. Pop it in the air for something… worse.' },
   fireworks: { name: 'Fireworks Crates', hint: 'Enough fireworks for a finale. Very flammable. Very loud.' },
   icecream: { name: 'Ice Cream Cones', hint: 'Kids carry cones. Cones can be… shot.' },
-  banjo: { name: 'Banjo Bill\'s Banjo', hint: 'Snap a string, stop the music, ruin the dance.' },
-  bobber: { name: 'The Fishing Bobber', hint: 'Old Finnegan has been waiting all day for a bite.' },
+  banjo: { name: 'Kazoo Kevin\'s Ukulele', hint: 'Snap a string, stop the music, ruin the conga.' },
+  bobber: { name: 'The Fishing Bobber', hint: 'Earl has been waiting thirty years for a bite.' },
   bunch: { name: 'The Balloon Bunch', hint: 'Bubbles the vendor holds an entire bouquet of balloons.' },
-  pump: { name: 'Fountain Pump', hint: 'The chocolate fountain’s pump is over-pressurised. Shoot it and anyone at the rim gets fondue’d. The Mayor and the Baroness chat there until 4:10 is left.' },
+  pump: { name: 'Foam Cannon Valve', hint: 'The foam cannon is over-pressurised. Shoot the valve and anyone at the rim gets foamed. Brayden and Skylar hang out there until 4:10 is left.' },
   sign: { name: 'The Welcome Sign', hint: 'A heavy sign hangs over the south gate by two chains. Everyone leaving walks right under it, even targets fleeing a lockdown.' },
-  fountain: { name: 'The Chocolate Fountain', hint: 'Anything popped in the chocolate is hidden from view. Same goes for ponds and bushes.' }
+  fountain: { name: 'The Foam Pit', hint: 'Anything popped in the foam is hidden from view. Same goes for lagoons and dune grass.' }
 } satisfies Record<string, { name: string; hint: string }>;
 export type OppId = keyof typeof OPPS;
 export const OPP_IDS = Object.keys(OPPS) as OppId[];
 
 /* civilians: built by plan helpers in npc.ts */
-export type Hat = 'none' | 'tophat' | 'tophat2' | 'tiara' | 'chef' | 'guard' | 'bow' | 'bonnet' | 'cap' | 'straw' | 'beret' | 'hard' | 'paper' | 'beanie';
+export type Hat = 'none' | 'tophat' | 'tophat2' | 'tiara' | 'chef' | 'guard' | 'bow' | 'bonnet' | 'cap' | 'straw' | 'beret' | 'hard' | 'paper' | 'beanie' | 'backcap' | 'sunhat' | 'captain';
 export type HotKey = 'plaza' | 'stalls' | 'icecream' | 'busker' | 'garden' | 'pondside' | 'pie' | 'maypoleWatch';
-export type ItemKind = 'bunch' | 'banjo' | 'rod' | 'can' | 'camera' | 'pie' | 'fan';
+export type ItemKind = 'bunch' | 'banjo' | 'rod' | 'can' | 'camera' | 'pie' | 'phone' | 'selfie';
 export interface CivDef {
   id: string; name: string; role: string; col: PalKey; hat: Hat;
   plan: 'contestant' | 'vendor' | 'fisher' | 'gardener' | 'crane' | 'follow' | 'mc' | 'attendee' | 'kid' | 'partner' | 'dancer';
@@ -237,70 +239,71 @@ export interface CivDef {
 }
 export const CAST_CIVS: CivDef[] = [
   // id, name, role, col, size, hat, kind-specific
-  { id: 'granny', name: 'Granny Marmalade', role: 'Pie contestant · the client', col: 'cocoa', hat: 'bonnet', plan: 'contestant', slot: 0, lines: 'granny' },
-  { id: 'barnaby', name: 'Barnaby Crumb', role: 'Pie contestant', col: 'gold', hat: 'none', plan: 'contestant', slot: 1 },
-  { id: 'pip', name: 'Pip Strudel', role: 'Pie contestant', col: 'mint', hat: 'bow', plan: 'contestant', slot: 2 },
-  { id: 'muffy', name: 'Muffy Tartlet', role: 'Pie contestant', col: 'rose', hat: 'bonnet', plan: 'contestant', slot: 3 },
-  { id: 'sam', name: 'Sundae Sam', role: 'Ice cream vendor', col: 'sky', hat: 'paper', plan: 'vendor', at: [790, 790], act: 'sell', lines: 'sell_ice', label: 'Scooping ice cream' },
-  { id: 'lou', name: 'Lemony Lou', role: 'Lemonade vendor', col: 'lemon', hat: 'paper', plan: 'vendor', at: [770, 1046], act: 'sell', lines: 'lemonade', label: 'Squeezing lemons' },
-  { id: 'flo', name: 'Candy Floss Flo', role: 'Cotton candy vendor', col: 'pink', hat: 'paper', plan: 'vendor', at: [1232, 1046], act: 'sell', lines: 'cotton', label: 'Spinning cotton candy' },
+  { id: 'doris', name: 'Doris Pembrook', role: 'Retiree · cook-off contestant · the client', col: 'cocoa', hat: 'sunhat', plan: 'contestant', slot: 0, lines: 'client' },
+  { id: 'barnaby', name: 'Walt Hutchins', role: 'Retiree · cook-off contestant', col: 'gold', hat: 'none', plan: 'contestant', slot: 1 },
+  { id: 'pip', name: 'Sal Trombetta', role: 'Retiree · cook-off contestant', col: 'mint', hat: 'cap', plan: 'contestant', slot: 2 },
+  { id: 'muffy', name: 'Bev Hutchins', role: 'Retiree · cook-off contestant', col: 'rose', hat: 'bonnet', plan: 'contestant', slot: 3 },
+  { id: 'sam', name: 'Cone Connie', role: 'Ice cream vendor', col: 'sky', hat: 'paper', plan: 'vendor', at: [790, 790], act: 'sell', lines: 'sell_ice', label: 'Scooping ice cream' },
+  { id: 'lou', name: 'Rosa', role: 'Margarita vendor', col: 'lime', hat: 'paper', plan: 'vendor', at: [770, 1046], act: 'sell', lines: 'lemonade', label: 'Blending margaritas' },
+  { id: 'flo', name: 'Sno-Cone Sonny', role: 'Sno-cone vendor', col: 'pink', hat: 'paper', plan: 'vendor', at: [1232, 1046], act: 'sell', lines: 'cotton', label: 'Shaving ice' },
   { id: 'bubbles', name: 'Bubbles', role: 'Balloon vendor', col: 'sky', hat: 'beanie', plan: 'vendor', at: [872, 492], act: 'sell', lines: 'balloons', label: 'Selling balloons', item: 'bunch' },
-  { id: 'bill', name: 'Banjo Bill', role: 'Busker', col: 'peach', hat: 'straw', plan: 'vendor', at: [1165, 776], act: 'music', lines: 'music', label: 'Playing the banjo', item: 'banjo' },
-  { id: 'finn', name: 'Old Finnegan', role: 'Fisherman', col: 'navy', hat: 'straw', plan: 'fisher', item: 'rod' },
-  { id: 'hedge', name: 'Hedgeworth', role: 'Gardener', col: 'lime', hat: 'straw', plan: 'gardener', item: 'can' },
-  { id: 'kranz', name: 'Cranky Kranz', role: 'Crane operator', col: 'gold', hat: 'hard', plan: 'crane' },
-  { id: 'flash', name: 'Flash Fizzwick', role: 'Press photographer', col: 'mint', hat: 'beret', plan: 'follow', who: 'mayor', off: [42, 16], act: 'photo', lines: 'photo', label: 'Photographing the Mayor', item: 'camera' },
-  { id: 'sprinkles', name: 'MC Sprinkles', role: 'Master of ceremonies', col: 'berry', hat: 'tophat2', plan: 'mc' },
-  { id: 'gelato', name: 'Mama Gelato', role: 'Festival-goer · mother of two', col: 'rose', hat: 'bow', plan: 'attendee', home: 'icecream', alt: 'plaza', dances: false },
-  { id: 'jujube', name: 'Lil Jujube', role: 'Child', col: 'gold', hat: 'none', plan: 'kid', parent: 'gelato', kid: true },
-  { id: 'tapioca', name: 'Tot Tapioca', role: 'Child', col: 'lime', hat: 'cap', plan: 'kid', parent: 'gelato', kid: true },
-  { id: 'praline', name: 'Papa Praline', role: 'Festival-goer · father of two', col: 'cocoa', hat: 'cap', plan: 'attendee', home: 'busker', alt: 'stalls', dances: true },
-  { id: 'bonbon', name: 'Baby Bonbon', role: 'Child', col: 'pink', hat: 'bow', plan: 'kid', parent: 'praline', kid: true },
-  { id: 'kiwi', name: 'Kid Kiwi', role: 'Child', col: 'mint', hat: 'cap', plan: 'kid', parent: 'praline', kid: true },
-  { id: 'gerald', name: 'Gerald', role: 'Festival-goer · madly in love with Gloria', col: 'navy', hat: 'none', plan: 'attendee', home: 'plaza', alt: 'garden', dances: true, partner: 'gloria' },
-  { id: 'gloria', name: 'Gloria', role: 'Festival-goer · madly in love with Gerald', col: 'pink', hat: 'bow', plan: 'partner', who: 'gerald', partner: 'gerald' },
-  { id: 'dmitri', name: 'Dmitri', role: 'Festival-goer · engaged to Dot', col: 'grape', hat: 'beret', plan: 'attendee', home: 'pondside', alt: 'stalls', dances: true, partner: 'dot' },
-  { id: 'dot', name: 'Dot', role: 'Festival-goer · engaged to Dmitri', col: 'lemon', hat: 'none', plan: 'partner', who: 'dmitri', partner: 'dmitri' },
-  { id: 'clive', name: 'Clive', role: 'Festival-goer · on a first date', col: 'peach', hat: 'cap', plan: 'attendee', home: 'stalls', alt: 'busker', dances: false, partner: 'clem' },
-  { id: 'clem', name: 'Clementine', role: 'Festival-goer · on a first date', col: 'mint', hat: 'bonnet', plan: 'partner', who: 'clive', partner: 'clive' },
-  { id: 'tess', name: 'Tess Twirl', role: 'Dancer', col: 'rose', hat: 'bow', plan: 'dancer', slot: 0 },
-  { id: 'hal', name: 'Hopscotch Hal', role: 'Dancer', col: 'sky', hat: 'cap', plan: 'dancer', slot: 1 },
-  { id: 'pam', name: 'Polka Pam', role: 'Dancer', col: 'lemon', hat: 'bow', plan: 'dancer', slot: 2 },
-  { id: 'fudge', name: 'Sir Fudgington', role: 'Festival-goer · minor nobility', col: 'cocoa', hat: 'tophat2', plan: 'attendee', home: 'plaza', alt: 'garden', dances: false },
-  { id: 'wanda', name: 'Wobbly Wanda', role: 'Festival-goer', col: 'grape', hat: 'bonnet', plan: 'attendee', home: 'stalls', alt: 'plaza', dances: true },
-  { id: 'nibbles', name: 'Nibbles', role: 'Festival-goer · always hungry', col: 'gold', hat: 'none', plan: 'attendee', home: 'pie', alt: 'stalls', dances: false },
-  { id: 'tim', name: 'Taffy Tim', role: 'Festival-goer', col: 'berry', hat: 'cap', plan: 'attendee', home: 'busker', alt: 'pondside', dances: true },
-  { id: 'gwen', name: 'Gumdrop Gwen', role: 'Festival-goer', col: 'lime', hat: 'bow', plan: 'attendee', home: 'garden', alt: 'plaza', dances: true },
-  { id: 'chuck', name: 'Chewy Chuck', role: 'Festival-goer', col: 'peach', hat: 'beanie', plan: 'attendee', home: 'pondside', alt: 'icecream', dances: false },
-  { id: 'mallory', name: 'Marsh Mallory', role: 'Festival-goer', col: 'rose', hat: 'none', plan: 'attendee', home: 'plaza', alt: 'busker', dances: true },
-  { id: 'lars', name: 'Licorice Lars', role: 'Festival-goer · suspicious type', col: 'navy', hat: 'beanie', plan: 'attendee', home: 'garden', alt: 'stalls', dances: false }
+  { id: 'bill', name: 'Kazoo Kevin', role: 'One-man band', col: 'peach', hat: 'straw', plan: 'vendor', at: [1165, 776], act: 'music', lines: 'music', label: 'Playing the ukulele', item: 'banjo' },
+  { id: 'finn', name: 'Earl Bassmeyer', role: 'Fisherman', col: 'navy', hat: 'straw', plan: 'fisher', item: 'rod' },
+  { id: 'hedge', name: 'Ronnie Fitch', role: 'Metal detectorist · conspiracy guy', col: 'lime', hat: 'beanie', plan: 'gardener', item: 'can' },
+  { id: 'kranz', name: 'Chet', role: 'Rigger · holds the coin rope', col: 'gold', hat: 'hard', plan: 'crane' },
+  { id: 'flash', name: 'Jaxon', role: 'Hype man · films Brayden', col: 'mint', hat: 'backcap', plan: 'follow', who: 'brayden', off: [42, 16], act: 'photo', lines: 'photo', label: 'Filming Brayden', item: 'camera' },
+  { id: 'sprinkles', name: 'DJ Turbo Splash', role: 'DJ · master of ceremonies', col: 'berry', hat: 'cap', plan: 'mc' },
+  { id: 'gelato', name: 'Linda Feldman', role: 'Tourist · mother of two', col: 'rose', hat: 'sunhat', plan: 'attendee', home: 'icecream', alt: 'plaza', dances: false },
+  { id: 'jujube', name: 'Mason Feldman', role: 'Child', col: 'gold', hat: 'none', plan: 'kid', parent: 'gelato', kid: true },
+  { id: 'tapioca', name: 'Ava Feldman', role: 'Child', col: 'lime', hat: 'cap', plan: 'kid', parent: 'gelato', kid: true },
+  { id: 'praline', name: 'Marcus', role: 'Beachgoer · father of two', col: 'cocoa', hat: 'cap', plan: 'attendee', home: 'busker', alt: 'stalls', dances: true },
+  { id: 'bonbon', name: 'Lily', role: 'Child · sandcastle architect', col: 'pink', hat: 'bow', plan: 'kid', parent: 'praline', kid: true },
+  { id: 'kiwi', name: 'Ollie', role: 'Child', col: 'mint', hat: 'cap', plan: 'kid', parent: 'praline', kid: true },
+  { id: 'gerald', name: 'Tony', role: 'Beachgoer · back together with Gina (again)', col: 'navy', hat: 'none', plan: 'attendee', home: 'plaza', alt: 'garden', dances: true, partner: 'gloria' },
+  { id: 'gloria', name: 'Gina', role: 'Beachgoer · back together with Tony (again)', col: 'pink', hat: 'bow', plan: 'partner', who: 'gerald', partner: 'gerald' },
+  { id: 'dmitri', name: 'Dmitri', role: 'Beachgoer · about to propose to Dot', col: 'grape', hat: 'backcap', plan: 'attendee', home: 'pondside', alt: 'stalls', dances: true, partner: 'dot' },
+  { id: 'dot', name: 'Dot', role: 'Beachgoer · Dmitri\'s girlfriend', col: 'lemon', hat: 'none', plan: 'partner', who: 'dmitri', partner: 'dmitri' },
+  { id: 'clive', name: 'Devin', role: 'Beachgoer · on a first date', col: 'peach', hat: 'cap', plan: 'attendee', home: 'stalls', alt: 'busker', dances: false, partner: 'clem' },
+  { id: 'clem', name: 'Priya', role: 'Beachgoer · on a first date', col: 'mint', hat: 'sunhat', plan: 'partner', who: 'clive', partner: 'clive' },
+  { id: 'tess', name: 'Brock', role: 'Volleyball player · Team Thunderthighs', col: 'rose', hat: 'backcap', plan: 'dancer', slot: 0 },
+  { id: 'hal', name: 'Duke', role: 'Volleyball player · Team Thunderthighs', col: 'sky', hat: 'cap', plan: 'dancer', slot: 1 },
+  { id: 'pam', name: 'Jess', role: 'Volleyball player · Team Sandy Cheeks', col: 'lemon', hat: 'bow', plan: 'dancer', slot: 2 },
+  { id: 'fudge', name: 'Uncle Rudy', role: 'Beachgoer · wakes only for fireworks', col: 'cocoa', hat: 'straw', plan: 'attendee', home: 'plaza', alt: 'garden', dances: false },
+  { id: 'wanda', name: 'Glenda', role: 'Sunbather · never turns over', col: 'grape', hat: 'sunhat', plan: 'attendee', home: 'stalls', alt: 'plaza', dances: true },
+  { id: 'nibbles', name: 'Craig Feldman', role: 'Tourist dad · always hungry', col: 'gold', hat: 'none', plan: 'attendee', home: 'pie', alt: 'stalls', dances: false },
+  { id: 'tim', name: 'Tyler', role: 'Teen · has never won the claw machine', col: 'berry', hat: 'backcap', plan: 'attendee', home: 'busker', alt: 'pondside', dances: true },
+  { id: 'gwen', name: 'Bree', role: 'Volleyball fan · trash-talks the gulls', col: 'lime', hat: 'bow', plan: 'attendee', home: 'garden', alt: 'plaza', dances: true },
+  { id: 'chuck', name: 'Kayden', role: 'Teen · trying to sneak into the pool party', col: 'peach', hat: 'beanie', plan: 'attendee', home: 'pondside', alt: 'icecream', dances: false },
+  { id: 'mallory', name: 'Vinnie Spray', role: 'Airbrush artist · spells every name wrong', col: 'rose', hat: 'none', plan: 'attendee', home: 'plaza', alt: 'busker', dances: true },
+  { id: 'lars', name: 'Silver Steve', role: 'Living statue · suspicious type', col: 'navy', hat: 'beanie', plan: 'attendee', home: 'garden', alt: 'stalls', dances: false }
 ];
 
 export interface GuardDef { id: string; name: string; role: string; follow?: TargetId; off?: Pt; patrol?: Pt[] }
 export const CAST_GUARDS: GuardDef[] = [
-  { id: 'g_mayor', name: 'Officer Gumm', role: 'Bodyguard · protects the Mayor', follow: 'mayor', off: [-34, 10] },
-  { id: 'g_baroness', name: 'Sgt. Drops', role: 'Bodyguard · protects the Baroness', follow: 'baroness', off: [34, 10] },
-  { id: 'g_judge', name: 'Constable Chew', role: 'Bodyguard · protects the Judge', follow: 'judge', off: [-32, 12] },
-  { id: 'g_plaza', name: 'Deputy Fizz', role: 'Guard · plaza patrol', patrol: [[860, 560], [1140, 560], [1160, 730], [850, 740]] },
-  { id: 'g_stage', name: 'Officer Nougat', role: 'Guard · stage patrol', patrol: [[850, 420], [1150, 420], [1250, 360], [1180, 300], [1300, 300]] },
-  { id: 'g_garden', name: 'Cadet Taffy', role: 'Guard · garden patrol', patrol: [[1420, 640], [1600, 600], [1640, 380], [1560, 690], [1400, 720]] }
+  { id: 'g_brayden', name: 'Tank', role: 'Bodyguard · protects Brayden', follow: 'brayden', off: [-34, 10] },
+  { id: 'g_skylar', name: 'Big Moe', role: 'Bouncer · protects Skylar', follow: 'skylar', off: [34, 10] },
+  { id: 'g_rick', name: 'Little Moe', role: 'Bouncer · protects Rick', follow: 'rick', off: [-32, 12] },
+  { id: 'g_plaza', name: 'Chip', role: 'Lifeguard · deck patrol', patrol: [[860, 560], [1140, 560], [1160, 730], [850, 740]] },
+  { id: 'g_stage', name: 'Marisol', role: 'Lifeguard · stage patrol', patrol: [[850, 420], [1150, 420], [1250, 360], [1180, 300], [1300, 300]] },
+  { id: 'g_garden', name: 'Officer Gary Plunk', role: 'Beach patrol · dunes', patrol: [[1420, 640], [1600, 600], [1640, 380], [1560, 690], [1400, 720]] }
 ];
 
 /* ---------- challenges (hour to hour) ---------- */
 export interface Challenge { id: string; group: string; name: string; desc: string }
 export const CHALLENGES: Challenge[] = [
-  { id: 'cake', group: 'Assassinations', name: 'Let Them Eat Cake', desc: 'Pop a target with the Big Cake.' },
-  { id: 'fondue', group: 'Assassinations', name: 'Fondue for Two', desc: 'Pop the Mayor and the Baroness together with the fountain pump.' },
-  { id: 'cake3', group: 'Assassinations', name: 'Party\'s Over', desc: 'Pop all three targets with the Big Cake.' },
-  { id: 'oven', group: 'Assassinations', name: 'Half-Baked', desc: 'Pop Judge Gumbo with the oven.' },
-  { id: 'gumball', group: 'Assassinations', name: 'Gumball Wizard', desc: 'Pop a target with the gumball avalanche.' },
-  { id: 'dock', group: 'Assassinations', name: 'Sleeps With the Fishies', desc: 'Drop the Mayor into the pond with the dock.' },
-  { id: 'bees', group: 'Assassinations', name: 'Buzzkill', desc: 'Pop a target with the beehive.' },
-  { id: 'maypole', group: 'Assassinations', name: 'Pole Position', desc: 'Pop the Baroness with the maypole.' },
-  { id: 'balloon', group: 'Assassinations', name: 'What Goes Up', desc: 'Pop the Baroness\'s balloon in mid-air.' },
+  // ids are kept from the first contract so earlier saves keep their progress
+  { id: 'cake', group: 'Assassinations', name: 'To the Moon', desc: 'Pop a target with the $JIGGLE coin.' },
+  { id: 'fondue', group: 'Assassinations', name: 'Foam Party for Two', desc: 'Pop Brayden and Skylar together with the foam cannon.' },
+  { id: 'cake3', group: 'Assassinations', name: 'Rug Pull', desc: 'Pop all three targets with the $JIGGLE coin.' },
+  { id: 'oven', group: 'Assassinations', name: 'Well Done', desc: 'Pop Big Rick with the grill.' },
+  { id: 'gumball', group: 'Assassinations', name: 'Coconut Bonk', desc: 'Pop a target with the coconut avalanche.' },
+  { id: 'dock', group: 'Assassinations', name: 'Sleeps With the Fishies', desc: 'Drop Brayden into the lagoon with the jet-ski dock.' },
+  { id: 'bees', group: 'Assassinations', name: 'Gull-ty', desc: 'Pop a target with the seagull nest.' },
+  { id: 'maypole', group: 'Assassinations', name: 'Spike', desc: 'Pop Skylar with the volleyball net pole.' },
+  { id: 'balloon', group: 'Assassinations', name: 'What Goes Up', desc: 'Pop Skylar\'s parasail in mid-air.' },
   { id: 'fireworks', group: 'Assassinations', name: 'Grand Finale', desc: 'Pop all three targets with the fireworks.' },
-  { id: 'benchbees', group: 'Assassinations', name: 'Plan Bee', desc: 'Blow the shed early, then bee the rerouted meeting.' },
-  { id: 'sign', group: 'Assassinations', name: 'Welcome to Gumdrop Hollow', desc: 'Pop a target with the gate sign on their way out.' },
+  { id: 'benchbees', group: 'Assassinations', name: 'Plan Gull', desc: 'Blow the fireworks hut early, then gull the rerouted deal.' },
+  { id: 'sign', group: 'Assassinations', name: 'Welcome to Palmetto Point', desc: 'Pop a target with the gate sign on their way out.' },
   { id: 'accidents', group: 'Mastery', name: 'Clean Hands', desc: 'Pop all three targets with accidents.' },
   { id: 'ghost', group: 'Mastery', name: 'Sugar Ghost', desc: 'Finish the contract with no lockdown and no open puddles discovered.' },
   { id: 'heads', group: 'Mastery', name: 'Sharpshooter', desc: 'Pop all three targets with headshots.' },
@@ -308,21 +311,21 @@ export const CHALLENGES: Challenge[] = [
   { id: 'targetsOnly', group: 'Mastery', name: 'Surgical', desc: 'Finish with only the three targets popped.' },
   { id: 'guards', group: 'Mastery', name: 'Off Duty', desc: 'Pop all six guards.' },
   { id: 'concealed', group: 'Mastery', name: 'Tidy Up', desc: 'Conceal 5 pops in one contract.' },
-  { id: 'everyone', group: 'Diabolical', name: 'Total Jubilee', desc: 'Pop every single jelly at the festival.' },
-  { id: 'client', group: 'Diabolical', name: 'Breach of Contract', desc: 'Pop Granny Marmalade. The client.' },
+  { id: 'everyone', group: 'Diabolical', name: 'Total Spring Break', desc: 'Pop every single jelly on the beach.' },
+  { id: 'client', group: 'Diabolical', name: 'Breach of Contract', desc: 'Pop Doris Pembrook. The client.' },
   { id: 'widow', group: 'Diabolical', name: 'Heartbreaker', desc: 'Pop a sweetheart, then their grieving partner.' },
   { id: 'coldfeet', group: 'Diabolical', name: 'Cold Feet', desc: 'Pop Dmitri in the middle of his proposal.' },
   { id: 'fizz', group: 'Diabolical', name: 'Dunk Tank', desc: 'Shove a jelly into water with a fizz round.' },
   { id: 'bomb', group: 'Diabolical', name: 'Overkill', desc: 'Pop 4 jellies with a single sugar bomb.' },
-  { id: 'hermit', group: 'Feats', name: 'Social Butterfly', desc: 'Ring the hermit’s doorbell.' },
-  { id: 'birds', group: 'Feats', name: 'Bird Brain', desc: 'Spill the sprinkle sack on the pie tent.' },
+  { id: 'hermit', group: 'Feats', name: 'Social Butterfly', desc: 'Ring the beach hermit’s doorbell.' },
+  { id: 'birds', group: 'Feats', name: 'Bird Brain', desc: 'Spill the bag of fries on the BBQ tent.' },
   { id: 'scoop', group: 'Feats', name: 'Scooped', desc: 'Shoot a kid\'s ice cream cone.' },
-  { id: 'banjo', group: 'Feats', name: 'Tough Crowd', desc: 'Snap Banjo Bill\'s banjo.' },
-  { id: 'fish', group: 'Feats', name: 'Fish Story', desc: 'Shoot Old Finnegan\'s bobber.' },
+  { id: 'banjo', group: 'Feats', name: 'Tough Crowd', desc: 'Snap Kazoo Kevin\'s ukulele.' },
+  { id: 'fish', group: 'Feats', name: 'Fish Story', desc: 'Shoot Earl\'s bobber.' },
   { id: 'balloons', group: 'Feats', name: 'Up, Up & Away', desc: 'Free all of Bubbles\'s balloons.' },
-  { id: 'reroute', group: 'Feats', name: 'Plan B', desc: 'Drop the cake before the ceremony begins.' },
+  { id: 'reroute', group: 'Feats', name: 'Plan B', desc: 'Drop the coin before the launch begins.' },
   { id: 'ducks', group: 'Collectibles', name: 'Quackers', desc: 'Shoot all 6 rubber ducks.' },
-  { id: 'gnomes', group: 'Collectibles', name: 'Gnome Alone', desc: 'Shoot all 5 gumdrop gnomes. Each one hides the next.' },
+  { id: 'gnomes', group: 'Collectibles', name: 'Pink Slip', desc: 'Shoot all 5 plastic flamingos. Each one hides the next.' },
   { id: 'opps', group: 'Collectibles', name: 'Eagle Eye', desc: 'Discover every opportunity in one contract.' }
 ];
 
