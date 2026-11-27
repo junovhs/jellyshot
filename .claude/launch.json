@@ -1,6 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "jellyshot", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 5177 }
+    { "name": "jellyshot", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 5177 },
+    { "name": "jellyshot-alt", "runtimeExecutable": "npx", "runtimeArgs": ["vite", "--port", "5181", "--strictPort", "--host"], "port": 5181 }
   ]
 }

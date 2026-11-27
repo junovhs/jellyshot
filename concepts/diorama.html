@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Jellyshot · LVL-01 Palmetto Point diorama</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<style>
+/* Concept: the Jubilee as a soft clay diorama in Three.js, seen through the scope.
+   Sizes are cqw of the phone frame (941 x 1672 reference, 1cqw = 9.41px). */
+:root { --ink: #4a3560; --font: 'Baloo 2', 'Fredoka', ui-rounded, system-ui, sans-serif;
+  /* fingerprinty clay grain, laid over every chrome surface */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .4 0 0 0 0 .5 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #14122a; overflow: hidden; }
+body { display: grid; place-items: center; font-family: var(--font); color: var(--ink); }
+.phone { container-type: inline-size; position: relative; overflow: hidden; width: min(100vw, calc(100vh * 941 / 1672)); aspect-ratio: 941 / 1672; background: #1d1a33; touch-action: none; }
+canvas#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.hud { position: absolute; inset: 0; pointer-events: none; }
+
+/* ---- clay: lit from the top-left like the scene, soft contact shadow below, grain on top ----
+   --c = base colour, --hi = highlight, --lo = shade (set per element) */
+.clay {
+  position: absolute; background: radial-gradient(130% 120% at 30% 22%, var(--hi) 0%, var(--c) 46%, var(--lo) 100%);
+  box-shadow:
+    inset .7cqw .8cqw 1.1cqw rgba(255, 255, 255, .55),
+    inset -.9cqw -1.1cqw 1.6cqw color-mix(in srgb, var(--lo) 80%, #000 20%),
+    0 1.3cqw 2cqw rgba(24, 14, 46, .38), 0 .35cqw .5cqw rgba(24, 14, 46, .3);
+  isolation: isolate;
+}
+.clay::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--grain); background-size: 24cqw; mix-blend-mode: soft-light; opacity: .8; z-index: -1; pointer-events: none; }
+.emboss { text-shadow: 0 .22cqw 0 rgba(255, 255, 255, .7), 0 -.12cqw .1cqw rgba(60, 30, 70, .25); }
+.groove { width: .9cqw; align-self: stretch; border-radius: 1cqw; background: rgba(90, 60, 80, .18); box-shadow: inset .25cqw .3cqw .4cqw rgba(60, 30, 60, .35), .2cqw .1cqw .2cqw rgba(255, 255, 255, .6); }
+svg.puffy { filter: drop-shadow(0 .6cqw .7cqw rgba(30, 16, 50, .35)); overflow: visible; }
+
+/* ---- top bar ---- */
+.logo { position: absolute; left: 4cqw; top: 2.4cqw; width: 12.4cqw; }
+.label { --c: #fff2cf; --hi: #fffdf4; --lo: #efd29a; left: 15.6cqw; top: 5cqw; padding: .6cqw 3cqw .1cqw 2.6cqw; border-radius: 3cqw; font-weight: 800; font-size: 3.6cqw; letter-spacing: .02em; transform: rotate(-3deg); }
+.timer { --c: #fff4d8; --hi: #ffffff; --lo: #ecd6a8; left: 41.6cqw; top: 2.4cqw; width: 21.4cqw; height: 9.6cqw; border-radius: 5cqw; display: grid; place-items: center; font-weight: 800; font-size: 7cqw; padding-top: 1cqw; }
+.btn { --c: #ffeaa0; --hi: #fffbe6; --lo: #e9c360; top: 2.6cqw; width: 9cqw; height: 9cqw; border-radius: 50%; display: grid; place-items: center; }
+.btn svg { width: 4.4cqw; height: 4.4cqw; }
+.b1 { left: 66.2cqw; } .b2 { left: 77cqw; } .b3 { left: 87.6cqw; }
+
+/* ---- event ribbon: a pressed clay strip with folded-back tails ---- */
+.tail { --c: #f2c53a; --hi: #f9d968; --lo: #c99a20; top: 19.2cqw; width: 10cqw; height: 7.4cqw; border-radius: 1.6cqw; }
+.tail.l { left: 7.6cqw; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 34% 50%); transform: rotate(-4deg); }
+.tail.r { right: 7.6cqw; clip-path: polygon(0 0, 100% 0, 66% 50%, 100% 100%, 0 100%); transform: rotate(4deg); }
+.ribbon { --c: #ffe263; --hi: #fff6b8; --lo: #f0bb2c; left: 10.4cqw; right: 10.4cqw; top: 13.6cqw; height: 11.2cqw; border-radius: 3.4cqw; display: flex; align-items: center; gap: 3cqw; padding-left: 4.6cqw; transform: rotate(-.6deg); }
+.ribbon .cake { width: 12cqw; margin-top: -1.4cqw; flex: none; }
+.ribbon .groove { margin: 2.4cqw 0; }
+.ribbon h2 { margin: 0; white-space: nowrap; font-weight: 800; font-size: 4.25cqw; letter-spacing: .02em; line-height: 1; padding-top: .9cqw; color: #5a3a2a; }
+
+/* ---- scope (glass + clay ring are rendered in WebGL; only the etched reticle is SVG) ---- */
+/* scope housing: clean render (assets/scope-housing.png + .json, 1078 x 1221).
+   Drawn at 98cqw wide, so 1 asset px = 98/1078 cqw. Glass centre (533.2, 600.1)px sits at (50cqw, 80.3cqw);
+   glass radius ~436px -> 39.7cqw. */
+.housing { position: absolute; left: 1.53cqw; top: 25.75cqw; width: 98cqw; height: auto; pointer-events: none; filter: drop-shadow(0 1.4cqw 2.2cqw rgba(24, 14, 46, .45)); }
+/* reticle box: the SVG's 433-unit glass radius = the 38.95cqw horizontal glass radius */
+.scope { position: absolute; left: 50cqw; top: 80.3cqw; width: 89.95cqw; height: 89.95cqw; transform: translate(-50%, -50%); }
+.scope svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+/* ---- speech bubbles: little cream clay pillows ---- */
+.bubble { --c: #fffaec; --hi: #ffffff; --lo: #eadfc6; position: absolute; transform: translate(-50%, -100%); white-space: nowrap; padding: .7cqw 2.4cqw .2cqw; border-radius: 3cqw; font-weight: 700; font-size: 3cqw; transition: opacity .25s;
+  box-shadow: inset .4cqw .5cqw .7cqw rgba(255,255,255,.7), inset -.5cqw -.6cqw .9cqw rgba(170, 140, 110, .45), 0 .8cqw 1.2cqw rgba(24, 14, 46, .35); }
+.bubble::after { content: ''; position: absolute; left: 50%; bottom: -1.4cqw; width: 2.4cqw; height: 2.4cqw; background: #f1e6cd; border-radius: 0 0 .7cqw 0; transform: translateX(-50%) rotate(45deg); box-shadow: .5cqw .5cqw .7cqw rgba(24, 14, 46, .25); z-index: -2; }
+
+/* ---- cards ---- */
+.card { left: 7.4cqw; right: 7.4cqw; border-radius: 4.4cqw; display: flex; align-items: center; }
+.target { --c: #fff0c4; --hi: #fffcef; --lo: #ecd396; top: 128cqw; height: 15cqw; padding-left: 4cqw; }
+.target .portrait { width: 15cqw; flex: none; margin-top: -.6cqw; }
+.card .groove { margin: 2.6cqw 3.4cqw; }
+.target h3 { margin: 0; font-weight: 800; font-size: 5.6cqw; line-height: 1; letter-spacing: .03em; }
+.role { --c: #b496e6; --hi: #d8c4fb; --lo: #8a68c2; background: radial-gradient(130% 120% at 30% 22%, var(--hi), var(--c) 46%, var(--lo)); position: relative; display: inline-block; margin-top: 1cqw; padding: .4cqw 4.2cqw 0; border-radius: 3cqw; color: #fff8ff; font-weight: 800; font-size: 3.6cqw; letter-spacing: .05em; text-shadow: 0 .2cqw .2cqw rgba(70, 40, 110, .45);
+  box-shadow: inset .4cqw .5cqw .6cqw rgba(255,255,255,.45), inset -.4cqw -.5cqw .7cqw rgba(70, 40, 120, .45), 0 .5cqw .8cqw rgba(24, 14, 46, .25); }
+.handler { --c: #e2cff8; --hi: #f6eeff; --lo: #b99fe0; top: 146cqw; height: 13.4cqw; padding-left: 4.6cqw; gap: 3.4cqw; }
+.handler svg { width: 10.6cqw; flex: none; }
+.handler b { display: block; font-weight: 800; font-size: 4.6cqw; line-height: 1; letter-spacing: .03em; }
+.handler span { display: block; margin-top: .6cqw; font-weight: 600; font-size: 3.4cqw; }
+.ammo { --c: #3a3260; --hi: #5c5290; --lo: #221d40; left: 50%; top: 161.6cqw; transform: translateX(-50%); width: 34cqw; height: 9.8cqw; border-radius: 5cqw; display: flex; align-items: center; justify-content: center; gap: 1.2cqw; }
+.ammo i { width: 2.8cqw; height: 5.4cqw; border-radius: 1.4cqw; background: radial-gradient(120% 90% at 35% 25%, #fffbd0, #ffd84a 55%, #d9a224); box-shadow: inset -.25cqw -.35cqw .4cqw rgba(150, 90, 10, .45), 0 .35cqw .5cqw rgba(0, 0, 0, .4); }
+.ammo em { margin-left: 2.2cqw; font-style: normal; font-weight: 700; font-size: 4.2cqw; color: #f4f0ff; padding-top: .6cqw; text-shadow: 0 .25cqw .3cqw rgba(0,0,0,.4); }
+.hint { position: absolute; left: 0; right: 0; bottom: 1.2cqw; text-align: center; font-size: 2.4cqw; font-weight: 600; color: #e8e2ff; opacity: .55; }
+#labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.tag { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; font: 700 2.6cqw system-ui; padding: .3cqw 1.4cqw; border-radius: 2cqw; color: #fff; background: #3a2547cc; }
+.tag.zone { background: #ffffffd8; color: #3a2547; }
+
+.tag.tgt { background: #ff3b5cdd; }
+.phone.lab-off .tag, .phone.lab-zones .tag:not(.zone), .phone.lab-targets .tag:not(.tgt) { display: none; }
+.tools { position: absolute; right: 2cqw; bottom: 5cqw; display: flex; flex-direction: column; gap: 1.2cqw; pointer-events: auto; }
+.tools button { border: 0; border-radius: 3cqw; padding: 1.2cqw 2cqw; font: 700 2.8cqw system-ui; color: #fff; background: #3a2547dd; }
+</style>
+</head>
+<body>
+<!-- "puff": inflates any flat SVG shape into soft clay, lit from the top-left like the scene -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <filter id="puff" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3.2" result="b"/>
+      <feDiffuseLighting in="b" surfaceScale="4.5" diffuseConstant="1.18" lighting-color="#fff" result="dif"><feDistantLight azimuth="225" elevation="48"/></feDiffuseLighting>
+      <feSpecularLighting in="b" surfaceScale="4.5" specularConstant=".5" specularExponent="16" lighting-color="#fff" result="spec"><feDistantLight azimuth="225" elevation="52"/></feSpecularLighting>
+      <feComposite in="SourceGraphic" in2="dif" operator="arithmetic" k1="1.12" k2="0" k3="0" k4="0" result="lit"/>
+      <feComposite in="lit" in2="SourceAlpha" operator="in" result="litIn"/>
+      <feComposite in="spec" in2="SourceAlpha" operator="in" result="specIn"/>
+      <feMerge><feMergeNode in="litIn"/><feMergeNode in="specIn"/></feMerge>
+    </filter>
+  </defs>
+</svg>
+<main class="phone lab-targets" id="phone">
+  <canvas id="gl"></canvas>
+  <div class="hud">
+    <!-- top bar -->
+    <svg class="logo puffy" viewBox="0 0 110 86"><g filter="url(#puff)">
+      <circle cx="32" cy="20" r="13" fill="#ff8cc6"/><circle cx="78" cy="20" r="13" fill="#ff8cc6"/>
+      <path d="M10 64C8 36 28 18 55 18s47 18 45 46c-1 14-20 18-45 18S11 78 10 64Z" fill="#ff8cc6"/>
+      <ellipse cx="40" cy="47" rx="5" ry="6.4" fill="#3a2440"/><ellipse cx="68" cy="47" rx="5" ry="6.4" fill="#3a2440"/>
+      <path d="M45 59q9 10 18 0z" fill="#b8286a"/></g></svg>
+    <div class="clay label emboss">JELLYSHOT</div>
+    <div class="clay timer emboss">8:00</div>
+    <div class="clay btn b1"><svg viewBox="0 0 24 24"><g filter="url(#puff)"><rect x="6" y="4.5" width="4.2" height="15" rx="2" fill="#6a4a7a"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="2" fill="#6a4a7a"/></g></svg></div>
+    <div class="clay btn b2"><svg viewBox="0 0 24 24"><g filter="url(#puff)"><rect x="4.5" y="5" width="15" height="3.4" rx="1.7" fill="#6a4a7a"/><rect x="4.5" y="10.3" width="15" height="3.4" rx="1.7" fill="#6a4a7a"/><rect x="4.5" y="15.6" width="15" height="3.4" rx="1.7" fill="#6a4a7a"/></g></svg></div>
+    <div class="clay btn b3"><svg viewBox="0 0 24 24"><g filter="url(#puff)"><path d="M3.5 9.2v5.6h4l4.8 4.2V5l-4.8 4.2h-4Z" fill="#6a4a7a"/><path d="M15 8.6a4.6 4.6 0 0 1 0 6.8l-1.2-1.4a2.8 2.8 0 0 0 0-4Z M17.6 6a8.2 8.2 0 0 1 0 12l-1.2-1.4a6.4 6.4 0 0 0 0-9.2Z" fill="#6a4a7a"/></g></svg></div>
+
+    <!-- event ribbon -->
+    <div class="clay tail l"></div><div class="clay tail r"></div>
+    <div class="clay ribbon">
+      <svg class="cake puffy" viewBox="0 0 110 100"><g filter="url(#puff)">
+        <path d="M22 56h70v26c0 6-16 9-35 9s-35-3-35-9Z" fill="#fff1f4"/>
+        <path d="M22 66c8 5 14 5 18 0 5 5 12 5 17 0 5 5 12 5 17 0 5 5 13 5 18 0v8c-6 4-12 2-18 0-5 4-12 4-17 0-5 4-12 4-17 0-4 4-12 4-18 0Z" fill="#ff8fb5"/>
+        <ellipse cx="57" cy="56" rx="35" ry="8" fill="#fff8f2"/>
+        <circle cx="45" cy="44" r="8.4" fill="#ff3b55"/><circle cx="69" cy="44" r="8.4" fill="#ff3b55"/><circle cx="57" cy="37" r="8.4" fill="#ff4a62"/>
+        <path d="M56 30c2-8 6-12 12-14l1 2.4c-5 2-8 6-10 12.4z" fill="#5aa64a"/></g></svg>
+      <span class="groove"></span>
+      <h2 class="emboss">SPRING BREAK · MORNING</h2>
+    </div>
+
+    <!-- scope: etched Hitman-style reticle (no post above centre) -->
+    <img class="housing" src="assets/scope-housing.png" alt="">
+    <div class="scope" id="scope">
+      <svg viewBox="-500 -500 1000 1000">
+        <g stroke="#2a2140" stroke-linecap="butt">
+          <line x1="-433" y1="0" x2="-245" y2="0" stroke-width="11"/><line x1="245" y1="0" x2="433" y2="0" stroke-width="11"/>
+          <line x1="-245" y1="0" x2="-14" y2="0" stroke-width="2.6"/><line x1="14" y1="0" x2="245" y2="0" stroke-width="2.6"/>
+          <line x1="0" y1="16" x2="0" y2="190" stroke-width="2.6"/>
+          <g stroke-width="2.4" id="ticks"></g>
+          <line x1="-186" y1="-20" x2="-186" y2="20" stroke-width="2.8"/><line x1="-142" y1="-14" x2="-142" y2="14" stroke-width="2.8"/>
+          <line x1="142" y1="-14" x2="142" y2="14" stroke-width="2.8"/><line x1="186" y1="-20" x2="186" y2="20" stroke-width="2.8"/>
+        </g>
+        <path d="M-1.4 182 L1.4 182 L5 198 L5 433 L-5 433 L-5 198 Z" fill="#2a2140"/>
+        <circle r="13" fill="none" stroke="#ff3b5c" stroke-width="3.6"/><circle r="2.6" fill="#ff3b5c"/>
+        <!-- glass glare (the cut-out can't keep the art's glare, it was blended into the scene) -->
+        <defs><filter id="glareBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="9"/></filter>
+          <filter id="glareSoft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter></defs>
+        <g style="mix-blend-mode: screen" pointer-events="none">
+          <path d="M-330 -150 A362 362 0 0 1 -175 -316" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="44" stroke-linecap="round" filter="url(#glareBlur)"/>
+          <path d="M-318 -168 A350 350 0 0 1 -196 -296" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="12" stroke-linecap="round" filter="url(#glareSoft)"/>
+          <ellipse cx="-118" cy="-338" rx="18" ry="10" transform="rotate(-28 -118 -338)" fill="#fff" fill-opacity=".55" filter="url(#glareSoft)"/>
+        </g>
+      </svg>
+    </div>
+    <div id="bubbles"></div><div id="labels"></div>
+
+    <!-- cards -->
+    <div class="clay card target">
+      <svg class="portrait puffy" viewBox="0 0 140 110"><g filter="url(#puff)">
+        <circle cx="52" cy="22" r="11" fill="#ff8cc6"/><circle cx="92" cy="22" r="11" fill="#ff8cc6"/>
+        <path d="M28 76C26 46 46 26 72 26s46 20 44 50c-1 18-20 24-44 24S29 94 28 76Z" fill="#ff8cc6"/>
+        <ellipse cx="60" cy="58" rx="5" ry="6.4" fill="#3a2440"/><ellipse cx="86" cy="58" rx="5" ry="6.4" fill="#3a2440"/>
+        <path d="M64 71q9 11 18 0z" fill="#b8286a"/></g></svg>
+      <span class="groove"></span>
+      <div><h3 class="emboss">BRAYDEN</h3><span class="role">$JIGGLE CEO</span></div>
+    </div>
+    <div class="clay card handler">
+      <svg class="puffy" viewBox="0 0 100 80"><g filter="url(#puff)"><path d="M50 6C25 6 6 20 6 38c0 10 6 19 15 24-1 6-6 11-12 14 12 1 22-3 28-8 4 1 9 2 13 2 25 0 44-14 44-32S75 6 50 6Z" fill="#fffaf0"/>
+        <circle cx="32" cy="38" r="5.4" fill="#7a5a8a"/><circle cx="50" cy="38" r="5.4" fill="#7a5a8a"/><circle cx="68" cy="38" r="5.4" fill="#7a5a8a"/></g></svg>
+      <div><b class="emboss">HE'S ON THE PIER.</b><span>Launch party at the $JIGGLE booth.</span></div>
+    </div>
+    <div class="clay ammo"><i></i><i></i><i></i><i></i><i></i><em>5/5</em></div>
+    <div class="tools"><button id="labs">Labels: targets</button><button id="trans">Skin: on</button><button id="tod">Sunset</button></div>
+    <div class="hint">drag to aim · pinch / scroll steps zoom · <span id="zoomTxt"></span> · <span id="fps"></span></div>
+  </div>
+</main>
+
+
+<script type="module">
+import * as THREE from 'three';
+import { makeJelly, animate, setTransmission, mesh, clay, glossy, sph, G } from './jelly-rig.js';
+import * as K from './boardwalk-kit.js';
+import { BY_NAME, crowdSpec } from './cast-l1.js';
+const { PAL } = K;
+
+/* ======================================================================
+   LVL-01 Palmetto Point as a clay diorama, seen the clay3d way: a high perch at the south edge of a square map,
+   always looking through the scope, with the naked-eye view blurred around the glass.
+   Map: x east (right), z south (toward the perch). The sea is west, the beach runs away from you down the coast,
+   the boardwalk and its stalls are east of the beach, the Grand Flamingo fills the far north-east corner.
+   One jelly is 1.1 tall. The square is x -40..40, z -48..32.
+   ====================================================================== */
+const phone = document.getElementById('phone');
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.VSMShadowMap;   // clay3d's soft studio shadows
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#bfe0f4');
+scene.fog = new THREE.Fog('#cde6f2', 130, 260);
+
+let seed = 7; const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const rand = (a, b) => a + rnd() * (b - a), pick = a => a[Math.floor(rnd() * a.length)];
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const animated = [];
+const place = (obj, x, y, z, ry = 0, s = 1) => { obj.position.set(x, y, z); obj.rotation.y = ry; obj.scale.setScalar(s); scene.add(obj);
+  obj.traverse(o => { if (o.isMesh) { o.castShadow ??= true; o.receiveShadow = true; } }); return obj; };
+const put = (obj, x, y, z, ry, s) => { place(obj, x, y, z, ry, s); animated.push(obj); return obj; };
+
+/* ---------- lighting: clay3d's warm key from behind-left, cool sky fill, sand bounce ---------- */
+const MOODS = {
+  day: { bg: '#bfe0f4', fog: '#cde6f2', key: '#fff1dc', keyI: 2.7, hemiS: '#d8ecff', hemiG: '#f0d29a', hemiI: 1.35, dir: V(-14, 26, 14), sea: PAL.sea, exp: 1.05 },
+  sunset: { bg: '#ffb48a', fog: '#ffb48a', key: '#ff9a5a', keyI: 2.4, hemiS: '#a88ae0', hemiG: '#ff9a6a', hemiI: 1.0, dir: V(-30, 12, -6), sea: '#3a8ab8', exp: 1.0 },
+};
+const hemi = new THREE.HemisphereLight('#d8ecff', '#f0d29a', 1.35); scene.add(hemi);
+const key = new THREE.DirectionalLight('#fff1dc', 2.7); key.castShadow = true;
+key.shadow.mapSize.set(4096, 4096); key.shadow.radius = 7; key.shadow.blurSamples = 16; key.shadow.bias = -.0006; key.shadow.normalBias = .05;
+Object.assign(key.shadow.camera, { left: -62, right: 62, top: 62, bottom: -62, near: 1, far: 260 });
+scene.add(key, key.target);
+const rim = new THREE.DirectionalLight('#ffd6ec', .6); rim.position.set(30, 16, -40); scene.add(rim);
+
+/* ======================= ground ======================= */
+const shoreX = z => -14 + Math.sin(z * .09) * 1.6 + Math.sin(z * .23 + 1) * .6;   // the waterline, wobbling along z
+const flatShape = (pts, mat, y) => { const s = new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, -z)));
+  const m = new THREE.Mesh(new THREE.ShapeGeometry(s, 2).rotateX(-Math.PI / 2), mat); m.position.y = y; m.receiveShadow = true; scene.add(m); return m; };
+const zs = []; for (let z = 120; z >= -200; z -= 2) zs.push(z);
+// sand from the waterline east to the edge of the world
+flatShape([...zs.map(z => [shoreX(z), z]), [300, -200], [300, 120]], clay(PAL.sand, 1.4), .02);
+// wet sand and a breathing foam line
+flatShape([...zs.map(z => [shoreX(z) - .3, z]), ...zs.slice().reverse().map(z => [shoreX(z) + 4.5, z])], clay(PAL.wetSand, 1.4), .03);
+{ const foam = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(zs.map(z => V(shoreX(z) - .5, .1, z))), 600, .28, 6), clay(PAL.foam, .4));
+  foam.scale.y = .35; scene.add(foam); animated.push({ userData: { tick: [t => { foam.position.x = Math.sin(t * .7) * .5; }] }, traverse(f) { f(this); } }); }
+const seaMat = new THREE.MeshPhysicalMaterial({ color: PAL.sea, roughness: .12, clearcoat: 1, clearcoatRoughness: .1, sheen: .4, sheenColor: new THREE.Color('#cffaff') });
+{ const sea = new THREE.Mesh(new THREE.PlaneGeometry(800, 800).rotateX(-Math.PI / 2), seaMat); sea.position.set(-380, -.05, -60); sea.receiveShadow = true; scene.add(sea);
+  flatShape([...zs.map(z => [shoreX(z) + .2, z]), ...zs.slice().reverse().map(z => [shoreX(z) - 12, z])], new THREE.MeshPhysicalMaterial({ color: '#5fd8d8', roughness: .1, clearcoat: 1, transparent: true, opacity: .55 }), -.02); }
+// ripple strokes on the sea
+{ const geo = G('ripple', () => new THREE.TorusGeometry(1, .05, 3, 14, Math.PI * .5).rotateX(Math.PI / 2)), n = 120;
+  const im = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ color: '#8fe4ee', transparent: true, opacity: .6 }), n), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+  for (let i = 0; i < n; i++) { const z = rand(-90, 50), x = shoreX(z) - rand(4, 60); q.setFromAxisAngle(V(0, 1, 0), Math.PI * .5 + rand(-.3, .3)); m4.compose(V(x, -.03, z), q, V(1.6, 1, 1)); im.setMatrixAt(i, m4); }
+  im.castShadow = false; scene.add(im); }
+// the street along the south edge (the Sea Breeze Motor Inn, our roof, is just past it)
+{ const road = new THREE.Mesh(new THREE.PlaneGeometry(220, 8).rotateX(-Math.PI / 2), clay(PAL.asphalt, 1.2)); road.position.set(40, .06, 38); road.receiveShadow = true; scene.add(road);
+  const walk = new THREE.Mesh(new THREE.PlaneGeometry(220, 2.2).rotateX(-Math.PI / 2), clay('#efe4d2', 1)); walk.position.set(40, .1, 33); walk.receiveShadow = true; scene.add(walk);
+  [[-2, PAL.teal], [18, PAL.coral], [27, PAL.lemon], [40, '#a68cff']].forEach(([x, c], i) => place(K.car(c), x, 0, i % 2 ? 36.3 : 39.7, i % 2 ? 0 : Math.PI)); }
+
+/* ======================= boardwalk: runs north–south between the beach and the stalls ======================= */
+const BWX = 10, BWW = 8, BWY = .45;   // centre line, width, walking height
+place(K.boardwalkDeck(84, BWW), BWX, -.2, -10, Math.PI / 2);   // rail and pilings face the beach (west)
+for (let z = 28; z > -50; z -= 12) place(K.streetLamp(), BWX - BWW / 2 + .4, BWY, z, 0);
+put(K.welcomeArch(), BWX, BWY, 30, 0, 1.15);   // the exit to the street, under the banner
+// stalls on the town side, fronts turned toward the boardwalk and a little toward the perch
+const SX = 19, face = -Math.PI / 2 + .45;
+const rosa = put(K.stall({ sign: "ROSA'S MARGARITAS", cols: [PAL.lemon, '#8ad84a'], body: PAL.teal, extra: g => { mesh(G('blender', () => new THREE.CylinderGeometry(.25, .18, .6, 12)), glossy('#bfeaff', { transparent: true, opacity: .6 }), g, .9, 1.5, .2); } }), SX, BWY, 22, face, 1.15);
+const vinnie = put(K.shack('AIRBRUSH TEES'), SX, BWY, 12, face, 1.1);
+const arcade = put(K.arcade(), SX + 1, BWY, 1, face, 1.1);
+const golf = put(K.miniGolf(), SX + 3, BWY, -10, face, 1.1);
+const pam = put(K.stall({ sign: "PAM'S SHARK TEETH", cols: [PAL.flamingo, PAL.white], body: '#3a7aff' }), SX, BWY, -19, face, 1.15);
+const halCart = put(K.hotDogCart(), BWX + 2.2, BWY, 17, -.5, 1.1);
+put(K.plinth(), BWX + 1.5, BWY, 6, 0, 1.1);
+// palms between the beach and the boardwalk, and behind the stalls
+for (let z = 20; z > -46; z -= rand(15, 19)) put(K.palm(rand(6, 7.5), rand(.12, .32), rnd()), BWX - BWW / 2 - 1.6 - rand(0, 3), 0, z, rand(0, 6));
+for (const z of [27, 7, -4, -15]) put(K.palm(rand(7, 8.5), rand(.1, .3), rnd()), SX + 6, 0, z, rand(0, 6));
+// town: low pastel blocks behind the stall line, so the boardwalk stays in sight
+const TOWN = ['#ffd8b0', '#ffc2d6', '#c8e8ff', '#d8f0c0', '#fff0a8', '#e8d0ff', '#ffe0e8', '#bff0e0'];
+for (let z = 28; z > -22; z -= rand(9, 11)) for (const x of [30, 39]) {
+  const w = rand(6.5, 8.5), h = x === 30 ? rand(3.5, 5.5) : rand(5, 9), g = new THREE.Group();
+  K.box(g, w, h, w * rand(.8, 1), clay(pick(TOWN), 1.1), 0, 0, 0, .35); K.box(g, w + .5, .4, w * .9, clay(PAL.white), 0, h, 0, .15);
+  for (let k = 0; k < Math.floor(h / 2.6); k++) K.box(g, w * .7, .8, .1, glossy('#7fd8f0'), -w * .5 - .02, 1.2 + k * 2.6, 0, .05).rotation.y = Math.PI / 2;
+  place(g, x, 0, z, 0); }
+
+/* ======================= beach ======================= */
+const towerA = put(K.lifeguardTower(PAL.red, false), -8, 0, 16, -Math.PI / 2, 1.1);
+const towerB = put(K.lifeguardTower('#ffb020', true), -8, 0, -26, -Math.PI / 2, 1.1);
+const court = V(-3, 0, 0); put(K.volleyballCourt(), court.x, 0, court.z, 0);
+const castle = V(-10, 0, 7); put(K.sandcastle(), castle.x, 0, castle.z, -.3, 1.2);
+const frank = V(2, 0, 22); put(K.iceCreamCart(), frank.x, 0, frank.z, -.4);
+const UMB = [[PAL.coral, PAL.white], [PAL.teal, PAL.white], [PAL.sun, PAL.pink], [PAL.flamingo, PAL.white], ['#3a7aff', PAL.white], [PAL.orange, PAL.lemon]];
+const beachSpots = [];
+for (let i = 0, tries = 0; i < 30 && tries < 600; tries++) {
+  const z = rand(-46, 28), x = rand(shoreX(z) + 5, 3.5);
+  if (Math.abs(x - court.x) < 7 && Math.abs(z - court.z) < 6) continue;
+  if ([castle, frank, V(-8, 0, 16), V(-8, 0, -26)].some(p => Math.hypot(p.x - x, p.z - z) < 4)) continue;
+  if (Math.abs(z + 6) < 5) continue;   // under the pier
+  if (beachSpots.some(([a, b]) => Math.hypot(a - x, b - z) < 4)) continue;
+  put(K.umbrella(pick(UMB)), x, 0, z, rand(0, 6));
+  place(K.towel(pick([PAL.pink, PAL.teal, PAL.sun, '#a68cff', PAL.coral])), x + 1.2, 0, z + .8, rand(-.4, .4));
+  if (i % 3 === 0) place(K.beachChair(pick([PAL.teal, PAL.coral, PAL.sun])), x - 1.1, 0, z + 1, Math.PI / 2 + rand(-.5, .5));
+  beachSpots.push([x + 1.2, z + .8]); i++;
+}
+
+/* ======================= pier: from the boardwalk west out to sea ======================= */
+const PIER_Z = -6, PIER_LEN = 50, DECK = 2.1;
+place(K.pierDeck(PIER_LEN, 7), BWX, -.2, PIER_Z, Math.PI / 2);
+const onPier = (s, side = 0, y = DECK) => V(BWX - s, y, PIER_Z + side);   // s = distance out, side + = south (toward the perch)
+const booth = onPier(30); put(K.jiggleBooth(), booth.x, DECK, booth.z, 0);
+put(K.shelly(), booth.x, DECK, booth.z - .5);
+put(K.baitShop(), onPier(44).x, DECK, PIER_Z - 1.2, 0);
+put(K.bench(), onPier(38).x, DECK, PIER_Z + 2.8, 0); put(K.bench(), onPier(22).x, DECK, PIER_Z - 2.8, Math.PI);
+
+/* ======================= water ======================= */
+put(K.dock(12), -24, -.15, 15);
+const dockEnd = V(-29, 0, 15);
+for (const [x, c] of [[-20, PAL.lemon], [-23, PAL.pink], [-26, '#3a7aff']]) put(K.jetSki(c), x, -.1, 12.6, Math.PI / 2);
+const brayJet = put(K.jetSki(PAL.lemon), -34, -.1, 22, .5), jetHome = brayJet.position.clone();
+const psBoat = put(K.parasailBoat(), -32, -.1, 2, Math.PI * .5);
+const moon = put(K.yacht(), -30, -.1, -30, .45);
+const barge = put(K.fireworksBarge(), -36, -.2, -48, -.2);
+const kay = put(K.kayak(), -36, -.05, 28, .7), kayHome = kay.position.clone();
+for (const [z, c] of [[24, PAL.red], [6, PAL.sun], [-16, PAL.red], [-38, PAL.sun]]) put(K.buoy(c), -26, 0, z);
+
+/* ======================= the Grand Flamingo (north-east corner) ======================= */
+const RES = V(29, 0, -38);
+{ const deck = new THREE.Group(); K.box(deck, 26, .5, 24, clay('#fbefe0', .8), 0, 0, 0, .2);
+  for (let i = 0; i < 24; i++) K.box(deck, 3, .04, 3, clay('#fff8ee', .6), rand(-11, 11), .5, rand(-10, 10), .05).castShadow = false;
+  place(deck, RES.x, 0, RES.z); }
+put(K.resortTower(), RES.x + 1, .5, RES.z - 8, 0, .95);
+const poolP = V(RES.x - 1, .5, RES.z + 2); put(K.pool(12, 6.5), poolP.x, poolP.y, poolP.z);
+const lagoonP = V(RES.x + 9, .5, RES.z + 5); put(K.gatorLagoon(), lagoonP.x, .5, lagoonP.z, -.2);
+const tikiP = V(RES.x - 9, .5, RES.z + 8); put(K.tikiBar(), tikiP.x, .5, tikiP.z, .5);
+const djP = V(RES.x - 3, .5, RES.z - 3); put(K.djBooth(), djP.x, .5, djP.z, 0);
+for (const [dx, dz, r] of [[-9, -2, -.6], [6, -2, .6], [5, 9, Math.PI]]) put(K.foamCannon(), RES.x + dx, .5, RES.z + dz, r);
+const gateP = V(BWX + BWW / 2 + 1.2, BWY, -27); put(K.poolGate(), gateP.x, BWY, gateP.z, -Math.PI / 2 + .3);
+for (const [dx, dz] of [[-10, 3], [-7, 10], [9, -1]]) place(K.beachChair(PAL.white), RES.x + dx, .5, RES.z + dz, Math.PI / 2);
+// the hedge and palms along the deck's south side: the pool is partly hidden from the perch (sightlines in the brief)
+for (let x = RES.x - 11; x < RES.x + 13; x += 2.6) place(K.bush(rand(.9, 1.2), pick([PAL.palm, PAL.palmDk, '#5fbe5a'])), x, .5, RES.z + 12.2);
+for (const x of [RES.x - 8, RES.x - 1, RES.x + 7]) put(K.palm(rand(7, 8.5), rand(.15, .3), rnd()), x, .5, RES.z + 11.5, rand(0, 6));
+const foamParty = new THREE.Group(); scene.add(foamParty); foamParty.visible = false;
+for (let i = 0; i < 110; i++) mesh(sph(1, 14, 10), clay('#fffdf8', .5), foamParty, poolP.x + rand(-10, 10), .9 + rand(0, 1.4), poolP.z + rand(-7, 8)).scale.setScalar(rand(.9, 2.2));
+
+/* ======================= characters ======================= */
+const people = [], tagsEl = document.getElementById('labels');
+function addJelly(spec, p, ry = 0, extra = {}) {
+  const j = makeJelly(spec); j.root.position.copy(p); j.root.rotation.y = ry; scene.add(j.root);
+  const o = { j, base: p.clone(), ry, ...extra };
+  if (spec.name) { const el = document.createElement('div'); el.className = 'tag ' + (spec.target ? 'tgt' : 'named'); el.textContent = spec.name.replace(/".*" /, ''); tagsEl.appendChild(el); o.tag = el; }
+  people.push(o); return o;
+}
+const cast = (name, p, ry = 0, extra) => addJelly(BY_NAME[name], p, ry, extra);
+const off = (p, dx, dy, dz) => p.clone().add(V(dx, dy, dz));
+const bw = (z, dx = 0) => V(BWX + dx, BWY, z);
+const towerTop = t => off(t.position, 0, 3.3 * 1.1 * .75 + .2, 0);
+const POOLY = .5, SEA = -Math.PI / 2, BOARD = Math.PI / 2;
+// targets (the morning positions)
+cast('Brayden "Moonboy" Kessler', off(booth, 0, .5, .3), 0);
+cast('Skylar Lux', off(court, 0, 0, 5), 0, { walk: { ax: 'x', amp: 3, speed: .25 } });
+cast('"Big" Rick Gillis', bw(10, -1), 0, { walk: { ax: 'z', amp: 14, speed: .03 } });
+// client and guards
+cast('Doris Pembrook', onPier(27, 2), Math.PI / 2);
+cast('Chip', towerTop(towerA), SEA); cast('Marisol', towerTop(towerB), SEA);
+cast('Trent', off(poolP, 7, 0, 1), -Math.PI / 2);
+cast('Officer Gary Plunk', V(-4, 0, -14), 1.2, { walk: { ax: 'z', amp: 14, speed: .02 } });
+cast('Big Moe', off(gateP, -1.2, 0, -1.5), -Math.PI / 2); cast('Little Moe', off(gateP, -1.2, 0, 1.8), -Math.PI / 2);
+cast('Tank', off(booth, 2, .5, .8), 0);
+// pier
+cast('Earl Bassmeyer', onPier(PIER_LEN - 1.5, 2.6), SEA); cast('Lorna', onPier(12, 1.4), .3); cast('Chet', onPier(32, -2.6), -1.2);
+cast('Walt Hutchins', onPier(26, -.8), Math.PI / 2); cast('Bev Hutchins', onPier(26, .4), Math.PI / 2); cast('Sal Trombetta', onPier(25, 1.6), Math.PI / 2);
+cast('Kazoo Kevin', onPier(38, 2), Math.PI); cast('Jaxon', off(booth, -2, .5, 1), .3);
+// boardwalk
+cast('Rosa', off(rosa.position, -1.8, 0, .4), -Math.PI / 2); cast('Hot Dog Hal', off(halCart.position, .2, 0, 1.4)); cast('Vinnie Spray', off(vinnie.position, -2, 0, .4), -Math.PI / 2);
+cast('Tyler', off(arcade.position, -3, 0, 1), -Math.PI / 2); cast('Gator Gus', off(golf.position, -4.5, 0, 0), -Math.PI / 2); cast('Pam', off(pam.position, -1.8, 0, .4), -Math.PI / 2);
+cast('Silver Steve', bw(6, 1.5).setY(BWY + .5), 0);
+for (const [n, o] of [['Craig Feldman', 0], ['Linda Feldman', 1.2], ['Mason Feldman', -.9], ['Ava Feldman', 2.1]]) cast(n, bw(22 - Math.abs(o) * .3, o), 0, { walk: { ax: 'z', amp: 12, speed: .02, phase: 0 } });
+cast('Kayden', off(gateP, -3, 0, 5), -1.2);
+// beach
+for (const [n, dx, dz, r] of [['Brock', -2.4, -1.5, BOARD], ['Duke', -2.4, 1.6, BOARD], ['Jess', 2.4, -1.5, -BOARD], ['Bree', 2.4, 1.6, -BOARD]]) cast(n, off(court, dx, 0, dz), r);
+cast('Ref Dennis', off(court, 0, 0, 5.2), 0); cast('Glenda', V(...[beachSpots[1][0], 0, beachSpots[1][1]]), 0);
+cast('Ronnie Fitch', V(-9, 0, -8), 0, { walk: { ax: 'z', amp: 8, speed: .05 } });
+cast('Lily', off(castle, -1.5, 0, 1.2), -.4); cast('Ollie', off(castle, 1.5, 0, 1.3), -.6); cast('Marcus', V(beachSpots[3][0], 0, beachSpots[3][1]));
+cast('Devin', V(shoreX(-18) + 2, 0, -18), 0, { walk: { ax: 'z', amp: 10, speed: .03 } }); cast('Priya', V(shoreX(-18) + 3, 0, -18.5), 0, { walk: { ax: 'z', amp: 10, speed: .03 } });
+cast('Tony', V(-1, 0, 12), -.8); cast('Gina', V(.2, 0, 11), 2.2); cast('Uncle Rudy', V(beachSpots[5][0], 0, beachSpots[5][1]));
+cast('Kai', V(-22, -.35, -12), SEA); cast('Frosty Frank', off(frank, .8, 0, 1.4), -.4);
+// pool deck
+cast('DJ Turbo Splash', off(djP, 0, 0, -1)); cast('Tiki Tom', off(tikiP, 0, 0, -1.2), .5); cast('Floatie Phil', off(poolP, -2, .3, 0), .4);
+cast('Madison', off(poolP, -3, 0, 5), -.4); cast('Brody', off(poolP, -1, 0, 5.4)); cast('Zack', off(poolP, 1, 0, 5.6), -.3);
+cast('Felicia', off(poolP, -7, 0, 2), 0, { walk: { ax: 'z', amp: 4, speed: .06 } }); cast('Benny', off(poolP, 5, 0, 5), 0, { walk: { ax: 'x', amp: 3, speed: .05 } });
+// water
+cast('Darnell', off(dockEnd, 1, .2, 0), SEA); cast('Captain Lou', off(psBoat.position, 0, 1, 0), Math.PI * .5);
+moon.updateMatrixWorld(true); cast('Pierre', moon.localToWorld(V(8.2, 2.15, -1)), .45 + Math.PI / 2); cast('Ziggy', moon.localToWorld(V(-6.8, 2.15, 1.2)), .45);
+barge.updateMatrixWorld(true); cast('Sparky', barge.localToWorld(V(3.5, .6, 0)), -.2);
+const stan = cast('Stan', kay.position.clone(), .7); stan.follow = kay;
+
+// the crowd, by zone
+const crowd = (zone, n, where, beh, face = () => rand(-1, 1)) => { for (let i = 0; i < n; i++) { const p = where(i), s = crowdSpec(zone); s.beh = pick(beh); if (s.prop && s.beh === 'phone') s.beh = 'eating'; addJelly(s, p, face(p)); } };
+crowd('beach', 32, () => { const [x, z] = pick(beachSpots); return V(x + rand(-1.2, 1.2), 0, z + rand(-1, 1)); }, ['sunbathing', 'sunbathing', 'idle', 'chatting', 'phone', 'napping', 'waving']);
+crowd('beach', 12, () => { const z = rand(-44, 26); return V(rand(shoreX(z) + 4, 3), 0, z); }, ['walking', 'idle', 'chatting', 'eating']);
+crowd('beach', 10, () => { const z = rand(-40, 26); return V(shoreX(z) - rand(2, 9), -.35, z); }, ['floating']);   // swimmers: the water is watched
+crowd('boardwalk', 26, () => bw(rand(-46, 28), rand(-3, 3)), ['walking', 'walking', 'idle', 'eating', 'chatting', 'phone']);
+crowd('pier', 12, () => onPier(rand(23, 33), rand(-2.6, 2.6)), ['cheering', 'idle', 'phone', 'waving'], p => Math.atan2(booth.x - p.x, booth.z - p.z));
+crowd('pier', 4, () => onPier(rand(40, 48), pick([-2.8, 2.8])), ['fishing', 'idle'], p => p.z > PIER_Z ? 0 : Math.PI);
+crowd('pool', 20, () => off(poolP, rand(-9, 8), 0, rand(4.5, 8.5)), ['dancing', 'dancing', 'cheering', 'dancing', 'chatting'], () => rand(-.6, .6) + Math.PI);
+crowd('pool', 4, () => off(poolP, rand(-4, 4), .2, rand(-2, 2)), ['floating']);
+for (const p of people) if (!p.walk && p.j.beh === 'walking') p.walk = { ax: Math.abs(p.base.x - BWX) < 4 ? 'z' : pick(['x', 'z']), amp: rand(3, 9), speed: rand(.02, .05) };
+
+const ZONES = [['Boardwalk', bw(14), 5], ['Beach', V(-4, 0, 12), 5], ['Volleyball final', court, 5], ['The pier · $JIGGLE', booth, 9], ['Jet-ski dock', dockEnd, 4],
+  ['The Moonshot', moon.position, 9], ['Fireworks barge', barge.position, 6], ['Grand Flamingo pool deck', poolP, 7]]
+  .map(([n, p, y]) => { const el = document.createElement('div'); el.className = 'tag zone'; el.textContent = n; tagsEl.appendChild(el); return { el, p: off(p, 0, y, 0) }; });
+
+/* ======================= cameras (clay3d): the perch, the scope and the naked eye ======================= */
+// clay3d's perch scaled to these jellies (1.1 tall against clay3d's .75): high on the motel roof past the south street.
+const EYE_POS = V(20, 50, 80);
+const STOPS = [30, 17, 10, 6];   // scope field of view per zoom stop (clay3d ranged 34..7)
+const aim = { yaw: -.14, pitch: -.43, fov: STOPS[1] }; let stop = 1, zoomAnim = null;
+const scopeCam = new THREE.PerspectiveCamera(aim.fov, 1, 1, 700);
+const eyeCam = new THREE.PerspectiveCamera(44, 1, 1, 700);
+function point(cam, yaw, pitch) { cam.position.copy(EYE_POS); cam.lookAt(EYE_POS.clone().add(V(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch)))); }
+const zoomTxt = document.getElementById('zoomTxt');
+function setStop(i) { stop = Math.max(0, Math.min(STOPS.length - 1, i)); zoomAnim = { from: aim.fov, to: STOPS[stop], t0: performance.now() }; zoomTxt.textContent = `zoom ${stop + 1}/${STOPS.length}`; }
+
+/* ---------- render targets + composite (clay3d) ---------- */
+let W = 0, H = 0, DPR = 1, scopePx = { x: 0, y: 0, r: 1 };
+const rtScope = new THREE.WebGLRenderTarget(16, 16, { samples: 4, type: THREE.HalfFloatType });
+const rtEye = new THREE.WebGLRenderTarget(16, 16, { type: THREE.HalfFloatType });
+const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const compMat = new THREE.ShaderMaterial({
+  uniforms: { tScope: { value: rtScope.texture }, tEye: { value: rtEye.texture }, res: { value: new THREE.Vector2() }, eyeRes: { value: new THREE.Vector2() }, center: { value: new THREE.Vector2() }, R: { value: 1 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }`,
+  fragmentShader: `
+    uniform sampler2D tScope, tEye; uniform vec2 res, eyeRes, center; uniform float R; varying vec2 vUv;
+    vec3 blurEye(vec2 uv){
+      vec2 px = 1. / eyeRes; vec3 s = vec3(0.); float w = 0.;
+      for (int i = -3; i <= 3; i++) for (int j = -3; j <= 3; j++) {
+        float k = exp(-float(i*i + j*j) / 6.); s += texture2D(tEye, uv + vec2(i, j) * px * 1.4).rgb * k; w += k; }
+      return s / w;
+    }
+    void main(){
+      vec2 p = vUv * res; float d = length(p - center);
+      vec3 col;
+      if (d < R) {
+        vec2 uv = (p - center) / (2. * R) + .5;
+        col = texture2D(tScope, uv).rgb;
+        float e = smoothstep(R * .7, R, d);
+        col *= 1. - .28 * e;
+        vec2 q = (p - center) / R;
+        col += vec3(1., .86, .74) * .10 * smoothstep(.2, -.9, q.x - q.y) * e;
+      } else {
+        col = blurEye(vUv);
+        col = mix(col, vec3(.05, .07, .12), .2) * .86;
+        col = mix(vec3(dot(col, vec3(.299, .587, .114))), col, 1.12);
+        float v = smoothstep(R, R * 2.2, d); col *= 1. - .28 * v;
+        float ds = length(p - (center + vec2(.0, -.045 * R)));
+        col *= 1. - .5 * smoothstep(R * 1.34, R * 1.08, ds);
+      }
+      gl_FragColor = vec4(col, 1.);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+  toneMapped: true, depthTest: false, depthWrite: false
+});
+const quadScene = new THREE.Scene(); quadScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), compMat));
+
+function resize() {
+  const r = phone.getBoundingClientRect(); W = r.width; H = r.height; DPR = Math.min(devicePixelRatio, 2);
+  renderer.setPixelRatio(DPR); renderer.setSize(W, H, false);
+  const s = document.getElementById('scope').getBoundingClientRect();
+  const R = s.width / 2 * (39.9 / 44.975);   // glass radius of the housing art
+  scopePx = { x: s.left - r.left + s.width / 2, y: s.top - r.top + s.height / 2, r: R };
+  const side = Math.round(R * 2 * DPR); rtScope.setSize(side, side);
+  rtEye.setSize(Math.max(8, Math.round(W * DPR / 6)), Math.max(8, Math.round(H * DPR / 6)));
+  compMat.uniforms.res.value.set(W * DPR, H * DPR); compMat.uniforms.eyeRes.value.set(rtEye.width, rtEye.height);
+  compMat.uniforms.center.value.set(scopePx.x * DPR, (H - scopePx.y) * DPR); compMat.uniforms.R.value = R * DPR;
+  eyeCam.aspect = W / H; eyeCam.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(phone);
+
+/* ---------- input: drag to aim; pinch or wheel steps one zoom stop ---------- */
+const ptrs = new Map(); let drag = null;
+phone.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; phone.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); drag = { x: e.clientX, y: e.clientY, d: null }; });
+phone.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId) || !drag) return;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const p = [...ptrs.values()];
+  if (p.length >= 2) { const d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y); drag.d ??= d;
+    if (d / drag.d > 1.35) { setStop(stop + 1); drag.d = d; } else if (d / drag.d < .74) { setStop(stop - 1); drag.d = d; } return; }
+  const k = aim.fov / 19 * .0021;
+  aim.yaw = THREE.MathUtils.clamp(aim.yaw - (e.clientX - drag.x) * k, -.75, .5);
+  aim.pitch = THREE.MathUtils.clamp(aim.pitch + (e.clientY - drag.y) * k, -1.0, -.2);
+  drag.x = e.clientX; drag.y = e.clientY;
+});
+const up = e => { ptrs.delete(e.pointerId); if (!ptrs.size) drag = null; else if (drag) { const q = [...ptrs.values()][0]; drag.x = q.x; drag.y = q.y; drag.d = null; } };
+phone.addEventListener('pointerup', up); phone.addEventListener('pointercancel', up);
+let wheelT = 0; phone.addEventListener('wheel', e => { e.preventDefault(); if (performance.now() - wheelT < 180) return; wheelT = performance.now(); setStop(stop + (e.deltaY < 0 ? 1 : -1)); }, { passive: false });
+
+/* ---------- tools: labels, jelly skin, mood ---------- */
+const $ = id => document.getElementById(id);
+const LABS = ['targets', 'zones', 'all', 'off']; let lab = 0;
+$('labs').onclick = () => { lab = (lab + 1) % LABS.length; phone.classList.remove(...LABS.map(l => 'lab-' + l)); phone.classList.add('lab-' + LABS[lab]); $('labs').textContent = 'Labels: ' + LABS[lab]; };
+let trans = true; $('trans').onclick = () => { trans = !trans; setTransmission(people.map(p => p.j), trans); $('trans').textContent = `Skin: ${trans ? 'on' : 'off (fast)'}`; };
+let mood = 'day';
+function setMood(name) {
+  mood = name; const m = MOODS[name];
+  scene.background.set(m.bg); scene.fog.color.set(m.fog); key.color.set(m.key); key.intensity = m.keyI;
+  hemi.color.set(m.hemiS); hemi.groundColor.set(m.hemiG); hemi.intensity = m.hemiI; seaMat.color.set(m.sea); renderer.toneMappingExposure = m.exp;
+  const c = V(0, 0, -8); key.target.position.copy(c); key.position.copy(c).addScaledVector(m.dir.clone().normalize(), 120); key.shadow.camera.updateProjectionMatrix();
+  foamParty.visible = name === 'sunset'; $('tod').textContent = name === 'day' ? 'Sunset' : 'Midday';
+}
+$('tod').onclick = () => setMood(mood === 'day' ? 'sunset' : 'day');
+{ const q = new URLSearchParams(location.search); setMood(q.get('t') === 'sunset' ? 'sunset' : 'day'); if (q.get('skin') === 'off') $('trans').onclick(); }
+setStop(1);
+
+/* ---------- loop ---------- */
+document.querySelector('#ticks').innerHTML = Array.from({ length: 21 }, (_, i) => -120 + i * 12).filter(x => Math.abs(x) > 18).map(x => `<line x1="${x}" y1="-7" x2="${x}" y2="7"/>`).join('');
+const v3 = new THREE.Vector3(), clock = new THREE.Clock(), fpsEl = $('fps'); let fr = 0, ft = 0;
+const project = (el, p) => { v3.copy(p).project(scopeCam); const x = scopePx.x + v3.x * scopePx.r, y = scopePx.y - v3.y * scopePx.r;
+  const vis = v3.z < 1 && Math.hypot(x - scopePx.x, y - scopePx.y) < scopePx.r * .9; el.style.visibility = vis ? '' : 'hidden'; if (vis) { el.style.left = x + 'px'; el.style.top = y + 'px'; } };
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
+  if (zoomAnim) { const k = Math.min(1, (performance.now() - zoomAnim.t0) / 160); aim.fov = zoomAnim.from + (zoomAnim.to - zoomAnim.from) * (1 - (1 - k) ** 3); if (k >= 1) zoomAnim = null; }
+  for (const g of animated) K.tickPiece(g, t);
+  for (const p of people) { const j = p.j; animate(j, t);
+    if (p.walk) { const w = p.walk, ph = (w.phase ?? j.ph) + t * w.speed, s = Math.sin(ph * Math.PI * 2), c = Math.cos(ph * Math.PI * 2);
+      j.root.position.copy(p.base); j.root.position[w.ax] += s * w.amp; const dv = Math.sign(c) || 1;
+      j.root.rotation.y = w.ax === 'x' ? (dv > 0 ? Math.PI / 2 : -Math.PI / 2) : (dv > 0 ? 0 : Math.PI);
+      if (j.beh !== 'walking' && j.beh !== 'selfie') j.beh = 'walking'; }
+    if (p.follow) { j.root.position.copy(p.follow.position); j.root.position.y += .1; j.root.rotation.y = p.follow.rotation.y; } }
+  kay.position.set(kayHome.x + Math.sin(t * .1) * 4, kayHome.y, kayHome.z + Math.cos(t * .1) * 3); kay.rotation.y = -t * .1;   // Stan, in circles
+  brayJet.position.set(jetHome.x + Math.sin(t * .25) * 6, jetHome.y, jetHome.z + Math.cos(t * .25) * 10); brayJet.rotation.y = -t * .25;
+  // the rifle breathes; the eye follows the rifle loosely
+  const sway = { yaw: Math.sin(t * .83) * .0025 + Math.sin(t * 1.97) * .0015, pitch: Math.sin(t * 1.13) * .002 };
+  point(scopeCam, aim.yaw + sway.yaw, aim.pitch + sway.pitch); scopeCam.fov = aim.fov; scopeCam.updateProjectionMatrix();
+  point(eyeCam, aim.yaw * .9, aim.pitch * .9 - .04);
+  renderer.setRenderTarget(rtEye); renderer.render(scene, eyeCam);
+  renderer.setRenderTarget(rtScope); renderer.render(scene, scopeCam);
+  renderer.setRenderTarget(null); renderer.render(quadScene, quadCam);
+  for (const p of people) if (p.tag) project(p.tag, v3.set(p.j.root.position.x, p.j.root.position.y + 1.6, p.j.root.position.z));
+  for (const z of ZONES) project(z.el, z.p);
+  fr++; ft += dt; if (ft > 1) { fpsEl.textContent = `${Math.round(fr / ft)} fps · ${people.length} jellies`; fr = 0; ft = 0; }
+});
+resize(); document.fonts.ready.then(resize); document.querySelector('.housing').addEventListener('load', resize);
+window.__dio = { scene, scopeCam, eyeCam, aim, people, setStop, setMood };
+</script>
+</body>
+</html>

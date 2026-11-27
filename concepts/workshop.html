@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Jellyshot · workshop (level 1)</title>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<style>
+/* The review bench for anything that isn't the level itself: the cast, the crowd, props and set pieces, each on its own.
+   Grown out of randomizer.html, which stays the reference for the character rig. */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #f6ecdf; font-family: ui-rounded, 'SF Pro Rounded', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+#labels { position: fixed; inset: 0; pointer-events: none; }
+.lab { position: absolute; transform: translate(-50%, 0); text-align: center; white-space: nowrap; color: #3a2547; font-size: 12px; font-weight: 700; text-shadow: 0 1px 0 rgba(255,255,255,.85); }
+.lab b { display: block; font-size: 13px; }
+.lab i { font-style: normal; font-weight: 600; opacity: .7; }
+.lab.t b { color: #d4317a; }
+body.nolabels .lab { display: none !important; }
+#top { position: fixed; left: 12px; top: max(12px, env(safe-area-inset-top)); display: flex; gap: 8px; flex-wrap: wrap; max-width: calc(100vw - 340px); }
+#bot { position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: min(96vw, 820px); }
+button { font: inherit; font-weight: 800; font-size: 14px; border: 0; border-radius: 18px; padding: 9px 15px; color: #fff; background: radial-gradient(130% 120% at 30% 22%, #ffc59a, #ff8a4a 46%, #e0602a); box-shadow: inset 2px 3px 4px rgba(255,255,255,.45), inset -2px -3px 5px rgba(120,40,10,.35), 0 3px 8px rgba(60,30,20,.25); cursor: pointer; }
+.seg { display: flex; border-radius: 18px; overflow: hidden; box-shadow: 0 3px 8px rgba(60,30,20,.22); }
+.seg button { border-radius: 0; box-shadow: none; background: #fbf1e4; color: #7a5a4a; }
+.seg button.on { background: radial-gradient(130% 120% at 30% 22%, #8ff0dd, #2fc4a8 46%, #1f9a84); color: #fff; }
+#card { position: fixed; right: 12px; top: max(12px, env(safe-area-inset-top)); width: min(310px, 70vw); padding: 12px 14px; border-radius: 18px; background: rgba(255,250,242,.95); color: #3a2547; box-shadow: 0 4px 14px rgba(60,30,20,.2); font-size: 13px; line-height: 1.38; }
+#card h2 { margin: 0 0 2px; font-size: 17px; }
+#card .sub { opacity: .7; font-weight: 700; }
+#card ul { margin: 6px 0 6px; padding-left: 18px; }
+#card .note { background: #fff1c8; border-radius: 10px; padding: 5px 8px; margin-top: 6px; }
+#card .hint { opacity: .6; font-size: 12px; margin-top: 6px; }
+#card .sw { display: inline-block; width: 12px; height: 12px; border-radius: 6px; vertical-align: -1px; margin-right: 4px; }
+#fps { position: fixed; left: 12px; bottom: 12px; font: 700 11px ui-monospace, monospace; color: #7a5a4a; opacity: .7; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="labels"></div>
+<div id="top">
+  <div class="seg" id="section"><button data-s="cast" class="on">Cast</button><button data-s="crowd">Crowd</button><button data-s="props">Props</button><button data-s="pieces">Set pieces</button></div>
+  <div class="seg" id="zone"></div>
+</div>
+<div id="card"></div>
+<div id="bot">
+  <button id="roll">Reroll</button>
+  <div class="seg" id="view"><button data-v="front" class="on">Front</button><button data-v="three">¾ above</button><button data-v="side">Side</button><button data-v="back">Back</button><button data-v="scope">Perch angle</button></div>
+  <button id="labs">Labels</button>
+  <button id="trans">Jelly skin: on</button>
+</div>
+<div id="fps"></div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { makeJelly, animate, setTransmission, PROPS, HATS, EXTRAS, PAINT, mesh, sph, clay } from './jelly-rig.js';
+import { PIECES, tickPiece, PAL } from './boardwalk-kit.js';
+import { CAST, crowdSpec } from './cast-l1.js';
+
+/* ---------- renderer and the coastal studio light ---------- */
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.VSMShadowMap;
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#f6ecdf');
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 600);
+const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.minZoom = .3; controls.maxZoom = 12;
+scene.add(new THREE.HemisphereLight('#d6f0ff', '#f3d6a0', 1.35));
+const key = new THREE.DirectionalLight('#fff0d8', 2.7); key.castShadow = true; key.shadow.mapSize.set(4096, 4096);
+key.shadow.radius = 8; key.shadow.blurSamples = 16; key.shadow.bias = -.0006; key.shadow.normalBias = .05;
+scene.add(key, key.target);
+const rim = new THREE.DirectionalLight('#ffd6c8', .7); scene.add(rim);
+
+/* ---------- shelf content ---------- */
+const ZONES = {
+  cast: ['All', 'Targets & guards', 'Pier', 'Boardwalk', 'Beach', 'Pool deck', 'Water'],
+  crowd: ['beach', 'pool', 'boardwalk', 'pier'],
+  props: ['Hats', 'Eyewear & jewellery', 'Held props', 'Paints'],
+  pieces: ['Resort pool deck', 'Boardwalk', 'Beach', 'Pier', 'Water', 'Street'],
+};
+const CAST_GROUP = c => c.target || /lifeguard|patrol|bouncer|bodyguard|client/.test(c.role) ? 'Targets & guards'
+  : c.zone.match(/Pier/) ? 'Pier' : c.zone.match(/Boardwalk|Arcade|Mini-golf|Pool gate/) && !/bouncer/.test(c.role) ? 'Boardwalk'
+  : c.zone.match(/Pool|Tiki/) ? 'Pool deck' : c.zone.match(/Water|Dock|boat|Moonshot|Barge/) ? 'Water' : 'Beach';
+let section = 'cast', zone = { cast: 'Targets & guards', crowd: 'beach', props: 'Hats', pieces: 'Boardwalk' }, view = 'front';
+const items = [];   // { root, label, info, size, j? }
+const labelsEl = document.getElementById('labels');
+const floor = new THREE.Group(); scene.add(floor);
+let bounds = new THREE.Box3();
+
+function clear() {
+  for (const it of items) { scene.remove(it.root); it.lab.remove(); }
+  items.length = 0; floor.clear();
+}
+function addItem(root, labHtml, info, cellW, isTarget = false) {
+  const lab = document.createElement('div'); lab.className = 'lab' + (isTarget ? ' t' : ''); lab.innerHTML = labHtml; labelsEl.appendChild(lab);
+  scene.add(root); const it = { root, lab, info, cellW }; root.traverse(o => { o.userData.it = it; }); items.push(it); return it;
+}
+// a jelly standing on a little sand disc: what every character shelf shows
+function jellyItem(spec, lab, info) {
+  const j = makeJelly(spec);
+  const g = new THREE.Group(); g.add(j.root);
+  
+  const it = addItem(g, lab, info, 2.2, !!spec.target); it.j = j; return it;
+}
+// lay items out in rows, left to right, wrapping at maxW. Characters sit on stacked shelves (rows go down, like the
+// randomizer); set pieces sit on one floor (rows go back), seen from above.
+function shelve(maxW, shelves = true) {
+  let x = 0, rows = [[]];
+  for (const it of items) { if (x + it.cellW > maxW && rows.at(-1).length) { rows.push([]); x = 0; } rows.at(-1).push(it); it.x = x + it.cellW / 2; x += it.cellW; }
+  let z = 0;
+  rows.forEach((r, ri) => {
+    const w = r.reduce((s, it) => s + it.cellW, 0), d = Math.max(...r.map(it => it.cellD ?? 2));
+    for (const it of r) it.root.position.set(it.x - w / 2, shelves ? -ri * 3.1 : 0, shelves ? 0 : z - d / 2);
+    const slab = mesh(new THREE.BoxGeometry(w + .6, .3, shelves ? 2.2 : d + .6), clay('#f8e6c4', .9), floor, 0, (shelves ? -ri * 3.1 : 0) - .17, shelves ? 0 : z - d / 2);
+    slab.castShadow = false; z -= d + 1;
+  });
+  const bb = new THREE.Box3(); for (const it of items) bb.expandByObject(it.root); bounds = bb;
+}
+
+function build() {
+  clear();
+  const z = zone[section];
+  if (section === 'cast') {
+    const list = CAST.filter(c => z === 'All' || CAST_GROUP(c) === z);
+    for (const c of list) jellyItem(c, `<b>${c.name}</b><i>${c.role}</i>`, castCard(c));
+    shelve(Math.max(12, Math.ceil(Math.sqrt(list.length * 1.6)) * 2.2));
+  } else if (section === 'crowd') {
+    for (let i = 0; i < 24; i++) { const s = crowdSpec(z); s.beh = ['idle', 'idle', 'dancing', 'chatting', 'waving', 'phone', 'cheering'][i % 7]; if (s.prop && s.beh === 'phone') s.beh = 'eating';
+      jellyItem(s, '', crowdCard(s, z)); }
+    shelve(13.2);
+  } else if (section === 'props') {
+    const show = (name, fill, kind) => jellyItem({ col: '#ffe2c8', size: .7, ...fill, beh: fill.beh ?? 'idle' }, `<b>${name}</b>`, `<h2>${name}</h2><div class="sub">${kind}</div>`);
+    if (z === 'Hats') for (const h of Object.keys(HATS)) show(h, { hat: h === 'captain hat' ? [h, {}] : h }, '3D hat (clay), on a shell that follows the head');
+    if (z === 'Eyewear & jewellery') for (const e of Object.keys(EXTRAS)) show(e, { extras: [e] }, 'Stand-in 3D. Eyewear and jewellery go 2D per DEC-07.');
+    if (z === 'Held props') for (const p of Object.keys(PROPS)) show(p, { prop: p, beh: p === 'binoculars' ? 'idle' : p === 'phone' ? 'phone' : p === 'selfie stick' ? 'selfie' : 'idle' }, 'Held in the right arm');
+    if (z === 'Paints') for (const p of Object.keys(PAINT)) show(p, { paints: [p], col: '#ffc8a0' }, 'Body paint (canvas on the body)');
+    if (z === 'Paints') show('Captain Lou (three hats)', { hat: ['captain hat', { stack: 3 }], col: '#f2c88a' }, 'Stacked hats');
+    shelve(13.2);
+  } else {
+    for (const [zn, name, make, size, note] of PIECES.filter(p => p[0] === z)) {
+      const g = make(); const wrap = new THREE.Group(); wrap.add(g);
+      const it = addItem(wrap, `<b>${name}</b>`, `<h2>${name}</h2><div class="sub">${zn}</div><p>${note}</p>`, size + 2.5);
+      it.cellD = size * .9 + 3; it.piece = g;
+      // a scale jelly beside each piece, so size reads at a glance
+      const ref = makeJelly({ col: '#ffd84a', size: .66 }); ref.root.position.set(size / 2 + .6, 0, size * .25); wrap.add(ref.root); it.j = ref;
+    }
+    shelve(30, false);
+  }
+  if (section !== 'pieces') for (const it of items) if (it.j) { it.j.root.position.set(0, 0, 0); }
+  if (section === 'pieces' && view === 'front') setView('three');
+  frame(); select(items[0]);
+  window.__items = items;
+}
+
+/* ---------- framing and views ---------- */
+const VIEWS = { front: [0, .12], three: [.4, .55], side: [Math.PI / 2, .12], back: [Math.PI, .12], scope: [0, .42] };   // yaw, pitch
+let focus = null;
+function frame(it = focus) {
+  const bb = it ? new THREE.Box3().setFromObject(it.root) : bounds.clone();
+  const c = bb.getCenter(new THREE.Vector3()), s = bb.getSize(new THREE.Vector3());
+  const [yaw, pitch] = VIEWS[view];
+  const dir = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
+  camera.position.copy(c).addScaledVector(dir, 200); controls.target.copy(c); camera.lookAt(c);
+  // fit the projected box
+  camera.updateMatrixWorld();
+  const pts = []; for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) pts.push(new THREE.Vector3(x, y, z).applyMatrix4(camera.matrixWorldInverse));
+  let hw = 0, hh = 0; for (const p of pts) { hw = Math.max(hw, Math.abs(p.x)); hh = Math.max(hh, Math.abs(p.y)); }
+  const W = innerWidth, H = innerHeight, cardW = W > 700 ? 340 : 0, topH = 70, botH = 80;
+  const availW = W - cardW - 24, availH = H - topH - botH;
+  const k = Math.max(2 * hw / availW, 2 * hh / availH) * 1.12;   // world units per pixel
+  const offX = -(cardW / 2) * k, offY = ((botH - topH) / 2) * k;
+  const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0), up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+  const shift = right.multiplyScalar(-offX).add(up.multiplyScalar(-offY));
+  camera.position.add(shift); controls.target.add(shift);
+  Object.assign(camera, { left: -W * k / 2, right: W * k / 2, top: H * k / 2, bottom: -H * k / 2, zoom: 1 });
+  camera.updateProjectionMatrix(); controls.update();
+  // shadows cover what's framed
+  const r = Math.max(s.x, s.z, s.y) * .75 + 4;
+  key.position.copy(c).add(new THREE.Vector3(-.45, .85, .45).multiplyScalar(r * 2)); key.target.position.copy(c);
+  Object.assign(key.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: .5, far: r * 5 }); key.shadow.camera.updateProjectionMatrix();
+  rim.position.copy(c).add(new THREE.Vector3(12, 8, -18));
+}
+
+/* ---------- cards ---------- */
+const listOf = c => [c.hat && [].concat(c.hat)[0], ...(c.extras ?? []), ...(c.paints ?? []).map(p => [].concat(p)[0]), c.prop && [].concat(c.prop)[0], c.propL && [].concat(c.propL)[0]].filter(Boolean);
+function castCard(c) {
+  return `<h2><span class="sw" style="background:${c.col}"></span>${c.name}</h2><div class="sub">${c.role} · ${c.zone}</div>
+    <ul>${listOf(c).map(x => `<li>${x}</li>`).join('')}<li>behaviour: ${c.beh}</li><li>size ${c.size}</li></ul>${c.note ? `<div class="note">${c.note}</div>` : ''}`;
+}
+function crowdCard(s, z) { return `<h2>Crowd jelly</h2><div class="sub">${z} crowd: zero or one piece from the kit</div><ul>${listOf(s).map(x => `<li>${x}</li>`).join('') || '<li>nothing</li>'}</ul>`; }
+const card = document.getElementById('card');
+function select(it) {
+  card.innerHTML = (it?.info ?? '<h2>Nothing here</h2>') + `<div class="hint">Click anything to look at it alone; click the floor to see the shelf again. Drag to orbit.</div>`;
+  for (const x of items) x.lab.classList.toggle('sel', x === it);
+}
+
+/* ---------- picking ---------- */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(); let down = null;
+canvas.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+canvas.addEventListener('pointerup', e => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+  ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObjects(items.map(i => i.root), true)[0];
+  const it = hit?.object.userData.it;
+  if (it) { select(it); focus = it; frame(); } else if (focus) { focus = null; frame(); }
+});
+
+/* ---------- UI ---------- */
+const zoneEl = document.getElementById('zone');
+function zoneButtons() {
+  zoneEl.innerHTML = ''; for (const z of ZONES[section]) { const b = document.createElement('button'); b.textContent = z; b.classList.toggle('on', z === zone[section]);
+    b.onclick = () => { zone[section] = z; focus = null; zoneButtons(); build(); }; zoneEl.appendChild(b); }
+}
+for (const b of document.querySelectorAll('#section button')) b.onclick = () => {
+  section = b.dataset.s; focus = null; document.querySelectorAll('#section button').forEach(x => x.classList.toggle('on', x === b)); zoneButtons(); build(); syncURL();
+};
+function setView(v) { view = v; document.querySelectorAll('#view button').forEach(x => x.classList.toggle('on', x.dataset.v === v)); }
+for (const b of document.querySelectorAll('#view button')) b.onclick = () => { setView(b.dataset.v); frame(); };
+document.getElementById('roll').onclick = () => build();
+document.getElementById('labs').onclick = () => document.body.classList.toggle('nolabels');
+const transBtn = document.getElementById('trans'); let trans = true;
+transBtn.onclick = () => { trans = !trans; setTransmission(items.filter(i => i.j).map(i => i.j), trans); transBtn.textContent = `Jelly skin: ${trans ? 'on' : 'off (fast)'}`; };
+function syncURL() { const u = new URL(location); u.searchParams.set('s', section); u.searchParams.set('z', zone[section]); history.replaceState(null, '', u); }
+{ const q = new URLSearchParams(location.search); if (q.get('s') in ZONES) section = q.get('s'); if (q.get('z') && ZONES[section].includes(q.get('z'))) zone[section] = q.get('z');
+  document.querySelectorAll('#section button').forEach(x => x.classList.toggle('on', x.dataset.s === section)); }
+zoneButtons(); build();
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight, false); frame(); });
+renderer.setSize(innerWidth, innerHeight, false); frame();
+
+/* ---------- loop ---------- */
+const v3 = new THREE.Vector3(), clock = new THREE.Clock(), fpsEl = document.getElementById('fps'); let fr = 0, ft = 0;
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
+  for (const it of items) { if (it.j) animate(it.j, t); if (it.piece) tickPiece(it.piece, t); }
+  controls.update(); renderer.render(scene, camera);
+  for (const it of items) { if (!it.labPos) { const b = new THREE.Box3().setFromObject(it.root); it.labPos = new THREE.Vector3((b.min.x + b.max.x) / 2, b.min.y, b.max.z + .3); }
+    v3.copy(it.labPos).project(camera);
+    it.lab.style.left = `${(v3.x + 1) / 2 * innerWidth}px`; it.lab.style.top = `${(1 - v3.y) / 2 * innerHeight + 4}px`; }
+  fr++; ft += dt; if (ft > 1) { fpsEl.textContent = `${Math.round(fr / ft)} fps · ${renderer.info.render.calls} draws`; fr = 0; ft = 0; }
+});
+</script>
+<!-- REVIEW (temporary): pings a local listener so Claude knows the person approved. Remove after review. -->
+<button id="review" style="position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:9;background:radial-gradient(130% 120% at 30% 22%,#9af7a0,#3ac45a 46%,#1f9a3a)" onclick="fetch('http://localhost:5199/ok?page=workshop',{mode:'no-cors'});this.textContent='Sent ✓'">Looks right</button>
+</body>
+</html>

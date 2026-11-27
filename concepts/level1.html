@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Jellyshot · LVL-01 Palmetto Point (portrait)</title>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<style>
+/* LVL-01 built out on the frozen layout (level1-layout.js): the person's concept, an 80° lens on the concept frame,
+   a 13-wide boardwalk. Mobile only, portrait. On a desktop the page shows a phone-shaped frame (9 : 19.5).
+   The horizontal field of view is the concept's; a taller phone sees more sky and more roof, not a different level. */
+html, body { margin: 0; height: 100%; background: #19141f; overflow: hidden; font: 13px/1.3 system-ui, -apple-system, sans-serif; touch-action: none; user-select: none; }
+#phone { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); overflow: hidden; background: #000; }
+@media (min-aspect-ratio: 1/1.6) { #phone { border-radius: 26px; box-shadow: 0 0 0 8px #2b2433, 0 20px 50px #0008; } }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* the scope: clay3d's housing art and etched reticle. Housing asset is 1078 x 1221 drawn 98cqw wide; its glass centre
+   (533.2, 600.1) sits at (50cqw, --cy). The glass itself is rendered in WebGL (sharp lens view inside, shaded eye view outside). */
+#phone { container-type: inline-size; --cy: 100cqw; }
+#scopeUI { position: absolute; inset: 0; pointer-events: none; visibility: hidden; }
+#scopeUI.on { visibility: visible; }
+.housing { position: absolute; left: 1.53cqw; top: calc(var(--cy) - 54.55cqw); width: 98cqw; height: auto; pointer-events: none; filter: drop-shadow(0 1.4cqw 2.2cqw rgba(24, 14, 46, .45)); }
+.scopebox { position: absolute; left: 50cqw; top: var(--cy); width: 89.95cqw; height: 89.95cqw; transform: translate(-50%, -50%); }
+.scopebox svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+#labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.tag { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; font: 700 10px system-ui; padding: 2px 6px; border-radius: 8px; color: #fff; background: #3a2547cc; }
+.tag.zone { background: #ffffffd8; color: #3a2547; font-size: 11px; }
+.tag.target { background: #ff3b5cdd; }
+body.lab-off .tag, body.lab-zones .tag:not(.zone), body.lab-targets .tag:not(.target) { display: none; }
+/* HUD: top band over the sky, bottom band over the roof ledge, all in thumb reach */
+#top { position: absolute; left: 10px; right: 10px; top: max(10px, env(safe-area-inset-top)); display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.card { background: #fffaf2ee; color: #3a2547; border-radius: 14px; padding: 7px 10px; font-size: 11.5px; box-shadow: 0 3px 10px #0004; max-width: 62%; }
+.card b { color: #ff3b5c; }
+#bottom { position: absolute; left: 0; right: 0; bottom: max(14px, env(safe-area-inset-bottom)); display: flex; justify-content: center; gap: 8px; }
+button { border: 0; border-radius: 12px; padding: 8px 11px; font: 700 12px system-ui; color: #fff; background: #3a2547dd; cursor: pointer; }
+button.on { background: #ff4f9a; }
+#stops button { min-width: 44px; }
+#menu { position: absolute; right: 10px; top: 62px; display: none; flex-direction: column; gap: 6px; }
+#menu.open { display: flex; }
+#jumps { position: absolute; left: 10px; top: 62px; display: none; flex-direction: column; gap: 6px; }
+#jumps.open { display: flex; }
+#fps { position: absolute; left: 50%; transform: translateX(-50%); bottom: 64px; font: 700 10px ui-monospace, monospace; color: #fff; text-shadow: 0 1px 2px #000a; }
+#review { position: fixed; right: 12px; top: 12px; z-index: 9; background: radial-gradient(130% 120% at 30% 22%, #9af7a0, #3ac45a 46%, #1f9a3a); box-shadow: 0 3px 10px #0005; }
+@media (max-aspect-ratio: 1/1.2) { #review { top: auto; bottom: 70px; } }
+</style>
+</head>
+<body class="lab-zones">
+<div id="phone">
+  <canvas id="gl"></canvas>
+  <div id="labels"></div>
+  <div id="scopeUI"><img class="housing" src="assets/scope-housing.png" alt=""><div class="scopebox" id="scopeBox"><svg viewBox="-500 -500 1000 1000">
+        <g stroke="#2a2140" stroke-linecap="butt">
+          <line x1="-433" y1="0" x2="-245" y2="0" stroke-width="11"/><line x1="245" y1="0" x2="433" y2="0" stroke-width="11"/>
+          <line x1="-245" y1="0" x2="-14" y2="0" stroke-width="2.6"/><line x1="14" y1="0" x2="245" y2="0" stroke-width="2.6"/>
+          <line x1="0" y1="16" x2="0" y2="190" stroke-width="2.6"/>
+          <g stroke-width="2.4" id="ticks"></g>
+          <line x1="-186" y1="-20" x2="-186" y2="20" stroke-width="2.8"/><line x1="-142" y1="-14" x2="-142" y2="14" stroke-width="2.8"/>
+          <line x1="142" y1="-14" x2="142" y2="14" stroke-width="2.8"/><line x1="186" y1="-20" x2="186" y2="20" stroke-width="2.8"/>
+        </g>
+        <path d="M-1.4 182 L1.4 182 L5 198 L5 433 L-5 433 L-5 198 Z" fill="#2a2140"/>
+        <circle r="13" fill="none" stroke="#ff3b5c" stroke-width="3.6"/><circle r="2.6" fill="#ff3b5c"/>
+        <!-- glass glare (the cut-out can't keep the art's glare, it was blended into the scene) -->
+        <defs><filter id="glareBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="9"/></filter>
+          <filter id="glareSoft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter></defs>
+        <g style="mix-blend-mode: screen" pointer-events="none">
+          <path d="M-330 -150 A362 362 0 0 1 -175 -316" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="44" stroke-linecap="round" filter="url(#glareBlur)"/>
+          <path d="M-318 -168 A350 350 0 0 1 -196 -296" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="12" stroke-linecap="round" filter="url(#glareSoft)"/>
+          <ellipse cx="-118" cy="-338" rx="18" ry="10" transform="rotate(-28 -118 -338)" fill="#fff" fill-opacity=".55" filter="url(#glareSoft)"/>
+        </g>
+      </svg></div></div>
+  <div id="top">
+    <div class="card"><b>Removal × 3</b> · Palmetto Point boardwalk · surge ×2.4<br>Brayden · Skylar · Big Rick</div>
+    <button id="menuBtn">☰</button>
+  </div>
+  <div id="jumps"></div>
+  <div id="menu">
+    <button id="jumpBtn">Spots</button>
+    <button id="tod">Sunset</button>
+    <button id="labs">Labels: zones</button>
+    <button id="flyBtn">Fly around</button>
+    <button id="trans">Jelly skin: on</button>
+  </div>
+  <div id="fps"></div>
+  <div id="bottom"><div id="stops" style="display:flex;gap:6px"></div></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { makeJelly, animate, setTransmission, mesh, clay, glossy, sph, G } from './jelly-rig.js';
+import * as K from './boardwalk-kit.js';
+import { BY_NAME, crowdSpec } from './cast-l1.js';
+import * as LY from './level1-layout.js';
+const { PAL } = K, { PX, at, SHORE, RAIL, SHOP, FAR_COAST, xAtZ, dirAtZ, CAM, PERCH, BW } = LY;
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+/* ---------- renderer ---------- */
+const canvas = document.getElementById('gl'), phone = document.getElementById('phone');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+let seed = 11; const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const rand = (a, b) => a + rnd() * (b - a), pick = a => a[Math.floor(rnd() * a.length)];
+const animated = [];
+const place = (obj, p, ry = 0, s = 1) => { obj.position.copy(p); obj.rotation.y = ry; obj.scale.setScalar(s); scene.add(obj);
+  obj.traverse(o => { if (o.isMesh) { o.castShadow ??= true; o.receiveShadow = true; } }); if (obj.userData.tick || obj.children.some(c => c.userData.tick)) animated.push(obj); return obj; };
+const put = (obj, p, ry, s) => { place(obj, p, ry, s); animated.push(obj); return obj; };
+const faceCam = p => Math.atan2(PERCH.x - p.x, PERCH.z - p.z);   // ry that turns a piece's front (+z) toward the perch
+
+/* ---------- sky dome and moods: sun behind the viewer, to the left (south-west) ---------- */
+const MOODS = {
+  day: { top: '#4fb4f0', mid: '#a6dcf8', hor: '#ffe8e0', sun: '#fffbe8', az: -.6, el: .75, key: '#fff0d8', keyI: 2.7, hemiS: '#d6f0ff', hemiG: '#f3d6a0', hemiI: 1.25, fog: '#d8ecf6', exp: 1.05, sea: '#2bb5c8', rim: '#ffe0c8' },
+  sunset: { top: '#4a4aa8', mid: '#ff8aa0', hor: '#ffb066', sun: '#ffd27a', az: -1.3, el: .2, key: '#ff9a5a', keyI: 2.3, hemiS: '#a88ae0', hemiG: '#ff9a6a', hemiI: 1.0, fog: '#ffb48a', exp: 1.0, sea: '#3a8ab8', rim: '#ff6aa8' },
+};
+const skyU = { top: { value: new THREE.Color() }, mid: { value: new THREE.Color() }, hor: { value: new THREE.Color() }, sunCol: { value: new THREE.Color() }, sunDir: { value: new THREE.Vector3() } };
+const sky = new THREE.Mesh(new THREE.SphereGeometry(4000, 32, 16), new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: skyU,
+  vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+  fragmentShader: `uniform vec3 top, mid, hor, sunCol, sunDir; varying vec3 vD;
+    void main(){ float h = max(vD.y, -.05); vec3 c = mix(hor, mid, smoothstep(0., .12, h)); c = mix(c, top, smoothstep(.1, .55, h));
+      float s = max(dot(normalize(vD), normalize(sunDir)), 0.); c += sunCol * (pow(s, 900.) * 2.5 + pow(s, 10.) * .3);
+      float n = sin(vD.x * 7. + sin(vD.z * 4.) * 2.) * sin(vD.z * 6. + vD.x * 3.); float cl = smoothstep(.5, .9, n) * smoothstep(.03, .1, h) * (1. - smoothstep(.14, .32, h));
+      c = mix(c, vec3(1., .93, .97), cl * .75);
+      gl_FragColor = vec4(c, 1.);
+      #include <colorspace_fragment>
+    }` }));
+sky.renderOrder = -1; scene.add(sky);
+const hemi = new THREE.HemisphereLight('#d6f0ff', '#f3d6a0', 1.25); scene.add(hemi);
+const key = new THREE.DirectionalLight('#fff0d8', 2.7); key.castShadow = true; key.shadow.mapSize.set(4096, 4096);
+key.shadow.bias = -.0005; key.shadow.normalBias = .25; scene.add(key, key.target);
+const rim = new THREE.DirectionalLight('#ffe0c8', .5); rim.position.set(80, 40, -300); scene.add(rim);
+scene.fog = new THREE.Fog('#d8ecf6', 260, 1500);
+
+/* ======================= ground ======================= */
+const shape = pts => new THREE.Shape(pts.map(p => new THREE.Vector2(p.x, -p.z)));
+const flat = (pts, mat, y) => { const m = new THREE.Mesh(new THREE.ShapeGeometry(shape(pts), 2).rotateX(-Math.PI / 2), mat); m.position.y = y; m.receiveShadow = true; scene.add(m); return m; };
+const seaMat = new THREE.MeshPhysicalMaterial({ color: PAL.sea, roughness: .14, clearcoat: 1, clearcoatRoughness: .08, sheen: .4, sheenColor: new THREE.Color('#cffaff') });
+{ const s = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000).rotateX(-Math.PI / 2), seaMat); s.position.set(-1500, -.3, -2000); s.receiveShadow = true; scene.add(s); }
+// shallows: a lighter band hugging the shore
+{ const out = SHORE.map((p, i) => { const d = dirAtZ(SHORE, p.z); return p.clone().add(V(d.z, 0, -d.x).multiplyScalar(-(10 + i * .6))); });
+  flat([...SHORE, ...out.reverse()], new THREE.MeshPhysicalMaterial({ color: '#63dbd6', roughness: .1, clearcoat: 1, transparent: true, opacity: .6 }), -.2); }
+// land: sand from the shoreline inland, the far coast across the bay
+const far = FAR_COAST, land = [...SHORE, ...far, V(4000, 0, far.at(-1).z), V(4000, 0, 60), V(SHORE[0].x, 0, 60)];
+flat(land, clay(PAL.sand, 1.4), 0);
+// wet sand and a breathing foam line
+{ const inl = SHORE.map(p => { const d = dirAtZ(SHORE, p.z); return p.clone().add(V(-d.z, 0, d.x).multiplyScalar(3.2)); });
+  flat([...SHORE.slice(0, -3), ...inl.slice(0, -3).reverse()], clay(PAL.wetSand, 1.3), .03);
+  const foam = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(SHORE.slice(0, -2).map(p => V(p.x, .08, p.z))), 500, .45, 6), clay(PAL.foam, .4));
+  foam.scale.y = .35; scene.add(foam); animated.push({ userData: { tick: [t => { foam.position.x = Math.sin(t * .7) * .6; }] }, traverse(f) { f(this); } }); }
+// ripples on the sea, denser near the shore
+{ const ripple = G('ripple', () => new THREE.TorusGeometry(1, .04, 3, 14, Math.PI * .5).rotateX(Math.PI / 2)), n = 260;
+  const im = new THREE.InstancedMesh(ripple, new THREE.MeshLambertMaterial({ color: '#7fdce8', transparent: true, opacity: .55 }), n), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+  for (let i = 0; i < n; i++) { const z = rand(20, -700) * (rnd() < .6 ? .5 : 1), x = xAtZ(SHORE, Math.max(z, SHORE.at(-1).z)) - rand(6, 260); const s = 1.5 + (-z) * .03;
+    q.setFromAxisAngle(V(0, 1, 0), Math.PI * 1.2 + rand(-.2, .2)); m4.compose(V(x, -.18, z), q, V(s * 1.8, 1, s)); im.setMatrixAt(i, m4); }
+  im.castShadow = false; scene.add(im); }
+// the distant coast across the bay: low green hills and pastel roofs
+for (let i = 0; i < 70; i++) { const t = rnd(), a = far[Math.floor(t * (far.length - 1))], b = far[Math.ceil(t * (far.length - 1))], p = a.clone().lerp(b, rnd());
+  const h = mesh(sph(1, 10, 6), clay(pick([PAL.palm, PAL.palmDk, '#79c46a'])), scene, p.x + rand(-40, 40), 0, p.z - rand(10, 120)); h.scale.set(rand(30, 70), rand(8, 22), rand(20, 40)); }
+
+/* ======================= boardwalk ======================= */
+const DECK_Y = -.2, BWY = .45;
+for (let i = 0; i < RAIL.length - 1; i++) {
+  const a = RAIL[i], b = RAIL[i + 1], sa = SHOP[i], sb = SHOP[i + 1], len = a.distanceTo(b) + .9, d = b.clone().sub(a).normalize();
+  const mid = a.clone().lerp(b, .5).lerp(sa.clone().lerp(sb, .5), .5); mid.y = DECK_Y;
+  place(K.boardwalkDeck(Math.min(len, 400), BW), mid, Math.atan2(-d.z, d.x));
+}
+// lamps on the rail, every 16
+for (let i = 0; i < RAIL.length - 1; i++) { const a = RAIL[i], b = RAIL[i + 1], len = a.distanceTo(b);
+  for (let t = 4; t < len; t += 16) { const p = a.clone().lerp(b, t / len); p.x += .9; p.y = BWY; place(K.streetLamp(), p, 0, 1.35); } }
+// stalls on the town side, angled toward the boardwalk and the perch
+const stallAt = (pxY, obj, s = 1.25, inset = 3) => { const z = at([800, pxY]).z, p = V(xAtZ(SHOP, z) - inset, BWY, z); return put(obj, p, -Math.PI / 2 + .55, s); };
+const rosa = stallAt(1235, K.stall({ sign: "ROSA'S MARGARITAS", cols: [PAL.lemon, '#8ad84a'], body: PAL.teal, extra: g => { mesh(G('blender', () => new THREE.CylinderGeometry(.25, .18, .6, 12)), glossy('#bfeaff', { transparent: true, opacity: .6 }), g, .9, 1.5, .2); } }));
+const vinnie = stallAt(1120, K.shack('AIRBRUSH TEES'));
+const arcade = stallAt(1000, K.arcade(), 1.35, 4);
+const golf = stallAt(900, K.miniGolf(), 1.3, 6);
+const pam = stallAt(790, K.stall({ sign: "PAM'S SHARK TEETH", cols: [PAL.flamingo, PAL.white], body: '#3a7aff' }));
+const halCart = put(K.hotDogCart(), V(xAtZ(RAIL, at([0, 1330]).z) + BW * .55, BWY, at([0, 1330]).z), -.4, 1.2);
+const plinthP = V(xAtZ(RAIL, at([0, 1180]).z) + BW * .4, BWY, at([0, 1180]).z); put(K.plinth(), plinthP, 0, 1.2);
+// the welcome banner over the boardwalk exit, near the perch: everyone leaves under it at the end
+{ const z = at([0, 1420]).z, p = V((xAtZ(RAIL, z) + xAtZ(SHOP, z)) / 2, BWY, z); put(K.welcomeArch(), p, Math.atan2(-dirAtZ(RAIL, z).z, dirAtZ(RAIL, z).x) + Math.PI / 2, BW / 9); }
+// palms along the boardwalk and in town
+PX.palmsBeach.forEach((q, i) => put(K.palm(rand(10, 13), rand(.1, .3), rnd()), at(q), rand(0, 6)));
+PX.palmsShop.forEach(q => put(K.palm(rand(11, 14), rand(.1, .3), rnd()), at(q), rand(0, 6)));
+
+/* ---------- town: pastel blocks behind the stall line, out to the resort ---------- */
+const TOWN = ['#ffd8b0', '#ffc2d6', '#c8e8ff', '#d8f0c0', '#fff0a8', '#e8d0ff', '#ffe0e8', '#bff0e0'];
+for (let i = 1; i < SHOP.length - 1; i++) { const a = SHOP[i], b = SHOP[i + 1], len = a.distanceTo(b), d = b.clone().sub(a).normalize(), rt = V(-d.z, 0, d.x);
+  for (let t = 0; t < len; t += rand(12, 16)) for (let row = 0; row < 5; row++) {
+    const p = a.clone().addScaledVector(d, t + 6).addScaledVector(rt, 12 + row * 17 + rand(-1, 1)); if (row === 0 && p.z > at([0, 760]).z) continue;   // keep the stall line clear
+    const w = rand(9, 13), h = rand(4, row ? 14 : 7), g = new THREE.Group(), col = pick(TOWN);
+    K.box(g, w, h, w * rand(.7, 1), clay(col, 1.1), 0, 0, 0, .4); K.box(g, w + .6, .5, w * .9, clay(PAL.white), 0, h, 0, .2);
+    for (let k = 0; k < Math.floor(h / 3); k++) K.box(g, w * .7, .9, .1, glossy('#7fd8f0'), 0, 1.4 + k * 3, w * .45, .06);
+    place(g, p, Math.atan2(d.x, d.z) + Math.PI, 1); } }
+
+/* ======================= beach ======================= */
+const towerA = put(K.lifeguardTower(PAL.red, false), at(PX.towerRed), Math.PI * .85, 1.4);
+const towerB = put(K.lifeguardTower('#ffb020', true), at(PX.towerYellow), Math.PI * .8, 1.4);
+const [n1, n2] = PX.net.map(at), court = n1.clone().lerp(n2, .5);
+put(K.volleyballCourt(), court, Math.atan2(-(n2.z - n1.z), n2.x - n1.x), 1.2);
+const castle = at(PX.sandcastle); put(K.sandcastle(), castle, -.3, 1.6);
+const frank = at(PX.iceCreamCart); put(K.iceCreamCart(), frank, -.4, 1.2);
+const UMB = [[PAL.coral, PAL.white], ['#3a7aff', PAL.white], [PAL.sun, PAL.pink], [PAL.flamingo, PAL.white], [PAL.teal, PAL.white], [PAL.orange, PAL.lemon]];
+const beachSpots = [];
+const umb = p => { put(K.umbrella(pick(UMB)), p, rand(0, 6), 1.3); place(K.towel(pick([PAL.pink, PAL.teal, PAL.sun, '#a68cff', PAL.coral])), V(p.x + 1.4, 0, p.z + 1), rand(-.4, .4), 1.3); beachSpots.push(V(p.x + 1.4, 0, p.z + 1)); };
+PX.umbrellas.forEach(q => umb(at(q)));
+const zNear = RAIL[1].z, zPier = at([0, 598]).z, zEnd = at([668, 505]).z;
+const onBeach = (z, lo = .12, hi = .9) => V(xAtZ(SHORE, z) + (xAtZ(RAIL, z) - xAtZ(SHORE, z)) * rand(lo, hi), 0, z);
+for (let i = 0; i < 26; i++) { const p = onBeach(zNear + (zPier - zNear) * Math.pow(rnd(), 1.4)); if (p.distanceTo(court) > 9 && p.distanceTo(castle) > 5) umb(p); }
+for (let i = 0; i < 10; i++) umb(onBeach(rand(zPier, zEnd)));
+
+/* ======================= pier ======================= */
+const [pA, pB] = PX.pier.map(at), pierU = pB.clone().sub(pA).normalize(), pierLen = pA.distanceTo(pB), pierRy = Math.atan2(-pierU.x, -pierU.z);
+const pierSide = V(-pierU.z, 0, pierU.x);   // left of the walk out = toward the perch
+const onPier = (s, side = 0, y = 2.1) => pA.clone().addScaledVector(pierU, s).addScaledVector(pierSide, side).setY(y);
+place(K.pierDeck(pierLen, 7), pA.clone().setY(-.2), pierRy);
+put(K.baitShop(), onPier(9, -1.5), pierRy + Math.PI, 1.3);
+const booth = onPier(pierLen * .5); put(K.jiggleBooth(), booth, pierRy - Math.PI / 2 + .9, 1.3);
+put(K.shelly(), booth.clone(), 0, 1.2);
+put(K.bench(), onPier(pierLen * .72, 2.6), pierRy + Math.PI / 2); put(K.bench(), onPier(pierLen * .82, -2.6), pierRy - Math.PI / 2);
+
+/* ======================= water ======================= */
+const [dA, dB] = PX.jetDock.map(at); { const u = dB.clone().sub(dA).normalize(); put(K.dock(dA.distanceTo(dB)), dA.clone().setY(-.15), Math.atan2(-u.x, -u.z));
+  [PAL.lemon, PAL.pink, '#3a7aff'].forEach((c, i) => put(K.jetSki(c), dA.clone().lerp(dB, .4 + i * .18).add(V(2.5, -.1, 2.2)), Math.PI, 1.2)); }
+const brayJet = put(K.jetSki(PAL.lemon), dB.clone().add(V(-20, -.1, -10)), .5, 1.2), jetHome = brayJet.position.clone();
+const psBoat = put(K.parasailBoat(), at(PX.parasail).setY(-.1), Math.PI * .7, 1.3);
+const [yA, yB] = PX.yacht.map(at), moon = put(K.yacht(), yA.clone().lerp(yB, .5).setY(-.1), .3, Math.min(1.7, yA.distanceTo(yB) / 19));
+const [bA, bB] = PX.barge.map(at); put(K.fireworksBarge(), bA.clone().lerp(bB, .5).setY(-.2), -.2, Math.min(1.6, bA.distanceTo(bB) / 10));
+PX.sails.forEach(q => { const p = at(q), g = new THREE.Group(); K.box(g, 7, 1.2, 2.4, glossy(PAL.white), 0, 0, 0, .5); mesh(G('mast', () => new THREE.CylinderGeometry(.12, .12, 11, 5)), clay(PAL.white), g, 0, 6, 0);
+  const sail = mesh(G('sail', () => { const s = new THREE.Shape(); s.moveTo(0, 0); s.lineTo(0, 9.5); s.lineTo(4.5, 0); return new THREE.ShapeGeometry(s); }), clay(PAL.white, .4, { side: THREE.DoubleSide }), g, .2, 1.6, 0); place(g, p.setY(-.2), rand(-.4, .4)); });
+{ const [a, b] = PX.marina.map(at); put(K.dock(a.distanceTo(b)), a.clone().setY(-.15), Math.PI / 2); }
+const kay = put(K.kayak(), at(PX.kayak).setY(-.05), .7, 1.2), kayHome = kay.position.clone();
+PX.buoys.forEach((q, i) => put(K.buoy(i % 2 ? PAL.sun : PAL.red), at(q), 0, 1.3));
+
+/* ======================= the Grand Flamingo and its pool deck (the far end) ======================= */
+const [rA, rB] = PX.resort.map(at), resortP = rA.clone().lerp(rB, .5), resortW = rA.distanceTo(rB), rs = resortW / 16;
+{ const pad = new THREE.Group(); K.box(pad, resortW * 1.6, .5, resortW * .9, clay('#fbefe0', .8), 0, 0, 0, .2); place(pad, resortP.clone().add(V(-resortW * .25, 0, resortW * .35)), 0); }
+put(K.resortTower(), resortP.clone().add(V(0, .5, -resortW * .1)), faceCam(resortP) * .5, rs);
+const [plA, plB] = PX.pool.map(at), poolP = plA.clone().lerp(plB, .5).setY(.5), poolW = plA.distanceTo(plB);
+put(K.pool(poolW * .7, poolW * .3), poolP, 0);
+const lagoonP = poolP.clone().add(V(poolW * .5, 0, -2)); put(K.gatorLagoon(), lagoonP, -.2, 1.6);
+const tikiP = poolP.clone().add(V(-poolW * .45, 0, 4)); put(K.tikiBar(), tikiP, .35, 1.4);
+const djP = poolP.clone().add(V(-poolW * .1, 0, -poolW * .22)); put(K.djBooth(), djP, 0, 1.4);
+for (const [dx, dz, r] of [[-.35, -.18, -.6], [.25, -.2, .6], [.05, .25, Math.PI]]) put(K.foamCannon(), poolP.clone().add(V(poolW * dx, 0, poolW * dz)), r, 1.4);
+const gateP = V(xAtZ(SHOP, zEnd) - BW * .5, .5, zEnd + 6); put(K.poolGate(), gateP, -Math.PI / 2 + .25, 1.4);
+const foamParty = new THREE.Group(); scene.add(foamParty); foamParty.visible = false;
+for (let i = 0; i < 120; i++) mesh(sph(1, 14, 10), clay('#fffdf8', .5), foamParty, poolP.x + rand(-poolW * .5, poolW * .5), 1 + rand(0, 2), poolP.z + rand(-poolW * .25, poolW * .3)).scale.setScalar(rand(1.4, 3.2));
+
+/* ======================= the roof we stand on ======================= */
+{ // the ledge sits where the concept's ledge is (pixel row 1600), with the chair and the air-con poking up at the bottom
+  const r = new THREE.Raycaster(); const cam0 = new THREE.PerspectiveCamera(LY.LENS, LY.IW / LY.IH); cam0.position.copy(PERCH); cam0.rotation.set(-CAM.pitch, 0, 0); cam0.updateMatrixWorld();
+  r.setFromCamera(new THREE.Vector2(0, -(1600 / LY.IH * 2 - 1)), cam0); const dir = r.ray.direction, t = 3 / -dir.z, top = CAM.h + dir.y * t;
+  const roof = new THREE.Group(); place(roof, V(0, 0, 0));
+  K.box(roof, 14, 1.4, .6, clay('#cfc4b4', 1.6), 0, top - 1.4, -3, .12);
+  K.box(roof, 14, .3, 6, clay('#a8a29a', 1.6), 0, top - 2.3, -.2, .1);
+  const ac = new THREE.Group(); K.box(ac, 1.6, 1.4, 1.1, clay('#e8e0d4', 1), 0, 0, 0, .12); for (let k = 0; k < 6; k++) K.box(ac, .08, .9, .02, clay('#9a948c'), -.5 + k * .2, .25, .56, .02);
+  place(ac, V(2.1, top - 2.15, -1.9), -.35);
+  const chair = K.beachChair(PAL.white); place(chair, V(.9, top - 2.15, -1.2), Math.PI + .5, 1.1);
+}
+
+/* ======================= characters ======================= */
+const people = [], tagsEl = document.getElementById('labels');
+function addJelly(spec, p, ry = 0, extra = {}) {
+  const j = makeJelly(spec); j.root.position.copy(p); j.root.rotation.y = ry; scene.add(j.root);
+  const o = { j, base: p.clone(), ry, ...extra };
+  if (spec.name) { const el = document.createElement('div'); el.className = 'tag ' + (spec.target ? 'target' : 'named'); el.textContent = spec.name.replace(/".*" /, ''); tagsEl.appendChild(el); o.tag = el; }
+  people.push(o); return o;
+}
+const N = n => BY_NAME[n], cast = (name, p, ry = 0, extra) => addJelly(N(name), p, ry, extra);
+const off = (p, dx, dy, dz) => p.clone().add(V(dx, dy, dz));
+const bwAt = (pxY, k = .5) => { const z = at([0, pxY]).z; return V(xAtZ(RAIL, z) + BW * k, BWY, z); };
+const towerTop = (t, s = 1.4) => off(t.position, 0, 3.3 * s * .75 + .2, 0);
+const POOLY = 1;
+// targets: the morning (0:00) positions
+cast('Brayden "Moonboy" Kessler', off(booth, 0, .5, -1.2), pierRy);
+cast('Skylar Lux', off(court, -12, 0, 6), -.6, { walk: { ax: 'x', amp: 4, speed: .25 } });
+cast('"Big" Rick Gillis', bwAt(1150, .45), 0, { walk: { ax: 'z', amp: 30, speed: .02 } });
+cast('Doris Pembrook', onPier(pierLen * .44, 1.8, 2.1), pierRy + Math.PI);
+cast('Chip', towerTop(towerA), Math.PI * .85); cast('Marisol', towerTop(towerB), Math.PI * .8);
+cast('Trent', off(poolP, poolW * .4, 0, 2.5), Math.PI / 2);
+cast('Officer Gary Plunk', onBeach(at([0, 1000]).z, .4, .45), 1.2, { walk: { ax: 'z', amp: 40, speed: .01 } });
+cast('Big Moe', off(gateP, -1.5, 0, -1.5), -Math.PI / 2 + .3); cast('Little Moe', off(gateP, -1.5, 0, 1.8), -Math.PI / 2 + .3);
+cast('Tank', off(booth, 2, .5, -1.6), pierRy);
+// pier
+cast('Earl Bassmeyer', onPier(pierLen - 1.5, 2.4), pierRy); cast('Lorna', onPier(11, 1.2), .3); cast('Chet', onPier(pierLen * .5 + 3, -2.6), -1.2);
+cast('Walt Hutchins', onPier(pierLen * .44, -.6), pierRy + Math.PI); cast('Bev Hutchins', onPier(pierLen * .45, .6), pierRy + Math.PI); cast('Sal Trombetta', onPier(pierLen * .43, 0), pierRy + Math.PI);
+cast('Kazoo Kevin', onPier(pierLen * .72, 2), pierRy + Math.PI / 2); cast('Jaxon', off(booth, -2, .5, -.8), pierRy + .3);
+// boardwalk
+cast('Rosa', off(rosa.position, -1.6, 0, 0)); cast('Hot Dog Hal', off(halCart.position, .6, 0, 1.2)); cast('Vinnie Spray', off(vinnie.position, -1.8, 0, 0));
+cast('Tyler', off(arcade.position, -2.4, 0, 1)); cast('Gator Gus', off(golf.position, -3.2, 0, 0)); cast('Pam', off(pam.position, -1.8, 0, 0)); cast('Silver Steve', off(plinthP, 0, .5, 0));
+for (const [n, o] of [['Craig Feldman', 0], ['Linda Feldman', 1.2], ['Mason Feldman', -.9], ['Ava Feldman', 2.1]]) cast(n, bwAt(1270, .35 + o * .05), 0, { walk: { ax: 'z', amp: 18, speed: .012, phase: 0 } });
+cast('Kayden', off(gateP, -4, 0, 6), -1.2);
+// beach
+for (const [n, dx, dz, r] of [['Brock', -2.2, 2.6, Math.PI], ['Duke', 2.2, 2.6, Math.PI], ['Jess', -2.2, -2.6, 0], ['Bree', 2.2, -2.6, 0]]) cast(n, off(court, dx, 0, dz), r);
+cast('Ref Dennis', off(court, 6.2, 0, 0), -Math.PI / 2); cast('Glenda', off(beachSpots[1], 0, 0, 0), 0);
+cast('Ronnie Fitch', onBeach(at([0, 820]).z, .5, .6), 0, { walk: { ax: 'z', amp: 10, speed: .02 } });
+cast('Lily', off(castle, -1.6, 0, 1), -.4); cast('Ollie', off(castle, 1.6, 0, 1.2), -.6); cast('Marcus', off(beachSpots[3], 0, 0, 0));
+cast('Devin', onBeach(at([0, 960]).z, .2, .25), .4, { walk: { ax: 'z', amp: 12, speed: .015 } }); cast('Priya', onBeach(at([0, 960]).z, .26, .3), .4, { walk: { ax: 'z', amp: 12, speed: .015 } });
+cast('Tony', onBeach(at([0, 1350]).z, .5, .55), -.8); cast('Gina', onBeach(at([0, 1345]).z, .58, .6), 2.2); cast('Uncle Rudy', off(beachSpots[5], 0, 0, 0));
+cast('Kai', off(at([300, 880]), -14, -.35, 0), Math.PI); cast('Frosty Frank', off(frank, .8, 0, 1.5), -.4);
+// pool deck
+cast('DJ Turbo Splash', off(djP, 0, POOLY, -1)); cast('Tiki Tom', off(tikiP, 0, POOLY - .5, -1.2), .35); cast('Floatie Phil', off(poolP, -2, .3, 0), .4);
+cast('Madison', off(poolP, -poolW * .2, POOLY - .5, poolW * .25), -.4); cast('Brody', off(poolP, -poolW * .05, POOLY - .5, poolW * .25)); cast('Zack', off(poolP, poolW * .05, POOLY - .5, poolW * .28), -.3);
+cast('Felicia', off(poolP, -poolW * .3, POOLY - .5, poolW * .3), 0, { walk: { ax: 'x', amp: 6, speed: .03 } }); cast('Benny', off(poolP, poolW * .2, POOLY - .5, poolW * .3), 0, { walk: { ax: 'x', amp: 5, speed: .03 } });
+// water
+cast('Darnell', off(dA, -1, .2, 0), Math.PI); cast('Captain Lou', off(psBoat.position, 0, 1, 0), Math.PI * .7);
+moon.updateMatrixWorld(true); cast('Pierre', moon.localToWorld(V(8.2, 2.15, -1)), .3 + Math.PI / 2); cast('Ziggy', moon.localToWorld(V(-6.8, 2.15, 1.2)), .3);   // bow and stern decks cast('Sparky', off(at([342, 455]), 0, .6, 0), -.2);
+const stan = cast('Stan', kay.position.clone(), .7); stan.follow = kay;
+
+// the crowd, by zone (busiest near the perch, thinning toward the pier, as in the concept)
+const crowd = (zone, n, where, beh, face = () => rand(-1, 1)) => { for (let i = 0; i < n; i++) { const p = where(i), s = crowdSpec(zone); s.beh = pick(beh); if (s.prop && s.beh === 'phone') s.beh = 'eating'; addJelly(s, p, face(p)); } };
+const nearZ = () => zNear + (zPier - zNear) * Math.pow(rnd(), 1.5);
+crowd('beach', 36, () => { const b = pick(beachSpots); return off(b, rand(-1.4, 1.4), 0, rand(-1, 1)); }, ['sunbathing', 'sunbathing', 'idle', 'chatting', 'phone', 'napping', 'waving']);
+crowd('beach', 18, () => onBeach(nearZ()), ['walking', 'idle', 'chatting', 'eating']);
+crowd('beach', 10, () => { const z = nearZ(); return V(xAtZ(SHORE, z) - rand(3, 12), -.35, z); }, ['floating']);   // swimmers: the water is watched
+crowd('boardwalk', 30, () => { const z = nearZ(); return V(xAtZ(RAIL, z) + rand(1.5, BW - 3), BWY, z); }, ['walking', 'walking', 'idle', 'eating', 'chatting', 'phone']);
+crowd('pier', 12, () => onPier(pierLen * rand(.38, .5), rand(-2.5, 2.5)), ['cheering', 'idle', 'phone', 'waving'], () => pierRy + Math.PI + rand(-.4, .4));
+crowd('pool', 18, () => off(poolP, rand(-poolW * .45, poolW * .2), POOLY - .5, rand(poolW * .18, poolW * .4)), ['dancing', 'dancing', 'cheering', 'chatting']);
+for (const p of people) if (!p.walk && p.j.beh === 'walking') p.walk = { ax: 'z', amp: rand(4, 12), speed: rand(.01, .03) };
+// beyond the pier the crowd is dots anyway: a cheap instanced crowd of plain jelly-shaped beans fills the far beach and boardwalk
+{ const n = 360, geo = new THREE.CapsuleGeometry(.34, .4, 4, 10).translate(0, .55, 0), im = new THREE.InstancedMesh(geo, glossy('#ffffff', { roughness: .35 }), n), m4 = new THREE.Matrix4(), c = new THREE.Color();
+  const cols = ['#ff86c4', '#4fdcb9', '#ff9a3c', '#a68cff', '#4a8dff', '#ffd84a', '#ff5a6e', '#3cc8e0', '#8ad84a'];
+  for (let i = 0; i < n; i++) { const z = rand(zPier + 20, zEnd + 10), onBw = rnd() < .35;
+    const p = onBw ? V(xAtZ(RAIL, z) + rand(1.5, BW - 2), BWY, z) : onBeach(z, .05, .92); im.setMatrixAt(i, m4.makeTranslation(p.x, p.y, p.z)); im.setColorAt(i, c.set(pick(cols))); }
+  im.castShadow = true; scene.add(im); }
+
+const ZONES = [['Boardwalk', bwAt(1250), 5], ['Beach', onBeach(at([0, 1150]).z, .5, .5), 4], ['Volleyball final', court, 5], ['The pier · $JIGGLE', booth, 16], ['Jet-ski dock', dB, 4],
+  ['Parasail', psBoat.position, 5], ['The Moonshot', moon.position, 10], ['Fireworks barge', bA, 6], ['Grand Flamingo pool deck', poolP, 10]]
+  .map(([n, p, y]) => { const el = document.createElement('div'); el.className = 'tag zone'; el.textContent = n; tagsEl.appendChild(el); return { el, p: off(p, 0, y, 0) }; });
+
+/* ======================= camera: perch, zoom stops, scope ======================= */
+// The naked eye keeps the concept's horizontal field of view; the phone's height decides how much sky and roof shows.
+// The scope is clay3d's: a second camera renders sharp into a square target shown in the glass, while the eye view
+// around it is blurred and shaded. Zoom is in stops; ×m magnifies m times against the naked eye.
+const H_FOV = 2 * Math.atan(Math.tan(LY.LENS * Math.PI / 360) * LY.IW / LY.IH);
+const STOPS = [['Eye', 1], ['1', 3.5], ['2', 7], ['3', 14]];
+const camera = new THREE.PerspectiveCamera(LY.LENS, 9 / 19.5, .3, 6000);
+const scopeCam = new THREE.PerspectiveCamera(10, 1, .3, 6000);
+let aspect = 9 / 19.5, stop = 0, yaw = 0, pitch = -CAM.pitch, mode = 'perch', zoomAnim = null, mag = 1;
+let W = 0, H = 0, DPR = 1, scopePx = { x: 0, y: 0, r: 1 };
+const vfov = h => 2 * Math.atan(Math.tan(h / 2) / aspect) * 180 / Math.PI;
+const glassFov = m => 2 * Math.atan(Math.tan(H_FOV / 2) * (2 * scopePx.r / W) / m) * 180 / Math.PI;   // the glass spans 2r of the eye's W
+const stopsEl = document.getElementById('stops');
+STOPS.forEach(([k], i) => { const b = document.createElement('button'); b.textContent = i ? '×' + STOPS[i][1] : 'Eye'; b.onclick = () => setStop(i); stopsEl.appendChild(b); });
+function setStop(i, aimAt) {
+  i = Math.max(0, Math.min(STOPS.length - 1, i)); if (mode === 'fly') setMode('perch');
+  const was = stop; stop = i; if (i === 0) { yaw = 0; pitch = -CAM.pitch; }
+  if (aimAt) { const d = aimAt.clone().sub(PERCH).normalize(); yaw = Math.atan2(-d.x, -d.z); pitch = Math.asin(d.y); }
+  const to = STOPS[i][1]; zoomAnim = { from: was ? mag : to * .6, to, t0: performance.now() };
+  [...stopsEl.children].forEach((b, j) => b.classList.toggle('on', j === i));
+  document.getElementById('scopeUI').classList.toggle('on', i > 0);
+}
+function applyPerch(t) {
+  camera.position.copy(PERCH); camera.aspect = aspect; camera.fov = vfov(H_FOV); camera.updateProjectionMatrix();
+  // scoped, the eye drifts a little after the rifle so the blurred surround moves with you
+  if (stop) camera.rotation.set(-CAM.pitch + (pitch + CAM.pitch) * .3, yaw * .3, 0, 'YXZ'); else camera.rotation.set(pitch, yaw, 0, 'YXZ');
+  // the rifle breathes (clay3d's sway)
+  const sy = Math.sin(t * .83) * .0025 + Math.sin(t * 1.97) * .0015, sp = Math.sin(t * 1.13) * .002;
+  scopeCam.position.copy(PERCH); scopeCam.fov = glassFov(mag); scopeCam.updateProjectionMatrix(); scopeCam.rotation.set(pitch + sp, yaw + sy, 0, 'YXZ');
+}
+const fly = new OrbitControls(camera, canvas); fly.enabled = false; fly.enableDamping = true; fly.maxPolarAngle = Math.PI * .48;
+function setMode(m) {
+  mode = m; fly.enabled = m === 'fly'; document.getElementById('flyBtn').classList.toggle('on', m === 'fly');
+  if (m === 'fly') { camera.fov = 50; camera.updateProjectionMatrix(); camera.position.set(220, 420, 120); fly.target.set(0, 0, -240); fly.update(); document.getElementById('scopeUI').classList.remove('on'); }
+  else setStop(stop);
+}
+
+/* ---------- render targets + composite (from clay3d) ---------- */
+const rtScope = new THREE.WebGLRenderTarget(16, 16, { samples: 4, type: THREE.HalfFloatType });
+const rtEye = new THREE.WebGLRenderTarget(16, 16, { type: THREE.HalfFloatType });
+const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const compMat = new THREE.ShaderMaterial({
+  uniforms: { tScope: { value: rtScope.texture }, tEye: { value: rtEye.texture }, res: { value: new THREE.Vector2() }, eyeRes: { value: new THREE.Vector2() }, center: { value: new THREE.Vector2() }, R: { value: 1 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }`,
+  fragmentShader: `
+    uniform sampler2D tScope, tEye; uniform vec2 res, eyeRes, center; uniform float R; varying vec2 vUv;
+    vec3 blurEye(vec2 uv){
+      vec2 px = 1. / eyeRes; vec3 s = vec3(0.); float w = 0.;
+      for (int i = -3; i <= 3; i++) for (int j = -3; j <= 3; j++) {
+        float k = exp(-float(i*i + j*j) / 6.); s += texture2D(tEye, uv + vec2(i, j) * px * 1.4).rgb * k; w += k; }
+      return s / w;
+    }
+    void main(){
+      vec2 p = vUv * res; float d = length(p - center);
+      vec3 col;
+      if (d < R) {
+        vec2 uv = (p - center) / (2. * R) + .5;
+        col = texture2D(tScope, uv).rgb;
+        float e = smoothstep(R * .7, R, d);
+        col *= 1. - .28 * e;
+        vec2 q = (p - center) / R;
+        col += vec3(1., .86, .74) * .10 * smoothstep(.2, -.9, q.x - q.y) * e;
+      } else {
+        col = blurEye(vUv);
+        col = mix(col, vec3(.05, .07, .12), .2) * .86;
+        col = mix(vec3(dot(col, vec3(.299, .587, .114))), col, 1.12);
+        float v = smoothstep(R, R * 2.2, d); col *= 1. - .28 * v;
+        float ds = length(p - (center + vec2(.0, -.045 * R)));
+        col *= 1. - .5 * smoothstep(R * 1.34, R * 1.08, ds);
+      }
+      gl_FragColor = vec4(col, 1.);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+  toneMapped: true, depthTest: false, depthWrite: false
+});
+const quadScene = new THREE.Scene(); quadScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), compMat));
+
+// aim: drag; zoom: pinch or wheel steps one stop
+let drag = null, pinch = null; const pts = new Map();
+canvas.addEventListener('pointerdown', e => { pts.set(e.pointerId, e); if (mode === 'perch') { drag = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); } });
+canvas.addEventListener('pointermove', e => { if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, e);
+  if (pts.size === 2 && mode === 'perch') { const [a, b] = [...pts.values()], d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); drag = null;
+    if (!pinch) pinch = d; else if (d / pinch > 1.4) { setStop(stop + 1); pinch = d; } else if (d / pinch < .72) { setStop(stop - 1); pinch = d; } return; }
+  if (!drag || mode !== 'perch' || stop === 0) return; const k = scopeCam.fov * Math.PI / 180 / (2 * scopePx.r) * .9;   // the glass moves with the finger
+  yaw += (e.clientX - drag.x) * k; pitch = Math.max(-1.3, Math.min(.1, pitch + (e.clientY - drag.y) * k)); drag = { x: e.clientX, y: e.clientY }; });
+const up = e => { pts.delete(e.pointerId); drag = null; if (pts.size < 2) pinch = null; };
+canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+let wheelT = 0; canvas.addEventListener('wheel', e => { e.preventDefault(); if (mode !== 'perch' || performance.now() - wheelT < 180) return; wheelT = performance.now(); setStop(stop + (e.deltaY < 0 ? 1 : -1)); }, { passive: false });
+
+/* ---------- menu: spots, mood, labels, fly, skin ---------- */
+const $ = id => document.getElementById(id);
+$('menuBtn').onclick = () => $('menu').classList.toggle('open');
+$('jumpBtn').onclick = () => $('jumps').classList.toggle('open');
+for (const [n, p, s] of [['Boardwalk', bwAt(1150), 1], ['Volleyball', court, 2], ['$JIGGLE booth', off(booth, 0, 2, 0), 2], ['Jet skis', dB, 2], ['Moonshot', off(moon.position, 0, 3, 0), 3], ['Pool deck', off(poolP, 0, 2, 0), 3]]) {
+  const b = document.createElement('button'); b.textContent = n; b.onclick = () => setStop(s, p); $('jumps').appendChild(b); }
+let mood = 'day';
+function setMood(name) {
+  mood = name; const m = MOODS[name];
+  skyU.top.value.set(m.top); skyU.mid.value.set(m.mid); skyU.hor.value.set(m.hor); skyU.sunCol.value.set(m.sun);
+  const dir = V(Math.sin(m.az) * Math.cos(m.el), Math.sin(m.el), Math.cos(m.az) * Math.cos(m.el)); skyU.sunDir.value.copy(V(dir.x, Math.max(dir.y, .02), dir.z));
+  key.color.set(m.key); key.intensity = m.keyI; hemi.color.set(m.hemiS); hemi.groundColor.set(m.hemiG); hemi.intensity = m.hemiI; rim.color.set(m.rim);
+  scene.fog.color.set(m.fog); renderer.toneMappingExposure = m.exp; seaMat.color.set(m.sea);
+  // shadows cover the near half of the map, where they read; the far end is in haze
+  const c = V(0, 0, (zNear + zPier) / 2 - 10); key.target.position.copy(c); key.position.copy(c).addScaledVector(dir, 500);
+  Object.assign(key.shadow.camera, { left: -130, right: 130, top: 170, bottom: -170, near: 100, far: 1000 }); key.shadow.camera.updateProjectionMatrix();
+  foamParty.visible = name === 'sunset'; $('tod').textContent = name === 'day' ? 'Sunset' : 'Midday';
+}
+$('tod').onclick = () => setMood(mood === 'day' ? 'sunset' : 'day');
+const LABS = ['zones', 'targets', 'all', 'off']; let lab = 0;
+$('labs').onclick = () => { lab = (lab + 1) % LABS.length; document.body.className = 'lab-' + LABS[lab]; $('labs').textContent = 'Labels: ' + LABS[lab]; };
+$('flyBtn').onclick = () => setMode(mode === 'fly' ? 'perch' : 'fly');
+let trans = true; $('trans').onclick = () => { trans = !trans; setTransmission(people.map(p => p.j), trans); $('trans').textContent = `Jelly skin: ${trans ? 'on' : 'off (fast)'}`; };
+
+function resize() {
+  const portrait = innerWidth / innerHeight < .75;
+  const w = portrait ? innerWidth : Math.min(innerWidth, (innerHeight - 30) * 9 / 19.5), h = portrait ? innerHeight : w * 19.5 / 9;
+  phone.style.width = w + 'px'; phone.style.height = h + 'px'; aspect = w / h; W = w; H = h; DPR = Math.min(devicePixelRatio, 2);
+  renderer.setPixelRatio(DPR); renderer.setSize(w, h, false);
+  const r = phone.getBoundingClientRect(), sb = document.getElementById('scopeBox').getBoundingClientRect();
+  const R = sb.width / 2 * (39.9 / 44.975);   // glass radius of the housing art (clay3d)
+  scopePx = { x: sb.left - r.left + sb.width / 2, y: sb.top - r.top + sb.height / 2, r: R };
+  const side = Math.round(R * 2 * DPR); rtScope.setSize(side, side);
+  rtEye.setSize(Math.max(8, Math.round(W * DPR / 6)), Math.max(8, Math.round(H * DPR / 6)));
+  compMat.uniforms.res.value.set(W * DPR, H * DPR); compMat.uniforms.eyeRes.value.set(rtEye.width, rtEye.height);
+  compMat.uniforms.center.value.set(scopePx.x * DPR, (H - scopePx.y) * DPR); compMat.uniforms.R.value = R * DPR;
+}
+addEventListener('resize', resize); resize(); document.getElementById('scopeUI').querySelector('img').addEventListener('load', resize);
+{ const q = new URLSearchParams(location.search); setMood(q.get('t') === 'sunset' ? 'sunset' : 'day'); setStop(0); if (q.get('cam') === 'fly') setMode('fly'); if (q.get('skin') === 'off') $('trans').onclick(); }
+
+/* ---------- loop ---------- */
+const v3 = new THREE.Vector3(), clock = new THREE.Clock(), fpsEl = $('fps'); let fr = 0, ft = 0;
+const project = (el, p) => {   // labels follow whatever you are looking through: the glass when scoped, else the eye
+  const scoped = stop && mode === 'perch'; v3.copy(p).project(scoped ? scopeCam : camera); let x, y, vis;
+  if (scoped) { x = scopePx.x + v3.x * scopePx.r; y = scopePx.y - v3.y * scopePx.r; vis = v3.z < 1 && Math.hypot(x - scopePx.x, y - scopePx.y) < scopePx.r * .9; }
+  else { x = (v3.x + 1) / 2 * W; y = (1 - v3.y) / 2 * H; vis = v3.z < 1 && Math.abs(v3.x) < 1.05 && Math.abs(v3.y) < 1.05; }
+  el.style.visibility = vis ? '' : 'hidden'; if (vis) { el.style.left = x + 'px'; el.style.top = y + 'px'; } };
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
+  if (zoomAnim) { const k = Math.min(1, (performance.now() - zoomAnim.t0) / 160); mag = zoomAnim.from + (zoomAnim.to - zoomAnim.from) * (1 - (1 - k) ** 3); if (k >= 1) zoomAnim = null; }
+  for (const g of animated) K.tickPiece(g, t);
+  for (const p of people) { const j = p.j; animate(j, t);
+    if (p.walk) { const w = p.walk, ph = (w.phase ?? j.ph) + t * w.speed, s = Math.sin(ph * Math.PI * 2), c = Math.cos(ph * Math.PI * 2);
+      j.root.position.copy(p.base); j.root.position[w.ax] += s * w.amp; const dv = Math.sign(c) || 1;
+      j.root.rotation.y = w.ax === 'x' ? (dv > 0 ? Math.PI / 2 : -Math.PI / 2) : (dv > 0 ? 0 : Math.PI);
+      if (j.beh !== 'walking' && j.beh !== 'selfie') j.beh = 'walking'; }
+    if (p.follow) { j.root.position.copy(p.follow.position); j.root.position.y += .1; j.root.rotation.y = p.follow.rotation.y; } }
+  kay.position.set(kayHome.x + Math.sin(t * .1) * 7, kayHome.y, kayHome.z + Math.cos(t * .1) * 5); kay.rotation.y = -t * .1;   // Stan, in circles
+  brayJet.position.set(jetHome.x + Math.sin(t * .25) * 18, jetHome.y, jetHome.z + Math.cos(t * .25) * 8); brayJet.rotation.y = -t * .25 + Math.PI / 2;
+  if (mode === 'fly') fly.update(); else applyPerch(t);
+  if (mode === 'perch' && stop) {
+    renderer.setRenderTarget(rtEye); renderer.render(scene, camera);
+    renderer.setRenderTarget(rtScope); renderer.render(scene, scopeCam);
+    renderer.setRenderTarget(null); renderer.render(quadScene, quadCam);
+  } else { renderer.setRenderTarget(null); renderer.render(scene, camera); }
+  for (const p of people) if (p.tag) project(p.tag, v3.copy(p.j.root.position).setY(p.j.root.position.y + 1.6));
+  for (const z of ZONES) project(z.el, z.p);
+  fr++; ft += dt; if (ft > 1) { fpsEl.textContent = `${Math.round(fr / ft)} fps · ${people.length} jellies · ${renderer.info.render.calls} draws`; fr = 0; ft = 0; }
+});
+window.__l1 = { scene, camera, scopeCam, people, setStop, setMode, setMood };
+</script>
+</body>
+</html>

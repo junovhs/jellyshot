@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Jellyshot · LVL-01 grey-box camera match</title>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<style>
+/* LVL-01 grey-box: the level laid out to match docs/reference/level1-concept-v2-camera-target.webp.
+   Every ground landmark is a pixel picked off the concept, cast through the reference camera onto the ground,
+   so at the default camera the blocks sit on the painting by construction. The scale comes from the scenery
+   (boardwalk width), not from the concept's jellies, which are drawn about 4x too big. Jellies here are true size (1.1 tall). */
+html, body { margin: 0; height: 100%; background: #1b1722; overflow: hidden; font: 13px/1.35 system-ui, sans-serif; color: #2a2035; touch-action: none; }
+#frame { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); overflow: hidden; border-radius: 6px; }
+#frame canvas, #frame img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#frame img { pointer-events: none; opacity: .5; }
+#scope { position: absolute; inset: 0; pointer-events: none; display: none;
+  background: radial-gradient(circle at 50% 50%, transparent 0 46.5%, #000 47.2%); }
+#scope::after { content: ''; position: absolute; left: 50%; top: 50%; width: 93%; aspect-ratio: 1; transform: translate(-50%, -50%);
+  background: linear-gradient(#000a, #000a) center/100% 1px no-repeat, linear-gradient(#000a, #000a) center/1px 100% no-repeat; border-radius: 50%; }
+#panel { position: fixed; left: 10px; top: 10px; width: 250px; max-height: calc(100% - 20px); overflow: auto; padding: 10px 12px; border-radius: 14px;
+  background: rgba(255,250,242,.94); box-shadow: 0 4px 14px rgba(0,0,0,.3); z-index: 3; }
+#panel h1 { font-size: 13px; margin: 0 0 6px; }
+#panel label { display: grid; grid-template-columns: 92px 1fr 40px; align-items: center; gap: 6px; margin: 3px 0; font-size: 12px; }
+#panel input[type=range] { width: 100%; }
+#panel .row { display: flex; gap: 5px; flex-wrap: wrap; margin: 6px 0; }
+#panel button { border: 0; border-radius: 9px; padding: 5px 9px; background: #3a2547; color: #fff; font: 600 12px system-ui; cursor: pointer; }
+#panel button.on { background: #ff4f9a; }
+#metrics { font: 11px/1.45 ui-monospace, monospace; white-space: pre; margin-top: 6px; color: #3a2547; }
+#panel.min > :not(h1) { display: none; }
+#panel h1 { cursor: pointer; }
+#review { position: fixed; right: 12px; top: 12px; z-index: 9; border: 0; border-radius: 12px; padding: 9px 14px; color: #fff; font: 700 13px system-ui;
+  background: radial-gradient(130% 120% at 30% 22%, #9af7a0, #3ac45a 46%, #1f9a3a); box-shadow: 0 3px 10px rgba(0,0,0,.3); cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="frame"><canvas id="c"></canvas><img id="ref" src="../docs/reference/level1-concept-v2-camera-target.webp" alt=""><div id="scope"></div></div>
+<div id="panel">
+  <h1>Grey-box camera match ▾</h1>
+  <label>Concept overlay <input id="op" type="range" min="0" max="1" step=".05" value=".5"><span id="opv"></span></label>
+  <label>Lens (vert. fov) <input id="fov" type="range" min="30" max="90" step="1" value="80"><span id="fovv"></span></label>
+  <label>Boardwalk width <input id="bw" type="range" min="5" max="16" step=".5" value="13"><span id="bwv"></span></label>
+  <div class="row" id="stops"></div>
+  <div class="row"><button id="fly">Fly around</button><button id="sun">Sunset</button></div>
+  <div style="font-size:11.5px;color:#6a5a75">Lens changes re-cast the layout so it still sits on the painting; watch how deep the map gets. Scope stops: drag to aim, scroll or pinch to step.</div>
+  <div id="metrics"></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const IW = 941, IH = 1672, HORIZON = 355, ASPECT = IW / IH, JELLY = 1.1, FAR_CAP = 1600;
+
+/* ---------- landmarks, in concept pixels (ground contact points) ---------- */
+const PX = {
+  shore: [[0,1190],[60,1060],[150,965],[260,895],[360,835],[440,778],[500,725],[545,665],[580,615],[620,575],[655,535],[668,505],[655,482],[610,472],[560,470]],
+  farCoast: [[500,405],[430,388],[300,372],[150,364],[0,360]],
+  rail: [[385,1600],[470,1440],[545,1300],[600,1190],[640,1100],[668,1000],[690,900],[710,800],[728,700],[745,610],[758,540],[768,480]],
+  palmsBeach: [[85,1400],[435,1405],[510,1265],[545,1055],[615,895],[660,775],[695,690],[722,640],[738,600],[752,570]],
+  palmsShop: [[880,1520],[935,1050]],
+  umbrellas: [[245,1500],[290,1225],[245,1130],[312,1045],[410,1000],[495,805],[555,785]],
+  towerRed: [330,940], towerYellow: [555,750],
+  net: [[432,900],[535,903]], sandcastle: [450,1100],
+  pier: [[685,600],[310,592]], pierHouse: [[570,585],[625,585]],
+  yacht: [[155,530],[275,530]], barge: [[310,455],[375,455]], sails: [[480,440],[505,438]], marina: [[520,470],[560,470]],
+  resort: [[640,450],[755,450]], resortTop: 330, pool: [[620,470],[720,470]],
+  stalls: [ { name: 'ice cream', px: [840,1170], w: 6 }, { name: 'snacks', px: [810,1050], w: 6 }, { name: 'mini-golf', px: [810,880], w: 14, flat: true }, { name: 'arcade', px: [790,790], w: 9, h: 7 } ],
+};
+
+/* ---------- reference camera: horizon pixel fixes the pitch, boardwalk width fixes the height ---------- */
+const rc = new THREE.PerspectiveCamera(60, ASPECT, .1, 20000);
+const ray = new THREE.Raycaster(), ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), tmp = new THREE.Vector3();
+let CAM = { fov: 60, pitch: 0, h: 30 };
+function setRef(fov, h) {
+  const f = (IH / 2) / Math.tan(fov * Math.PI / 360);
+  CAM = { fov, h, pitch: Math.atan((IH / 2 - HORIZON) / f) };
+  rc.fov = fov; rc.position.set(0, h, 0); rc.rotation.set(-CAM.pitch, 0, 0); rc.updateProjectionMatrix(); rc.updateMatrixWorld();
+}
+function cast([x, y]) {   // concept pixel -> ground point (capped far away, so near-horizon pixels stay finite)
+  ray.setFromCamera(new THREE.Vector2(x / IW * 2 - 1, -(y / IH * 2 - 1)), rc);
+  const hit = ray.ray.intersectPlane(ground, tmp) ? tmp.clone() : rc.position.clone().addScaledVector(ray.ray.direction, FAR_CAP);
+  const flat = Math.hypot(hit.x, hit.z);
+  if (flat > FAR_CAP) hit.multiplyScalar(FAR_CAP / flat).setY(0);
+  return hit;
+}
+const span = (a, b) => cast(a).distanceTo(cast(b));
+function heightAt(base, topY) {   // how tall a vertical thing standing on `base` must be to reach pixel row topY
+  const p = cast(base); let lo = 0, hi = 2000;
+  for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2, s = new THREE.Vector3(p.x, m, p.z).project(rc); ((1 - s.y) / 2 * IH > topY) ? lo = m : hi = m; }
+  return lo;
+}
+function solveHeight(fov, bw) {   // boardwalk is `bw` wide at row 1170 (rail x 600 -> stall fronts x 800)
+  setRef(fov, 1); const w1 = span([600, 1170], [800, 1170]); setRef(fov, bw / w1);
+}
+
+/* ---------- renderer and view camera ---------- */
+const canvas = document.getElementById('c'), frame = document.getElementById('frame');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#bcd6ec'); scene.fog = new THREE.Fog('#bcd6ec', 500, 1700);
+const cam = new THREE.PerspectiveCamera(60, ASPECT, .2, 6000);
+scene.add(new THREE.HemisphereLight('#eef4ff', '#d8c8a8', 1.3));
+const sun = new THREE.DirectionalLight('#fff2dc', 2.4); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left: -140, right: 140, top: 140, bottom: -140, near: 1, far: 900 }); sun.shadow.bias = -.0004; sun.shadow.normalBias = .3;
+scene.add(sun, sun.target);
+let sunset = false;
+function placeSun() {   // behind the viewer and to the left (south-west), so shadows fall away and slant up-right
+  const az = sunset ? -1.25 : -.6, el = sunset ? .2 : .75, d = 400, c = new THREE.Vector3(0, 0, -110);
+  sun.position.set(c.x + Math.sin(az) * Math.cos(el) * d, Math.sin(el) * d, c.z + Math.cos(az) * Math.cos(el) * d);
+  sun.target.position.copy(c); sun.color.set(sunset ? '#ffb27a' : '#fff2dc'); sun.intensity = sunset ? 2.0 : 2.4;
+}
+placeSun();
+
+const M = c => new THREE.MeshLambertMaterial({ color: c });
+const MAT = { sand: M('#d9cdb6'), sea: M('#8fb0c2'), deck: M('#a8988a'), town: M('#b4b0b8'), block: M('#c9c4cc'), stall: M('#d2bfcd'),
+  palm: M('#8fa58a'), trunk: M('#a8957f'), tower: M('#d0a6a0'), towerY: M('#d6c690'), wood: M('#9c8c7e'), white: M('#ecebe8'),
+  pink: M('#e3a9c2'), pool: M('#9fd2dc'), green: M('#a9c2a0'), ledge: M('#bdb5aa'), dark: M('#7d7a84') };
+
+let world = new THREE.Group(); scene.add(world);
+const add = (geo, mat, x, y, z, parent = world) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; parent.add(m); return m; };
+const boxAt = (w, h, d, mat, p, ry = 0) => { const m = add(new THREE.BoxGeometry(w, h, d), mat, p.x, (p.y || 0) + h / 2, p.z); m.rotation.y = ry; return m; };
+function flatPoly(pts, mat, y) {
+  const s = new THREE.Shape(pts.map(p => new THREE.Vector2(p.x, -p.z)));
+  const m = add(new THREE.ShapeGeometry(s).rotateX(-Math.PI / 2), mat, 0, y, 0); m.castShadow = false; return m;
+}
+function extendNear(pts, z = 12) {   // continue a polyline toward (and under) the camera
+  const [a, b] = pts, d = a.clone().sub(b).normalize(); return [a.clone().addScaledVector(d, (z - a.z) / d.z), ...pts];
+}
+function xAtZ(pts, z) {
+  for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1];
+    if ((z <= a.z && z >= b.z) || (z >= a.z && z <= b.z)) return a.x + (b.x - a.x) * ((z - a.z) / (b.z - a.z || 1)); }
+  return pts[pts.length - 1].x;
+}
+const offsetRight = (pts, w) => pts.map((p, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+  const d = b.clone().sub(a).normalize(); return p.clone().add(new THREE.Vector3(-d.z, 0, d.x).multiplyScalar(w)); });
+
+/* ---------- build the level from the landmarks ---------- */
+let L = {};
+function build() {
+  scene.remove(world); world.traverse(o => o.geometry?.dispose()); world = new THREE.Group(); scene.add(world);
+  const bw = +document.getElementById('bw').value;
+  const shore = extendNear(PX.shore.map(cast)), far = PX.farCoast.map(cast), rail = extendNear(PX.rail.map(cast));
+  const shop = offsetRight(rail, bw);
+  add(new THREE.PlaneGeometry(8000, 8000).rotateX(-Math.PI / 2), MAT.sea, 0, -.15, -1500).castShadow = false;
+  flatPoly([...shore, ...far, new THREE.Vector3(3000, 0, far.at(-1).z), new THREE.Vector3(3000, 0, 40)], MAT.sand, 0);
+  flatPoly([...rail, ...shop.slice().reverse()], MAT.deck, .3);
+  // rail and lamps along the beach side of the boardwalk
+  for (let i = 0; i < rail.length - 1; i++) { const a = rail[i], b = rail[i + 1], len = a.distanceTo(b), mid = a.clone().lerp(b, .5);
+    const r = add(new THREE.BoxGeometry(.15, .9, len), MAT.wood, mid.x, .75, mid.z); r.lookAt(b.x, .75, b.z);
+    for (let t = 0; t < len; t += 12) { const p = a.clone().lerp(b, t / len); add(new THREE.CylinderGeometry(.12, .15, 4.5, 6), MAT.dark, p.x + .4, 2.55, p.z); } }
+  // town: blocks behind the stall line, out to the resort
+  const rnd = mulberry(7);
+  for (let i = 0; i < shop.length - 1; i++) { const a = shop[i], b = shop[i + 1], len = a.distanceTo(b), d = b.clone().sub(a).normalize(), rt = new THREE.Vector3(-d.z, 0, d.x);
+    for (let t = 0; t < len; t += 13) for (let row = 0; row < 5; row++) { if (row === 0 && rnd() < .35) continue;
+      const p = a.clone().addScaledVector(d, t + 6).addScaledVector(rt, 7 + row * 15); const h = 3 + rnd() * (row ? 12 : 5);
+      boxAt(9 + rnd() * 3, h, 9 + rnd() * 3, MAT.block, p, Math.atan2(d.x, d.z)); } }
+  // stalls, snapped to the stall line
+  for (const s of PX.stalls) { const p = cast(s.px), z = p.z, sp = new THREE.Vector3(xAtZ(shop, z) + s.w / 2 - 1, 0, z);
+    if (s.flat) { const m = boxAt(s.w, .4, s.w, MAT.green, sp); m.position.y = .3; } else boxAt(s.w, s.h || 4.5, s.w * .8, MAT.stall, sp); }
+  // palms
+  const palm = (p, s = 1) => { add(new THREE.CylinderGeometry(.35 * s, .5 * s, 7 * s, 7), MAT.trunk, p.x, 3.5 * s, p.z);
+    const c = add(new THREE.SphereGeometry(2.6 * s, 10, 6), MAT.palm, p.x, 7.3 * s, p.z); c.scale.y = .45; };
+  PX.palmsBeach.forEach(q => palm(cast(q))); PX.palmsShop.forEach(q => palm(cast(q)));
+  // lifeguard towers
+  const tower = (p, mat) => { for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(new THREE.CylinderGeometry(.12, .12, 2.6, 5), MAT.wood, p.x + dx * 1.1, 1.3, p.z + dz * 1.1);
+    boxAt(3, 2.2, 3, mat, new THREE.Vector3(p.x, 2.6, p.z)); boxAt(3.6, .25, 3.6, mat, new THREE.Vector3(p.x, 4.8, p.z)); };
+  tower(cast(PX.towerRed), MAT.tower); tower(cast(PX.towerYellow), MAT.towerY);
+  // volleyball
+  const [n1, n2] = PX.net.map(cast); for (const p of [n1, n2]) add(new THREE.CylinderGeometry(.1, .1, 2.6, 6), MAT.wood, p.x, 1.3, p.z);
+  { const len = n1.distanceTo(n2), mid = n1.clone().lerp(n2, .5), n = add(new THREE.BoxGeometry(len, .9, .05), MAT.white, mid.x, 2.1, mid.z); n.lookAt(mid.x + (n2.z - n1.z), 2.1, mid.z - (n2.x - n1.x));
+    const court = add(new THREE.PlaneGeometry(len * 1.9, len).rotateX(-Math.PI / 2), MAT.white, mid.x, .02, mid.z); court.material = M('#e4dccb'); court.castShadow = false; }
+  { const p = cast(PX.sandcastle); boxAt(2.4, 1, 2.4, MAT.sand, p); boxAt(1, 1.8, 1, MAT.sand, p); }
+  for (const q of PX.umbrellas) { const p = cast(q); add(new THREE.CylinderGeometry(.06, .06, 2.4, 5), MAT.white, p.x, 1.2, p.z);
+    add(new THREE.ConeGeometry(1.4, .6, 10), MAT.pink, p.x, 2.4, p.z); const t = add(new THREE.PlaneGeometry(1.4, 2.2).rotateX(-Math.PI / 2), MAT.white, p.x + .9, .03, p.z + .5); t.castShadow = false; }
+  // pier, pier house
+  { const [a, b] = PX.pier.map(cast), len = a.distanceTo(b), mid = a.clone().lerp(b, .5);
+    const deck = add(new THREE.BoxGeometry(4, .4, len), MAT.wood, mid.x, 2, mid.z); deck.lookAt(b.x, 2, b.z);
+    for (let t = 0; t < len; t += 6) { const p = a.clone().lerp(b, t / len); add(new THREE.CylinderGeometry(.2, .2, 2.4, 5), MAT.wood, p.x, .8, p.z); }
+    const h = PX.pierHouse.map(cast), hp = h[0].clone().lerp(h[1], .5); boxAt(h[0].distanceTo(h[1]), 3.5, 5, MAT.stall, new THREE.Vector3(hp.x, 2.2, hp.z)); L.pier = mid; L.pierLen = len; }
+  // water: yacht, barge, sailboats, marina
+  const boat = (pair, mat, h, beam) => { const [a, b] = pair.map(cast), len = a.distanceTo(b), p = a.clone().lerp(b, .5); boxAt(len, h, beam ?? len * .3, mat, p); return { p, len }; };
+  L.yacht = boat(PX.yacht, MAT.white, 4); boat(PX.barge, MAT.dark, 2); PX.sails.forEach(q => { const p = cast(q); boxAt(6, 1, 2, MAT.white, p); add(new THREE.CylinderGeometry(.1, .1, 8, 4), MAT.white, p.x, 4.5, p.z); });
+  { const [a, b] = PX.marina.map(cast), p = a.clone().lerp(b, .5); boxAt(a.distanceTo(b), .6, 3, MAT.wood, p); }
+  // the Grand Flamingo
+  { const [a, b] = PX.resort.map(cast), w = a.distanceTo(b), p = a.clone().lerp(b, .5), h = heightAt([697, 450], PX.resortTop);
+    boxAt(w, h, w * .55, MAT.pink, p); add(new THREE.SphereGeometry(w * .09, 10, 8), MAT.pink, p.x, h + w * .1, p.z);
+    const [c, d] = PX.pool.map(cast), pp = c.clone().lerp(d, .5), pw = c.distanceTo(d); boxAt(pw, .3, pw * .4, MAT.white, pp); boxAt(pw * .6, .35, pw * .22, MAT.pool, pp);
+    L.resort = p; L.resortW = w; L.resortH = h; }
+  // roof ledge, chair and air-con in the foreground (sitting where the concept's ledge is)
+  { ray.setFromCamera(new THREE.Vector2(0, -(1600 / IH * 2 - 1)), rc); const dir = ray.ray.direction, t = 3 / -dir.z, top = CAM.h + dir.y * t;
+    const lg = boxAt(12, 1.4, .5, MAT.ledge, new THREE.Vector3(0, top - 1.4, -3)); lg.castShadow = false;
+    boxAt(1.1, 1.2, .8, MAT.block, new THREE.Vector3(1.6, top - .95, -2.1)); boxAt(.7, .9, .7, MAT.white, new THREE.Vector3(.75, top - .75, -1.7)); }
+  // jellies: true size, scattered by zone
+  const jellies = [], put = (x, z, y = 0) => jellies.push([x, y, z]);
+  const zEnd = cast([668, 505]).z, zNear = rail[1].z;
+  for (let i = 0; i < 220; i++) { const z = zNear + (zEnd - zNear) * Math.pow(rnd(), 1.3); put(xAtZ(shore, z) + (xAtZ(rail, z) - xAtZ(shore, z)) * (.08 + rnd() * .85), z); }
+  for (let i = 0; i < 110; i++) { const z = zNear + (zEnd - zNear) * Math.pow(rnd(), 1.3); put(xAtZ(rail, z) + 1 + rnd() * (bw - 2), z, .3); }
+  for (let i = 0; i < 18; i++) { const [a, b] = PX.pier.map(cast); const p = a.clone().lerp(b, .15 + rnd() * .8); put(p.x + rnd() * 2 - 1, p.z, 2.2); }
+  for (let i = 0; i < 40; i++) { const p = L.resort; put(p.x - L.resortW * .4 + rnd() * L.resortW * .5, p.z + L.resortW * .3 + rnd() * 12); }
+  const jg = new THREE.CapsuleGeometry(.38, JELLY - .76, 4, 10).translate(0, JELLY / 2, 0), jm = new THREE.MeshLambertMaterial();
+  const im = new THREE.InstancedMesh(jg, jm, jellies.length), m4 = new THREE.Matrix4(), col = new THREE.Color();
+  const PAL = ['#ff4f9a', '#ffe066', '#ff8a3c', '#2fc4a8', '#8a6cff', '#4fb0ff', '#e8343c'];
+  jellies.forEach(([x, y, z], i) => { im.setMatrixAt(i, m4.makeTranslation(x, y, z)); im.setColorAt(i, col.set(PAL[i % PAL.length])); });
+  im.castShadow = im.receiveShadow = true; world.add(im);
+  L.rail = rail; L.shore = shore; L.bw = bw; L.zEnd = zEnd; L.jellies = jellies.length;
+}
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* ---------- zoom stops (eye, then three scope stops), aiming, fly ---------- */
+const STOPS = [{ k: 'Eye', m: 1 }, { k: '1', m: 3.5 }, { k: '2', m: 7 }, { k: '3', m: 14 }];
+let stop = 0, yaw = 0, pitchOff = 0, mode = 'perch', anim = null;
+const stopsEl = document.getElementById('stops');
+STOPS.forEach((s, i) => { const b = document.createElement('button'); b.textContent = s.k === 'Eye' ? 'Eye' : 'Scope ' + s.k; b.onclick = () => setStop(i); stopsEl.appendChild(b); });
+function setStop(i) {
+  i = Math.max(0, Math.min(STOPS.length - 1, i)); if (mode === 'fly') setFly(false);
+  const from = cam.fov, to = CAM.fov / STOPS[i].m; stop = i; if (i === 0) { yaw = 0; pitchOff = 0; }
+  anim = { from, to, t0: performance.now() };
+  [...stopsEl.children].forEach((b, j) => b.classList.toggle('on', j === i));
+  document.getElementById('scope').style.display = i ? 'block' : 'none'; document.getElementById('ref').style.visibility = i ? 'hidden' : 'visible';
+}
+const fly = new OrbitControls(cam, canvas); fly.enabled = false;
+function setFly(on) { mode = on ? 'fly' : 'perch'; fly.enabled = on; document.getElementById('fly').classList.toggle('on', on); document.getElementById('ref').style.visibility = on ? 'hidden' : 'visible';
+  if (on) { document.getElementById('scope').style.display = 'none'; cam.fov = 45; cam.updateProjectionMatrix(); cam.position.set(260, 520, 180); fly.target.set(40, 0, -280); fly.update(); } else setStop(stop); }
+document.getElementById('fly').onclick = () => setFly(mode !== 'fly');
+document.getElementById('sun').onclick = e => { sunset = !sunset; e.target.classList.toggle('on', sunset); placeSun(); };
+let drag = null, pinch = null; const pts = new Map();
+canvas.addEventListener('pointerdown', e => { pts.set(e.pointerId, e); if (mode === 'perch') { drag = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); } });
+canvas.addEventListener('pointermove', e => { pts.set(e.pointerId, e);
+  if (pts.size === 2 && mode === 'perch') { const [a, b] = [...pts.values()], d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    if (!pinch) pinch = d; else if (d / pinch > 1.35) { setStop(stop + 1); pinch = d; } else if (d / pinch < .74) { setStop(stop - 1); pinch = d; } return; }
+  if (!drag || mode !== 'perch' || stop === 0) return; const k = cam.fov / frame.clientHeight * Math.PI / 180;
+  yaw += (e.clientX - drag.x) * k; pitchOff += (e.clientY - drag.y) * k; drag = { x: e.clientX, y: e.clientY }; });
+const up = e => { pts.delete(e.pointerId); drag = null; if (pts.size < 2) pinch = null; };
+canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+canvas.addEventListener('wheel', e => { if (mode !== 'perch') return; e.preventDefault(); setStop(stop + (e.deltaY < 0 ? 1 : -1)); }, { passive: false });
+
+/* ---------- sizing, controls, metrics ---------- */
+function resize() {
+  const w = Math.min(innerWidth, innerHeight * ASPECT), h = w / ASPECT; frame.style.width = w + 'px'; frame.style.height = h + 'px';
+  renderer.setSize(w, h, false);
+}
+addEventListener('resize', resize);
+const $ = id => document.getElementById(id);
+function sync() { $('opv').textContent = $('op').value; $('fovv').textContent = $('fov').value + '°'; $('bwv').textContent = $('bw').value;
+  $('ref').style.opacity = $('op').value; }
+function relayout() { sync(); solveHeight(+$('fov').value, +$('bw').value); build(); setStop(stop); metrics(); }
+$('op').oninput = sync; $('fov').oninput = relayout; $('bw').oninput = relayout;
+$('panel').querySelector('h1').onclick = () => $('panel').classList.toggle('min');
+
+function jellyPx(dist, fov) {   // on-screen jelly height on a 390-pt-wide phone (the concept frame scaled to that width)
+  const screenH = 390 / ASPECT; return JELLY / (2 * dist * Math.tan(fov * Math.PI / 360)) * screenH;
+}
+function metrics() {
+  const eye = rc.position, d = p => Math.hypot(p.x, p.z), towerD = d(cast(PX.towerRed));
+  const rows = [['near beach', d(cast([300, 1450]))], ['red tower', towerD], ['pier', d(L.pier)], ['yacht', d(L.yacht.p)], ['resort', d(L.resort)]];
+  let s = `camera height  ${CAM.h.toFixed(1)}  (${(CAM.h / JELLY).toFixed(0)} jellies)\npitch          ${(CAM.pitch * 180 / Math.PI).toFixed(1)}°\n`
+    + `boardwalk len  ${L.rail[1].distanceTo(L.rail.at(-1)).toFixed(0)}\nresort  ${L.resortW.toFixed(0)} wide, ${L.resortH.toFixed(0)} tall\npier length    ${L.pierLen.toFixed(0)}\njellies        ${L.jellies}\n\n`
+    + `jelly height in pt (390-pt phone)\n${'where'.padEnd(11)}${'dist'.padStart(6)}${STOPS.map(x => x.k.padStart(6)).join('')}\n`;
+  for (const [n, dist] of rows) s += n.padEnd(11) + dist.toFixed(0).padStart(6) + STOPS.map(x => jellyPx(dist, CAM.fov / x.m).toFixed(1).padStart(6)).join('') + '\n';
+  s += `\nwalk the beach  ~${(Math.abs(L.zEnd) / 1.4 / 60).toFixed(1)} min at 1.4/s`;
+  $('metrics').textContent = s;
+}
+
+resize(); relayout();
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  if (mode === 'perch') {
+    if (anim) { const t = Math.min(1, (performance.now() - anim.t0) / 150); cam.fov = anim.from + (anim.to - anim.from) * (1 - (1 - t) ** 3); if (t >= 1) anim = null; }
+    cam.aspect = ASPECT; cam.updateProjectionMatrix(); cam.position.copy(rc.position);
+    cam.rotation.set(-CAM.pitch - pitchOff, -yaw, 0, 'YXZ');
+  }
+  renderer.render(scene, cam);
+});
+</script>
+</body>
+</html>
