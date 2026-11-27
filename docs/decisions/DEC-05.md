@@ -42,3 +42,5 @@ concepts/gumbo*.html, gumbo-model.js, sculpt.js, simplify.js, jelly-material.js,
 
 From the randomizer proof of concept, the person set three more rules: the clay3d ears become **arm nubs** at the body's sides that gesture and hold props; **pupils are painted flat on the eyeball**, never separate 3D spheres; and every jelly has a **paint layer** (a canvas texture on the body) so characters can get markings, tattoos and painted details. See `docs/world-and-style.md` and `concepts/randomizer.html`.
 
+
+**Amended by DEC-08 (2026-11-26):** for characters, the approved jelly skin (MeshPhysical with clearcoat and partial transmission) overrides the material rule here, gated by PERF-01. Everything else stands.

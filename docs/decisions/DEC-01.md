@@ -37,3 +37,5 @@ Babylon.js: capable, but a heavier bundle for no gain on a fixed-camera scene. P
 ## Consequences
 
 Every render feature has to fit the budget, and a perf HUD and on-device measurement are part of the foundation. If Three.js can't hold 60 fps on the reference phone after the budget is applied, reopen this decision.
+
+**Amended by DEC-08 (2026-11-26):** for characters, the approved jelly skin (MeshPhysical with clearcoat and partial transmission) overrides the material rule here, gated by PERF-01. Everything else stands.
