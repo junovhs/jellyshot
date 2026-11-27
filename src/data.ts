@@ -52,8 +52,8 @@ export const LOC = {
 
 export interface Water extends Ellipse { id: 'pond' | 'lily' | 'choc'; name: string }
 export const WATER: Water[] = [
-  { id: 'pond', x: 420, y: 935, rx: 235, ry: 132, name: 'the duck pond' },
-  { id: 'lily', x: 1560, y: 770, rx: 88, ry: 46, name: 'the lily pond' },
+  { id: 'pond', x: 420, y: 935, rx: 235, ry: 132, name: 'the lagoon' },
+  { id: 'lily', x: 1560, y: 770, rx: 88, ry: 46, name: 'the tide pool' },
   { id: 'choc', x: 1000, y: 640, rx: 70, ry: 38, name: 'the chocolate fountain' }
 ];
 
@@ -210,7 +210,7 @@ export const OPPS = {
   oven: { name: 'The Rickety Oven', hint: 'The pie tent oven is held together with hope. A shot will make it overheat… and blow.' },
   gumball: { name: 'Giant Gumball Machine', hint: 'Thin glass. Lots of gumballs. A steep path downhill.' },
   dock: { name: 'The Duck Dock', hint: 'Two wobbly posts hold up the dock. Anyone on it goes for a swim. Jellies can\'t swim.' },
-  hive: { name: 'The Beehive', hint: 'Angry bees chase anyone nearby straight into the lily pond.' },
+  hive: { name: 'The Beehive', hint: 'Angry bees chase anyone nearby straight into the tide pool.' },
   maypole: { name: 'The Maypole', hint: 'Shoot the topknot and the pole topples south. Timing is everything.' },
   balloon: { name: 'The Baroness\'s Balloon', hint: 'Pop it on the ground to strand her. Pop it in the air for something… worse.' },
   fireworks: { name: 'Fireworks Crates', hint: 'Enough fireworks for a finale. Very flammable. Very loud.' },

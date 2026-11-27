@@ -524,7 +524,7 @@ function togglePause() { if (!started || ended) return; paused = !paused; $('pau
 $('menuBtn').onclick = e => { e.stopPropagation(); togglePause(); };
 $('resume').onclick = togglePause;
 $('restart').onclick = $('again').onclick = () => location.reload();
-$('classic').onclick = () => { location.href = new URL('../classic.html', document.baseURI).href; };
+$('classic').onclick = () => { location.href = new URL('../', document.baseURI).href; };
 function finish(win, why) {
   if (ended) return; ended = true; aim = null;
   const left = Math.max(0, TIME - gameT), mm = Math.floor(left / 60), ss = Math.floor(left % 60);

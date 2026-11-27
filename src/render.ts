@@ -312,11 +312,11 @@ export function drawMini(mini: HTMLCanvasElement, mg: CanvasRenderingContext2D):
   const w = mini.width, h = mini.height, k = w / WORLD.w;
   mg.setTransform(1, 0, 0, 1, 0, 0);
   mg.clearRect(0, 0, w, h);
-  mg.fillStyle = '#d4f0b0cc'; mg.beginPath(); mg.roundRect(0, 0, w, h, 10); mg.fill();
+  mg.fillStyle = '#2bb5c8cc'; mg.fillRect(0, 0, w, h); mg.fillStyle = '#f3d6a0'; mg.beginPath(); mg.roundRect(3, 3, w - 6, h - 6, 10); mg.fill();
   mg.scale(k, k);
-  mg.fillStyle = '#ffe0eacc'; mg.beginPath(); mg.ellipse(1000, 648, 298, 180, 0, 0, TAU); mg.fill();
-  mg.fillStyle = '#ffd8ea'; mg.fillRect(826, 222, 348, 100);
-  for (const wt of WATER) { mg.fillStyle = wt.id === 'choc' ? '#7a4630' : '#7fcde8'; mg.beginPath(); mg.ellipse(wt.x, wt.y, wt.rx, wt.ry, 0, 0, TAU); mg.fill(); }
+  mg.fillStyle = '#dcb488'; mg.beginPath(); mg.ellipse(1000, 648, 298, 180, 0, 0, TAU); mg.fill();
+  mg.fillStyle = '#2fc4a8'; mg.fillRect(826, 222, 348, 100);
+  for (const wt of WATER) { mg.fillStyle = wt.id === 'choc' ? '#7a4630' : '#2bb5c8'; mg.beginPath(); mg.ellipse(wt.x, wt.y, wt.rx, wt.ry, 0, 0, TAU); mg.fill(); }
   for (const p of G.puddles) if (p.found && !p.concealed) { mg.fillStyle = '#ff4d6d'; mg.beginPath(); mg.arc(p.x, p.y, 24, 0, TAU); mg.fill(); }
   for (const n of G.npcs) {
     if (!n.alive) continue;

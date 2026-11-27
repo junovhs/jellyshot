@@ -524,10 +524,10 @@ export function makeProps(): Prop[] {
       for (let i = 0; i < 5; i++) circ(x - 80 + i * 40, y - 110 - Math.sin(i / 4 * Math.PI) * 80, 5, ['#ffe066', '#7fd9ff', '#ffffff'][i % 3]);
       const by = y - this.h;
       if (this.state === 'hang') { ln(948, 1100, 948, by - 26, '#8a7a92', 2.5); ln(1052, 1100, 1052, by - 26, '#8a7a92', 2.5); for (let k = 1104; k < by - 26; k += 7) { ellS(948, k, 2, 3, '#b8a8c0', 1); ellS(1052, k, 2, 3, '#b8a8c0', 1); } }
-      if (this.state === 'down') { g.save(); g.translate(x, y - 6); g.rotate(.06); rrect(-70, -14, 140, 26, 10, '#e8d3a8'); txt('GUMDROP HOLLOW', 0, -1, 12, '#a3477f'); g.restore(); return; }
+      if (this.state === 'down') { g.save(); g.translate(x, y - 6); g.rotate(.06); rrect(-70, -14, 140, 26, 10, '#e8d3a8'); txt('PALMETTO POINT', 0, -1, 12, '#a3477f'); g.restore(); return; }
       if (this.h < 100) ell(x, y, 70 * (1 - this.h / 160), 10, '#5a3f6a30');
       rrect(x - 70, by - 30, 140, 30, 12, '#fff0cc'); rrect(x - 70, by - 30, 140, 6, 6, '#ffffff');
-      txt('GUMDROP HOLLOW', x, by - 14, 12, '#c2407f');
+      txt('PALMETTO POINT', x, by - 14, 12, '#c2407f');
     }
   }));
 

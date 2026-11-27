@@ -2,7 +2,7 @@
    World: map queries, the festival grounds, decor, ground and overhead
    layers. Shootable opportunity props live in props.ts.
    ===================================================================== */
-import { BUSHES, PAL, PAL_KEYS, PATHS, WATER, WORLD, type Water } from "./data";
+import { BUSHES, PAL, PATHS, WATER, WORLD, type Water } from "./data";
 import { circ, ell, ellS, g, ln, poly, rrect, txt } from "./draw";
 import { drawHat } from "./npc";
 import { G, type Puddle } from "./state";
@@ -22,17 +22,16 @@ export function buildDecor(): void {
   const r = rng(7);
   const avoid = (x: number, y: number) => waterAt(x, y, 20) || inEll(x, y, { x: 1000, y: 650, rx: 300, ry: 185 }) || (x > 820 && x < 1180 && y > 220 && y < 340);
   for (let i = 0; i < 900; i++) { const x = r() * WORLD.w, y = r() * WORLD.h; if (!avoid(x, y)) DECOR.tufts.push([x, y, r()]); }
-  const fl = ['#ff8fc1', '#ffe066', '#ffffff', '#c7a6ff', '#7fd9ff', '#ff9f6b'];
-  for (let i = 0; i < 520; i++) { const x = r() * WORLD.w, y = r() * WORLD.h; if (!avoid(x, y)) DECOR.flowers.push([x, y, fl[i % fl.length]]); }
-  // garden flowerbeds get extra love
-  for (let i = 0; i < 260; i++) { const a = r() * TAU, d = Math.sqrt(r()); const x = 1520 + Math.cos(a) * 200 * d, y = 660 + Math.sin(a) * 140 * d; if (!waterAt(x, y, 8) && !bushAt(x, y)) DECOR.flowers.push([x, y, fl[i % fl.length]]); }
+  // shells and pebbles on the sand
+  const fl = ['#fff6ea', '#ffc2d6', '#ffb08a', '#fff0c8', '#e8d0ff', '#ffffff'];
+  for (let i = 0; i < 360; i++) { const x = r() * WORLD.w, y = r() * WORLD.h; if (!avoid(x, y)) DECOR.flowers.push([x, y, fl[i % fl.length]]); }
   for (let y = -300; y < 1700; y += 46) for (let x = -400; x < 2400; x += 96) DECOR.waves.push([x + (Math.floor(y / 46) % 2) * 38, y]);
-  // lollipop trees & candy around the edges
+  // palms and beach things around the edges
   const S = DECOR.sorted;
   const trees: Pt[] = [[120, 120], [80, 400], [60, 980], [180, 1220], [520, 120], [700, 300], [1400, 120], [1880, 300], [1900, 820], [1760, 1120], [1520, 1180], [460, 1180], [1880, 560], [130, 600], [760, 1240], [1250, 1240], [1720, 920], [860, 120], [1180, 130], [420, 640], [1460, 360], [1800, 160], [300, 1080], [640, 1140]];
-  trees.forEach(([x, y], i) => S.push({ y, draw: () => tree(x, y, i) }));
+  trees.forEach(([x, y], i) => S.push({ y, draw: () => palm(x, y, i) }));
   const candies: Pt[] = [[340, 560], [470, 700], [690, 640], [1340, 470], [1300, 760], [1660, 480], [900, 980], [1100, 980], [600, 1040], [1420, 1120], [1080, 470], [920, 460], [1760, 1000], [240, 820], [1820, 700], [560, 300]];
-  candies.forEach(([x, y], i) => S.push({ y, draw: () => candy(x, y, 11 + (i * 7) % 9, i % PAL_KEYS.length, i % 3) }));
+  candies.forEach(([x, y], i) => S.push({ y, draw: () => beachThing(x, y, i) }));
   BUSHES.forEach(b => S.push({ y: b.y + b.ry * .5, draw: () => bush(b) }));
   // structures
   S.push({ y: 236, draw: stageBack });
@@ -41,59 +40,75 @@ export function buildDecor(): void {
   S.push({ y: 504, draw: pieTable });
   S.push({ y: 646, draw: fountainTop });
   S.push({ y: 802, draw: iceCart });
-  S.push({ y: 1050, draw: () => stall(770, 1050, '#ffe15c', '#fffbd1', 'LEMONADE') });
-  S.push({ y: 1050, draw: () => stall(1232, 1050, '#ff8fc8', '#ffe1f0', 'FLOSS') });
+  S.push({ y: 1050, draw: () => stall(770, 1050, '#2fc4a8', '#fff6ea', 'MARGARITAS') });
+  S.push({ y: 1050, draw: () => stall(1232, 1050, '#ff6b5a', '#fff6ea', 'SNO-CONES') });
   S.push({ y: 1210, draw: carriage });
   S.push({ y: 252, draw: shed });
   S.push({ y: 716, draw: bench });
   // bunting posts around the plaza
   const posts: Pt[] = [];
   for (let i = 0; i < 10; i++) { const a = i / 10 * TAU + .3; posts.push([1000 + Math.cos(a) * 318, 650 + Math.sin(a) * 196]); }
-  posts.forEach(([x, y]) => S.push({ y, draw: () => { ln(x, y, x, y - 70, '#f2d7b8', 5); circ(x, y - 72, 5, '#ff7fb8'); ell(x, y + 2, 7, 3, '#5a3f6a30'); } }));
+  // tiki torches around the deck
+  posts.forEach(([x, y]) => S.push({ y, draw: () => { ell(x, y + 2, 7, 3, '#6a4a3a30'); ln(x, y, x, y - 70, '#b9875a', 6); ln(x - 1, y - 20, x - 1, y - 60, '#d8a870', 2); rrect(x - 6, y - 80, 12, 12, 3, '#8a5a3a'); circ(x, y - 86, 6 + Math.sin(G.clock * 9 + x), '#ffb03a'); circ(x, y - 88, 3.5, '#fff0a0'); } }));
   for (let i = 0; i < posts.length; i++) DECOR.bunting.push([posts[i], posts[(i + 1) % posts.length]]);
   // lantern string over the stage
   DECOR.bunting.push([[830, 300], [1170, 300]]);
-  S.push({ y: 300, draw: () => { ln(830, 300, 830, 190, '#f2d7b8', 5); ln(1170, 300, 1170, 190, '#f2d7b8', 5); } });
+  S.push({ y: 300, draw: () => { ln(830, 300, 830, 190, '#b9875a', 6); ln(1170, 300, 1170, 190, '#b9875a', 6); } });
 }
 
-function tree(x: number, y: number, i: number) {
-  const c = PAL[PAL_KEYS[(i * 5) % PAL_KEYS.length]];
-  ell(x + 6, y + 4, 34, 11, '#5a3f6a2a');
-  ln(x, y, x, y - 64, '#fff3df', 9);
-  ln(x, y, x, y - 64, '#f2d0b2', 3);
-  circ(x, y - 92, 40, c[2]);
-  circ(x, y - 96, 38, c[0]);
-  g.beginPath(); g.arc(x, y - 96, 24, 0, TAU * .78); g.strokeStyle = c[1]; g.lineWidth = 7; g.stroke();
-  ell(x - 14, y - 116, 12, 6, '#ffffffa0');
+function palm(x: number, y: number, i: number) {
+  const lean = ((i * 37) % 7 - 3) * 4, h = 120 + (i * 13) % 40;
+  ell(x + 22, y + 4, 44, 12, '#6a4a3a2a');
+  for (let k = 0; k < 9; k++) { const t = k / 9; circ(x + lean * t * t, y - t * h, 9 - t * 3, k % 2 ? '#c8945e' : '#b07e4c'); }
+  const cx = x + lean, cy = y - h;
+  const frond = (a: number, len: number, c: string) => {
+    const ex = cx + Math.cos(a) * len, ey = cy + Math.sin(a) * len * .6 + len * .25, nx = -Math.sin(a), ny = Math.cos(a) * .6;
+    g.beginPath(); g.moveTo(cx, cy);
+    g.quadraticCurveTo(cx + Math.cos(a) * len * .5 + nx * 14, cy + Math.sin(a) * len * .3 - 18 + ny * 14, ex, ey);
+    g.quadraticCurveTo(cx + Math.cos(a) * len * .5 - nx * 4, cy + Math.sin(a) * len * .3 - 6, cx, cy);
+    g.fillStyle = c; g.fill();
+  };
+  for (const a of [Math.PI * .95, Math.PI * .05, Math.PI * .6, Math.PI * .4]) frond(a, 66, '#2f8a3a');
+  for (const a of [Math.PI * 1.1, -Math.PI * .1, Math.PI * .78, Math.PI * .22, Math.PI * 1.35, -Math.PI * .35]) frond(a, 58, '#4fb04a');
+  circ(cx - 5, cy + 4, 5, '#8a5a2a'); circ(cx + 5, cy + 5, 5, '#7a4a22'); circ(cx, cy - 1, 6, '#4fb04a');
 }
-function bush(b: Ellipse) {
-  ell(b.x + 5, b.y + b.ry * .5, b.rx, b.ry * .45, '#4a6a3c30');
-  for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI; circ(b.x - b.rx * .7 + k * b.rx * .35, b.y - Math.sin(a) * b.ry * .55, b.ry * .95, '#5fb86a'); }
-  for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI; circ(b.x - b.rx * .7 + k * b.rx * .35, b.y - 4 - Math.sin(a) * b.ry * .55, b.ry * .8, '#7fd47f'); }
-  circ(b.x - b.rx * .3, b.y - b.ry * .7, 4, '#ff8fc1'); circ(b.x + b.rx * .35, b.y - b.ry * .5, 3.5, '#fff27a'); circ(b.x + b.rx * .05, b.y - b.ry * 1.05, 3, '#ffffff');
-}
-function candy(x: number, y: number, r: number, ci: number, type: number) {
-  const c = PAL[PAL_KEYS[ci]];
-  ell(x, y + 3, r * .87, r * .34, '#76537e27');
-  if (type === 0) {
-    ln(x, y, x, y - r * 2.15, '#fff2db', 5);
-    circ(x, y - r * 2.15, r, c[0]);
-    g.beginPath(); g.arc(x, y - r * 2.15, r * .63, -2.7, 2.55); g.strokeStyle = c[1]; g.lineWidth = 4; g.stroke();
-  } else if (type === 1) {
-    g.beginPath(); g.moveTo(x - r, y); g.quadraticCurveTo(x - r * 1.15, y - r * 1.8, x, y - r * 2); g.quadraticCurveTo(x + r * 1.15, y - r * 1.8, x + r, y); g.closePath();
-    g.fillStyle = c[0]; g.fill(); ell(x - r * .35, y - r * 1.4, r * .2, r * .38, '#fff7');
-  } else {
-    for (let j = 0; j < 3; j++) { const xx = x + (j - 1) * r * .85, hh = r * (1 + j % 2); rrect(xx - r * .45, y - hh, r * .9, hh, 5, c[j % 2]); }
+function beachThing(x: number, y: number, i: number) {
+  const type = i % 4, cols = [['#ff6b5a', '#fff6ea'], ['#2fc4a8', '#fff6ea'], ['#ffc93c', '#ff4f9a'], ['#3a7aff', '#fff6ea'], ['#ff86b0', '#fff6ea']][i % 5];
+  if (type === 0 || type === 3) {   // umbrella over a towel
+    rrect(x - 4, y - 6, 34, 18, 3, cols[0]); for (let k = 0; k < 3; k++) rrect(x - 4, y - 3 + k * 6, 34, 2.5, 1, cols[1]);
+    ell(x + 8, y + 4, 34, 10, '#6a4a3a26');
+    ln(x, y, x, y - 58, '#e8e0d0', 3);
+    for (let k = 0; k < 8; k++) { const a0 = Math.PI + k * Math.PI / 8, a1 = a0 + Math.PI / 8; poly([x, y - 74, x + Math.cos(a0) * 38, y - 56 + Math.sin(a0) * 4, x + Math.cos(a1) * 38, y - 56 + Math.sin(a1) * 4], k % 2 ? cols[1] : cols[0]); }
+    circ(x, y - 75, 3, cols[0]);
+  } else if (type === 1) {   // beach ball
+    ell(x + 3, y + 3, 13, 4, '#6a4a3a2a');
+    circ(x, y - 11, 12, '#fff6ea');
+    for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(x, y - 11); g.arc(x, y - 11, 12, k * TAU / 3, k * TAU / 3 + TAU / 6); g.closePath(); g.fillStyle = ['#ff4f9a', '#3a7aff', '#ffc93c'][k]; g.fill(); }
+    ell(x - 4, y - 16, 4, 2.5, '#ffffffa0');
+  } else {   // sandcastle
+    ell(x + 2, y + 3, 26, 7, '#6a4a3a26');
+    rrect(x - 22, y - 16, 44, 18, 3, '#e8c07c');
+    for (const [dx, h] of [[-20, 30], [12, 30], [-5, 38]]) { rrect(x + dx, y - h, 10, h, 2, '#dcb070'); for (let k = 0; k < 3; k++) rrect(x + dx + k * 3.6, y - h - 3, 2.6, 4, 1, '#dcb070'); }
+    ln(x, y - 40, x, y - 52, '#ffffff', 1.5); poly([x, y - 52, x + 9, y - 49, x, y - 46], '#ff4f9a');
   }
 }
-
+function bush(b: Ellipse) {   // a clump of dune grass, thick enough to hide a puddle
+  ell(b.x + 5, b.y + b.ry * .5, b.rx, b.ry * .45, '#6a4a3a26');
+  ell(b.x, b.y + 2, b.rx * .95, b.ry * .7, '#e6cf96');
+  for (let k = 0; k < 22; k++) {
+    const t = k / 21, bx = b.x - b.rx * .85 + t * b.rx * 1.7, lean = (t - .5) * 22 + Math.sin(k * 2.3) * 6, h = b.ry * (1.3 + Math.sin(k * 1.7) * .4) * (1 - Math.abs(t - .5) * .7);
+    g.beginPath(); g.moveTo(bx - 3, b.y + 4); g.quadraticCurveTo(bx + lean * .3, b.y - h * .5, bx + lean, b.y - h); g.quadraticCurveTo(bx + lean * .3 + 2, b.y - h * .45, bx + 3, b.y + 4);
+    g.fillStyle = k % 3 ? '#8cbf5a' : '#6aa04a'; g.fill();
+  }
+}
 /* ---------- structures ---------- */
 function stageBack() {
-  rrect(836, 150, 328, 86, 10, '#b4689e');
-  rrect(842, 156, 316, 78, 8, '#ff9fcf');
-  for (let i = 0; i < 9; i++) { rrect(846 + i * 35, 160, 16, 72, 6, '#ffbfdf'); }
-  rrect(900, 132, 200, 34, 14, '#fff0cc');
-  txt('JUBILEE!', 1000, 150, 22, '#c2407f');
+  rrect(836, 150, 328, 86, 10, '#1f8fa0');
+  rrect(842, 156, 316, 78, 8, '#2fc4a8');
+  for (let i = 0; i < 9; i++) { rrect(846 + i * 35, 160, 16, 72, 6, '#5fd8c8'); }
+  for (const x of [856, 1144]) { rrect(x - 16, 176, 32, 52, 6, '#2a2035'); circ(x, 192, 9, '#1a1426'); circ(x, 214, 6, '#1a1426'); }
+  rrect(880, 128, 240, 36, 16, '#fff6ea');
+  txt('SPRING BREAK!', 1000, 147, 22, '#ff4f9a');
 }
 function podium() {
   rrect(982, 286, 36, 30, 5, '#a8608d');
@@ -180,51 +195,58 @@ function bench() {
 /** `detail` = false skips grass tufts, flowers and wave squiggles (used by the blurred periphery pass). */
 export function drawGround(detail = true): void {
   const v = G.view;
-  g.fillStyle = '#cbbbe9'; g.fillRect(v.x0 - 50, v.y0 - 50, v.x1 - v.x0 + 100, v.y1 - v.y0 + 100);
-  g.strokeStyle = '#f3e7ff88'; g.lineWidth = 2.5;
+  // the sea all round, with drifting swell marks
+  g.fillStyle = '#2bb5c8'; g.fillRect(v.x0 - 50, v.y0 - 50, v.x1 - v.x0 + 100, v.y1 - v.y0 + 100);
+  g.strokeStyle = '#8fe4ee99'; g.lineWidth = 2.5;
   if (detail) for (const [x, y] of DECOR.waves) if (x > v.x0 - 20 && x < v.x1 + 20 && y > v.y0 - 20 && y < v.y1 + 20) { g.beginPath(); g.arc(x + Math.sin(G.clock * .8 + y) * 4, y, 12, .25, 2.65); g.stroke(); }
-  // meadow island
-  for (let k = 36; k > 0; k -= 4) { g.beginPath(); g.roundRect(0, k, WORLD.w, WORLD.h, 140); g.fillStyle = k > 20 ? '#8fb873' : '#a9cc82'; g.fill(); }
-  g.beginPath(); g.roundRect(0, 0, WORLD.w, WORLD.h, 140); g.fillStyle = '#d4f0b0'; g.fill();
-  // hill
-  for (let k = 0; k < 4; k++) ell(300, 262 - k * 6, 190 - k * 26, 110 - k * 16, ['#b9dd92', '#c6e7a0', '#cfeeaa', '#d8f3b4'][k]);
-  // maypole meadow + balloon pad
-  ell(1350, 975, 120, 66, '#c7e8a4'); ellS(1350, 975, 92, 50, '#ffffff70', 3);
-  ell(1665, 262, 70, 34, '#c7e8a4'); ellS(1665, 262, 56, 26, '#ff7fb2aa', 4); txt('H', 1665, 262, 22, '#ff7fb2aa');
-  // garden beds
-  ell(1520, 650, 215, 150, '#c8ecaa');
-  // tufts & flowers (culled)
-  g.strokeStyle = '#a8d58a'; g.lineWidth = 2;
-  if (detail) for (const [x, y] of DECOR.tufts) if (x > v.x0 && x < v.x1 && y > v.y0 && y < v.y1) { g.beginPath(); g.moveTo(x - 4, y); g.lineTo(x - 1, y - 6); g.moveTo(x, y); g.lineTo(x + 3, y - 7); g.stroke(); }
-  if (detail) for (const [x, y, c] of DECOR.flowers) if (x > v.x0 && x < v.x1 && y > v.y0 && y < v.y1) { circ(x, y, 2.6, c); }
-  // paths
-  for (const p of PATHS) { strokePath(p, 58, '#e7cfa6'); }
-  for (const p of PATHS) { strokePath(p, 48, '#fff0cf'); }
-  // plaza
-  ell(1000, 652, 304, 186, '#f2bfd0');
-  ell(1000, 648, 298, 180, '#ffe0ea');
-  for (let k = 1; k < 5; k++) ellS(1000, 648, 298 * k / 5, 180 * k / 5, '#f5c9d888', 2);
-  // stage platform
-  rrect(826, 226, 348, 108, 10, '#a8608d');
-  rrect(826, 222, 348, 100, 10, '#ffd8ea');
-  for (let i = 0; i < 8; i++) ln(840 + i * 44, 226, 840 + i * 44, 318, '#f6c3db', 2);
-  rrect(826, 318, 348, 16, 6, '#c77aa8');
+  // shallows, the breathing foam line, wet sand, then the dry beach
+  const surf = Math.sin(G.clock * .9) * 5;
+  g.beginPath(); g.roundRect(-70, -70, WORLD.w + 140, WORLD.h + 140, 200); g.fillStyle = '#5fd8d8'; g.fill();
+  g.beginPath(); g.roundRect(-26 - surf, -26 - surf, WORLD.w + 52 + surf * 2, WORLD.h + 52 + surf * 2, 165); g.fillStyle = '#fffaf2'; g.fill();
+  g.beginPath(); g.roundRect(-14, -14, WORLD.w + 28, WORLD.h + 28, 155); g.fillStyle = '#dcb27c'; g.fill();
+  g.beginPath(); g.roundRect(10, 10, WORLD.w - 20, WORLD.h - 20, 135); g.fillStyle = '#f3d6a0'; g.fill();
+  // dune
+  for (let k = 0; k < 4; k++) ell(300, 262 - k * 6, 190 - k * 26, 110 - k * 16, ['#e8c68c', '#edcd94', '#f1d49c', '#f5dba6'][k]);
+  // the volleyball sand (maypole meadow) and the balloon pad
+  ell(1350, 975, 120, 66, '#f8e2b4'); ellS(1350, 975, 92, 50, '#ffffffb0', 3);
+  ell(1665, 262, 70, 34, '#f8e2b4'); ellS(1665, 262, 56, 26, '#ff7fb2aa', 4); txt('H', 1665, 262, 22, '#ff7fb2aa');
+  // the dune-grass patch
+  ell(1520, 650, 215, 150, '#ead3a0');
+  // sand ripples and shells (culled)
+  g.strokeStyle = '#ddb57c'; g.lineWidth = 2;
+  if (detail) for (const [x, y] of DECOR.tufts) if (x > v.x0 && x < v.x1 && y > v.y0 && y < v.y1) { g.beginPath(); g.arc(x, y + 6, 8, 1.1 * Math.PI, 1.9 * Math.PI); g.stroke(); }
+  if (detail) for (const [x, y, c] of DECOR.flowers) if (x > v.x0 && x < v.x1 && y > v.y0 && y < v.y1) { ell(x, y, 3.2, 2.4, c); }
+  // boardwalk paths: planks across the way
+  for (const p of PATHS) strokePath(p, 58, '#a8784a');
+  for (const p of PATHS) strokePath(p, 50, '#d8ab78');
+  g.setLineDash([2.5, 11]); for (const p of PATHS) strokePath(p, 50, '#b98a5a'); g.setLineDash([]);
+  // the deck (plaza): planks, clipped to the oval
+  ell(1000, 654, 306, 188, '#a8784a');
+  g.save(); g.beginPath(); g.ellipse(1000, 648, 298, 180, 0, 0, TAU); g.clip();
+  g.fillStyle = '#dcb488'; g.fillRect(700, 468, 600, 362);
+  for (let y = 470; y < 830; y += 14) { g.fillStyle = (y / 14) % 2 ? '#d4aa7c' : '#e0b98e'; g.fillRect(700, y, 600, 12); }
+  g.restore();
+  // the stage platform
+  rrect(826, 226, 348, 108, 10, '#1f6a78');
+  rrect(826, 222, 348, 100, 10, '#e0b98e');
+  for (let i = 0; i < 8; i++) ln(840 + i * 44, 226, 840 + i * 44, 318, '#c89a6a', 2);
+  rrect(826, 318, 348, 16, 6, '#2a8a9a');
   // fountain basin
   if (G.flags.chocFlood) { ell(1000, 650, 150, 82, '#5a2c1a'); ell(996, 646, 140, 74, '#7a4630'); for (const [a, b] of [[-120, 30], [110, 40], [60, -50], [-70, -55]]) ell(1000 + a, 650 + b, 26, 12, '#7a4630'); }
-  ell(1000, 646, 82, 46, '#e8b8cc');
-  ell(1000, 642, 78, 43, '#f6d2e0');
+  ell(1000, 646, 82, 46, '#e8d8c0');
+  ell(1000, 642, 78, 43, '#fff6ea');
   ell(1000, 642, 70, 37, '#7a4630');
   for (let i = 0; i < 3; i++) ellS(1000, 642, 30 + ((G.clock * 18 + i * 14) % 40), 16 + ((G.clock * 18 + i * 14) % 40) * .5, '#a8704f88', 2);
-  // ponds
+  // lagoons
   for (const w of WATER) if (w.id !== 'choc') {
-    ell(w.x, w.y + 4, w.rx + 18, w.ry + 12, '#e9d3a8');
-    ell(w.x, w.y, w.rx + 12, w.ry + 8, '#f7e7c0');
-    ell(w.x, w.y, w.rx, w.ry, '#7fcde8');
-    ell(w.x - w.rx * .1, w.y - w.ry * .12, w.rx * .82, w.ry * .7, '#9adcf0');
+    ell(w.x, w.y + 4, w.rx + 18, w.ry + 12, '#dcb27c');
+    ell(w.x, w.y, w.rx + 10, w.ry + 7, '#fffaf2');
+    ell(w.x, w.y, w.rx, w.ry, '#2bb5c8');
+    ell(w.x - w.rx * .08, w.y - w.ry * .1, w.rx * .86, w.ry * .76, '#5fd8d8');
     for (let i = 0; i < 5; i++) { const ph = (G.clock * .3 + i / 5) % 1; ellS(w.x + Math.cos(i * 2.1) * w.rx * .45, w.y + Math.sin(i * 2.1) * w.ry * .45, 8 + ph * 26, 3 + ph * 10, `rgba(255,255,255,${.5 * (1 - ph)})`, 1.5); }
   }
-  // lily pads
-  for (const [x, y] of [[1515, 760], [1600, 785], [1575, 742], [330, 870], [380, 1000], [560, 960]]) { ell(x, y, 12, 6, '#5fb86a'); circ(x + 3, y - 2, 3, '#ffb3d1'); }
+  // pool floats where the lily pads were
+  for (const [x, y, c] of [[1515, 760, '#ff86b0'], [1600, 785, '#ffc93c'], [1575, 742, '#2fc4a8'], [330, 870, '#ff6b5a'], [380, 1000, '#ffc93c'], [560, 960, '#ff86b0']] as [number, number, string][]) { ell(x, y, 13, 7, c); ell(x, y, 5, 2.6, '#5fd8d8'); ell(x - 5, y - 3, 3, 1.4, '#ffffffb0'); }
   for (const p of G.props) if (p.ground) p.draw();
   // concealed puddles = ripples / rustles
   for (const p of G.puddles) if (p.concealed && p.age < 6) {
@@ -268,7 +290,7 @@ export function drawOverhead(): void {
     for (let i = 1; i < n; i++) {
       const t = i / n, x = lerp(ax, bx, t), y = lerp(ay - top, by - top, t) + Math.sin(t * Math.PI) * sag;
       if (top === 190) { circ(x, y + 6, 6, ['#ffe066', '#ff8fc1', '#7fd9ff'][i % 3]); circ(x - 2, y + 4, 2, '#fff'); }
-      else { const c = ['#ff7fb2', '#ffe066', '#7fd9ff', '#a9f07f', '#c7a6ff'][i % 5]; const w = Math.sin(G.clock * 3 + i + ax) * 2; poly([x - 6, y, x + 6, y, x + w, y + 13], c); }
+      else { const c = ['#ff4f9a', '#ffc93c', '#2fc4a8', '#ff6b5a', '#3a7aff'][i % 5]; const w = Math.sin(G.clock * 3 + i + ax) * 2; poly([x - 6, y, x + 6, y, x + w, y + 13], c); }
     }
   }
 }

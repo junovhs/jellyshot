@@ -2,9 +2,9 @@
 
 A cute sniper game about horrible things. Peer down a scope at the **Gumdrop Jubilee**, a candy-town festival where every jelly has a job, a schedule, people they love, and a way of freaking out. Three of them are your targets: the Sugarplum Syndicate.
 
-**Play:** https://junovhs.github.io/jellyshot/ — level 1, Spring Break at Palmetto Point, in 2.5D: a flat painted world with standing cutouts (`concepts/palmetto-25d.js`, art kit in `concepts/sprites.js`, swap in real PNGs via its `ART` list) and the 3D jellies. Drag to look, flick to whip; let go with a jelly in the sights and time slows while a ring closes, then the shot goes off (touch to call it off); or hit FIRE with a second thumb. Mobile first: on iPhone, Share → *Add to Home Screen* for fullscreen.
+**Play:** https://junovhs.github.io/jellyshot/ — the classic 2D game, now on the Palmetto Point beach map (sand, surf, boardwalk, lagoons, palms). Mobile first: on iPhone, Share → *Add to Home Screen* for fullscreen. The 2.5D experiment is at `concepts/beach.html`, the 3D diorama at `concepts/diorama.html`.
 
-The Gumdrop Jubilee 2D game described below is at https://junovhs.github.io/jellyshot/classic.html.
+The contract, events and cast below are still the Gumdrop Jubilee's; only the map is the beach so far.
 
 ## Controls
 
