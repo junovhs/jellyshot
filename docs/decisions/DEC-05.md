@@ -44,3 +44,5 @@ From the randomizer proof of concept, the person set three more rules: the clay3
 
 
 **Amended by DEC-08 (2026-11-26):** for characters, the approved jelly skin (MeshPhysical with clearcoat and partial transmission) overrides the material rule here, gated by PERF-01. Everything else stands.
+
+**Amended by DEC-09 and DEC-10 (2026-11-26):** the candy world and "pastel clay world" palette are retired for a sun-bleached coastal setting (the clay-diorama style stays), and characters are cast per level from 20 locations. One shared body, variety through accessories and behaviours, still stands.

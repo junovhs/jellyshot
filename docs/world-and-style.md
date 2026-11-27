@@ -1,5 +1,7 @@
 # World, characters and style — direction draft
 
+> **Superseded for world and tone by DEC-09 and `docs/game-bible.md` (2026-11-26).** Gumdrop Hollow, the Gumdrop Jubilee and the Sugarplum Syndicate are retired, and the candy palette gives way to a sun-bleached coast. What still holds: the character rules below (now locked by DEC-08), the herd crowd, witnesses as snitches, and the death style. Read the bible first.
+
 Status: **character look locked by DEC-05.** The reference is the jellies in `concepts/clay3d.html`. World and tone sections below remain a draft for the person's approval (they own art direction and tone). The sculpted-character experiments (`concepts/gumbo*`, `cast.html`, `perf.html`, `sculpt.js`, the bake scripts) are shelved and not part of the pipeline.
 
 ## The one-liner

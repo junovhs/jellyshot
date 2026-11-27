@@ -1,5 +1,7 @@
 # Jellyshot — founding doc
 
+> **Amended 2026-11-26.** The world, premise and level structure here are superseded: see `docs/game-bible.md`, DEC-09 (new IP: a gig-app sniper in a satirical coastal world) and DEC-10 (20 locations at launch; level 1 is the Spring Break boardwalk, not the Gumdrop Jubilee). The controls, technology, architecture, performance budget and Hitman lines below still hold, except that character materials follow DEC-08.
+
 ## What it is
 
 A cute, funny sniper puzzle game. You sit on one perch above a living clay diorama, the **Gumdrop Jubilee**, and watch a candy-town festival through a scope. Every jelly has a schedule, people they love and a way of freaking out. Your contract names targets; how you take them out — a clean shot, a dropped cake, a beehive, a quiet pop behind a bush — is the puzzle. It plays like a perch-sniper assassination game (one map, a timeline, accidents, challenges, mastery), in its own candy-and-clay world with its own names, characters and look.
