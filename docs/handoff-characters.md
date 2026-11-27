@@ -26,6 +26,35 @@ The randomizer is plain HTML with Three.js 0.170 from a CDN. Serve the repo with
 
 ## Next job 1: merge the arms into the body (DEC-06)
 
+**Status (2026-11-26): steps 1–4 are done in the randomizer, and the person signed off on the result ("perfect"): smooth shading, clean raised arms, jelly skin. Step 5 (instancing) and step 6 (perf check) are next.**
+- `npm run bake:body` (`scripts/bake-jelly-body.mjs`, about 2½ minutes) sculpts body + arms once and writes `concepts/assets/jelly-body.{bin,json}` (9,000 tris, 319 KB; vertices snapped back onto the exact surface after simplifying). Per vertex: position, normal, UV (with a back-seam split), the signed arm weight `armW` and its gradient `armG`. The arm constants live in the bake script and ship in the JSON.
+- Arms are short, fat thumb stubs sculpted held out. Long tapered arms read as tentacles and were rejected.
+- `bendArms()` in the randomizer patches the body material and its shadow depth material. `setArm()` keeps the old angle meaning, subtracts `ARM.restOut` and clamps the angles. The prop `hold` groups follow the same rotation on the CPU.
+- Every jelly now has the same proportions (`w = .88, h = 1.06`, narrower and taller to match `arms-merged-concept.webp`). Variety comes from size, colour and, above all, accessories. Never vary the body shape per jelly.
+- **No feet.** You never saw them, so the person had them removed.
+
+**How the shoulder bend works now (keep all of it; each piece fixed something the person saw):**
+1. `armBend` turns each vertex about the shoulder pivot by the arm angle × `armW`. The weight band reaches `TAPER = 1.2` fillet radii into the body; wider drags the top of the head along with the arm.
+2. `armSnap` rebuilds the bake's body ∪ arm smooth union with the arm *in its posed place* (`sdPosed`) and projects the bent vertex onto it (3 iterations). Normals are that field's gradient. Without it, raising an arm caved a hollow over the shoulder, and pushing vertices radially out of the body pinched instead.
+3. The shader's body is a Catmull-Rom curve through 96 radii sampled from the smooth 1200-point outline (`BR`, `bodyRad`). A linear or 40-segment version gives stepped normals, which show as rings.
+4. A high raise crowds the shoulder into the small posed fillet and some triangles fold over. They lie on the right surface after the snap, so the body draws `DoubleSide` with `faceDirection` forced to 1 (outward normals on both sides) and `forceSinglePass`, which keeps the inside out of the transmission pass.
+5. `armBendN` / `armBendT` carry the bend's exact Jacobian (they use `armG`). They only matter where the snap blends out.
+
+**Shading lessons from the torn-band bug (don't repeat them):**
+- The outline curve is **centripetal** Catmull-Rom (`CatmullRomCurve3(..., 'centripetal')`) in both the bake and the randomizer. The uniform `SplineCurve` overshot at the base corner and dented a dark ring around the bottom.
+- The bake's body SDF uses a 1200-point outline. With 40 points, the field's normals stepped into visible horizontal bands.
+- The key light has `shadow.normalBias = .05`. It's harmless, but it was not the cause.
+
+**Jelly skin (approved):** `bodyMaterial()` is a `MeshPhysicalMaterial` with low roughness, full clearcoat, `transmission: .55`, `thickness: 1.4` and `ior: 1.36`. The inside must read as the body colour, deeper and more saturated, **never black**. So attenuation is only a light saturated tint over a long distance (`attenuationDistance: 2.2`), plus a faint emissive in the same deep colour. The clay grain normal map (`CLAY_NORMAL`, repeated 3× around so it isn't stretched) is off the body. Accessories made with `clay()` keep their bump grain.
+
+**Jiggle:** `JIGGLE = 2` scales every squash and stretch (breathing, behaviours, pokes). The person asked for double.
+
+**Perf flags for step 5/6:** the snap runs about 18 SDF evaluations × 3 iterations per arm-weighted vertex (around 15% of the mesh), twice (normal and position), in both the colour and the shadow pass. Transmission adds a render pass. Both need measuring on the iPhone bench with about 250 jellies. If either is too slow, options are snapping only within the camera's close-up range, or 1–2 iterations at distance, or baking a few posed corrective shapes.
+
+**How the person reviews visual fixes:** apply the change, put a temporary **Fixed** button in the page (it must be in the page source so it shows in their own browser tab), wait 10 seconds, and treat no click as not fixed. A tiny local HTTP listener that writes a flag file when the button fetches it is enough. Never call a visual fix done from your own screenshots.
+
+The original plan, for reference:
+
 Goal: the arms grow out of the body like `arms-merged-concept.webp`. That means a wide base, a taper to a rounded tip and no seam. Today they are separate spheres (`arms-current-nubs.webp`).
 
 1. **Sculpt once, offline.**
@@ -49,6 +78,8 @@ Goal: the arms grow out of the body like `arms-merged-concept.webp`. That means 
 Metaballs are only for pops and splats, big squashes and maybe the scope close-up (DEC-06), not for everyday arms.
 
 ## Next job 2: 2D assets (DEC-07)
+
+Direction from the person: characters should read mostly through accessories, including **hair as a custom hat-like piece** (for example, a glamorous lady is blonde hair + cat-eye sunglasses + big red lipstick + a purse). Lipstick, purse and hair pieces are worth adding to the list below.
 
 **How to add one:**
 1. Drop a transparent PNG into `concepts/assets/2d/`. Crop it tight, keep the longest side at 512 px or less, and pad by 4 px.

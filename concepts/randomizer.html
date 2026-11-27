@@ -84,6 +84,21 @@ function clayNoise() {
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
 const BUMP = clayNoise();
+// the same clay grain as a tangent-space normal map, for the sculpted body: its triangles are irregular, and
+// three's bump mapping builds its frame from each triangle's screen slope, which streaks; tangents don't
+const CLAY_NORMAL = (() => {
+  const src = BUMP.image, S = src.width, h = src.getContext('2d').getImageData(0, 0, S, S).data;
+  const c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d'), img = g.createImageData(S, S);
+  const H = (x, y) => h[(((y + S) % S) * S + ((x + S) % S)) * 4] / 255, k = .9;
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const dx = (H(x + 1, y) - H(x - 1, y)) * k, dy = (H(x, y + 1) - H(x, y - 1)) * k, l = Math.hypot(dx, dy, 1), i = (y * S + x) * 4;
+    img.data[i] = (-dx / l * .5 + .5) * 255; img.data[i + 1] = (dy / l * .5 + .5) * 255; img.data[i + 2] = (1 / l * .5 + .5) * 255; img.data[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  // the body uv wraps ~6 units of circumference into u but only ~2 of height into v: repeat 3x around so the
+  // grain stays round instead of smearing into horizontal streaks
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 1); return t;
+})();
 const mats = new Map();
 function clay(hex, bump = .55) {
   const key = 'c' + hex + bump;
@@ -106,6 +121,7 @@ key.position.set(-14, 26, 14); key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
 Object.assign(key.shadow.camera, { left: -18, right: 18, top: 18, bottom: -18, near: 1, far: 90 });
 key.shadow.radius = 9; key.shadow.blurSamples = 20; key.shadow.bias = -.0006;
+key.shadow.normalBias = .05;   // push lookups out along the normal: curved clay grazing the light otherwise shadows itself in torn bands
 scene.add(key);
 const rimL = new THREE.DirectionalLight('#ffd6ec', .7); rimL.position.set(12, 8, -18); scene.add(rimL);
 // lineup shelves (one per row), rebuilt by layout()
@@ -128,14 +144,128 @@ const ease = x => x < 0 ? 0 : x > 1 ? 1 : x * x * (3 - 2 * x);
 
 /* ---------- the clay3d body (with arm nubs where the ears were) ---------- */
 const PROFILE = [[0, 0], [.78, 0], [.95, .1], [1.0, .3], [.96, .62], [.84, .92], [.62, 1.16], [.34, 1.3], [0, 1.34]];
-const profPts = new THREE.SplineCurve(PROFILE.map(([x, y]) => new THREE.Vector2(x, y))).getPoints(40).map(p => new THREE.Vector2(Math.max(0, p.x), p.y));
+// centripetal, as in scripts/bake-jelly-body.mjs: the uniform spline dented the base corner
+const profPts = new THREE.CatmullRomCurve3(PROFILE.map(([x, y]) => new THREE.Vector3(x, y, 0)), false, 'centripetal').getPoints(40).map(p => new THREE.Vector2(Math.max(0, p.x), Math.min(1.34, Math.max(0, p.y))));
 profPts[profPts.length - 1].x = 0;
-// rotated so the UV seam is at the back: u = .5 is the front centre, u grows toward +x
-const bodyGeo = new THREE.LatheGeometry(profPts, 48).rotateY(Math.PI); bodyGeo.computeVertexNormals();
+// body + arms: one merged mesh baked by scripts/bake-jelly-body.mjs (DEC-06). Arms are sculpted held out;
+// the vertex shader swings each from its shoulder by the jelly's two arm angles, weighted by armW.
+const BODY = await (await fetch('assets/jelly-body.json')).json();
+const await_buf = await (await fetch(BODY.file)).arrayBuffer();
+const bodyGeo = (() => {
+  const buf = await_buf, n = BODY.verts, g = new THREE.BufferGeometry(); let o = 0;
+  const take = (k, T = Float32Array) => { const a = new T(buf, o, n * k); o += n * k * 4; return a; };
+  g.setAttribute('position', new THREE.BufferAttribute(take(3), 3)); g.setAttribute('normal', new THREE.BufferAttribute(take(3), 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(take(2), 2)); g.setAttribute('armW', new THREE.BufferAttribute(take(1), 1));
+  g.setAttribute('armG', new THREE.BufferAttribute(take(3), 3));
+  g.setIndex(new THREE.BufferAttribute(new Uint32Array(buf, o, BODY.tris * 3), 1)); g.computeTangents(); g.computeBoundingSphere(); return g;
+})();
+const ARM = BODY.arm;
+const ARM_AXIS = new THREE.Vector3(...ARM.tip).sub(new THREE.Vector3(...ARM.base)).normalize();
 const rAt = y => { for (let i = 1; i < profPts.length; i++) if (profPts[i].y >= y) { const a = profPts[i - 1], b = profPts[i]; return a.x + (b.x - a.x) * (y - a.y) / (b.y - a.y || 1); } return 0; };
+// the body's radius at 49 evenly spaced heights, for the shader's keep-outside-the-body pass
+const BR_N = 96, BR = (() => {   // sampled from the smooth curve itself (1200 points, as the bake uses), not the 40-segment outline
+  const d = new THREE.CatmullRomCurve3(PROFILE.map(([x, y]) => new THREE.Vector3(x, y, 0)), false, 'centripetal').getPoints(1200).map(p => [Math.max(0, p.x), Math.min(1.34, Math.max(0, p.y))]);
+  const r = y => { for (let i = 1; i < d.length; i++) if (d[i][1] >= y) { const a = d[i - 1], b = d[i]; return a[0] + (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1] || 1); } return 0; };
+  return Array.from({ length: BR_N + 1 }, (_, i) => r(i / BR_N * 1.34));
+})();
+const ARM_GLSL = /* glsl */`
+attribute float armW;
+attribute vec3 armG;         // gradient of armW: where the turn angle varies, the surface shears and normals must follow
+uniform vec4 uArmL, uArmR;   // fwd, out (already signed by side), stretch, unused
+mat3 armRot(float w, vec4 A) {
+  float a = -A.x * w, b = A.y * w, ca = cos(a), sa = sin(a), cb = cos(b), sb = sin(b);
+  return mat3(1., 0., 0., 0., ca, sa, 0., -sa, ca) * mat3(cb, sb, 0., -sb, cb, 0., 0., 0., 1.);
+}
+vec3 armBend(vec3 p) {
+  float w = abs(armW), s = sign(armW); if (w < 1e-4) return p;
+  vec4 A = s < 0. ? uArmL : uArmR;
+  vec3 P = vec3(s * ${ARM.pivot[0].toFixed(4)}, ${ARM.pivot[1].toFixed(4)}, ${ARM.pivot[2].toFixed(4)});
+  vec3 ax = vec3(s * ${ARM_AXIS.x.toFixed(4)}, ${ARM_AXIS.y.toFixed(4)}, ${ARM_AXIS.z.toFixed(4)});
+  vec3 q = p - P; q += (A.z - 1.) * w * max(dot(q, ax), 0.) * ax;
+  return P + armRot(w, A) * q;
+}
+// the body's radius by height (and its slope), for the posed-shape snap below
+const float BR[${BR_N + 1}] = float[${BR_N + 1}](${BR.map(r => r.toFixed(4)).join(', ')});
+vec2 bodyRad(float y) {   // radius and d(radius)/dy: a cubic (Catmull-Rom) through the table, so the slope is smooth
+  const float dy = 1.34 / ${BR_N}.;
+  float f = clamp(y / 1.34, 0., 1.) * ${BR_N}., i = min(floor(f), ${BR_N - 1}.), t = f - i; int k = int(i);
+  float p0 = BR[max(k - 1, 0)], p1 = BR[k], p2 = BR[k + 1], p3 = BR[min(k + 2, ${BR_N})];
+  float m1 = (p2 - p0) * .5, m2 = (p3 - p1) * .5, t2 = t * t, t3 = t2 * t;
+  float r = (2. * t3 - 3. * t2 + 1.) * p1 + (t3 - 2. * t2 + t) * m1 + (-2. * t3 + 3. * t2) * p2 + (t3 - t2) * m2;
+  float dr = (6. * t2 - 6. * t) * p1 + (3. * t2 - 4. * t + 1.) * m1 + (-6. * t2 + 6. * t) * p2 + (3. * t2 - 2. * t) * m2;
+  return vec2(r, dr / dy);
+}
+// d(armRot)/dw
+mat3 armRotD(float w, vec4 A) {
+  float a = -A.x * w, b = A.y * w, ca = cos(a), sa = sin(a), cb = cos(b), sb = sin(b);
+  mat3 Rx = mat3(1., 0., 0., 0., ca, sa, 0., -sa, ca), Rz = mat3(cb, sb, 0., -sb, cb, 0., 0., 0., 1.);
+  mat3 dRx = mat3(0., 0., 0., 0., -sa, ca, 0., -ca, -sa), dRz = mat3(-sb, cb, 0., -cb, -sb, 0., 0., 0., 0.);
+  return -A.x * dRx * Rz + A.y * Rx * dRz;
+}
+// the bend's Jacobian is J = R + u g^T (u = dR/dw (p - P), g = grad w); normals go by J^-T (Sherman-Morrison), tangents by J
+vec3 armBendN(vec3 n, vec3 p) {
+  float w = abs(armW), s = sign(armW); if (w < 1e-4) return n;
+  vec4 A = s < 0. ? uArmL : uArmR;
+  vec3 P = vec3(s * ${ARM.pivot[0].toFixed(4)}, ${ARM.pivot[1].toFixed(4)}, ${ARM.pivot[2].toFixed(4)});
+  mat3 R = armRot(w, A); vec3 u = armRotD(w, A) * (p - P), g = s * armG, Rn = R * n;
+  return normalize(Rn - (R * g) * dot(u, Rn) / max(.2, 1. + dot(g, transpose(R) * u)));
+}
+vec3 armBendT(vec3 t, vec3 p) {
+  float w = abs(armW), s = sign(armW); if (w < 1e-4) return t;
+  vec4 A = s < 0. ? uArmL : uArmR;
+  vec3 P = vec3(s * ${ARM.pivot[0].toFixed(4)}, ${ARM.pivot[1].toFixed(4)}, ${ARM.pivot[2].toFixed(4)});
+  return armRot(w, A) * t + armRotD(w, A) * (p - P) * dot(s * armG, t);
+}
+// The angle-weighted bend alone caves a hollow over a raised shoulder and pinches the fillet. The bake built body and
+// arm as one smooth union, so rebuild that union with the arm in its posed place and snap the bent vertices onto it:
+// every pose gets the fillet a bake of that pose would have, and normals come from the same field.
+float sdBody(vec3 p) { vec2 R = bodyRad(p.y); return (length(p.xz) - R.x) / sqrt(1. + R.y * R.y); }
+float sdCone(vec3 p, vec3 a, vec3 b, float r1, float r2) { vec3 pa = p - a, e = b - a; float h = clamp(dot(pa, e) / dot(e, e), 0., 1.); return length(pa - e * h) - (r1 + (r2 - r1) * h); }
+float sminK(float a, float b, float k) { float h = max(k - abs(a - b), 0.) / k; return min(a, b) - h * h * k * .25; }
+float sdPosed(vec3 x, float s, vec4 A) {
+  vec3 P = vec3(s * ${ARM.pivot[0].toFixed(4)}, ${ARM.pivot[1].toFixed(4)}, ${ARM.pivot[2].toFixed(4)});
+  vec3 ax = vec3(s * ${ARM_AXIS.x.toFixed(4)}, ${ARM_AXIS.y.toFixed(4)}, ${ARM_AXIS.z.toFixed(4)});
+  vec3 b = vec3(s * ${ARM.base[0].toFixed(4)}, ${ARM.base[1].toFixed(4)}, ${ARM.base[2].toFixed(4)});
+  vec3 t = vec3(s * ${ARM.tip[0].toFixed(4)}, ${ARM.tip[1].toFixed(4)}, ${ARM.tip[2].toFixed(4)});
+  t += (A.z - 1.) * max(dot(t - P, ax), 0.) * ax;                 // the stretch, as armBend applies it
+  vec3 xr = P + transpose(armRot(1., A)) * (x - P);               // back into the arm's rest frame
+  return sminK(sdBody(x), sdCone(xr, b, t, ${ARM.baseR.toFixed(4)}, ${ARM.tipR.toFixed(4)}), ${ARM.blend.toFixed(4)});
+}
+vec3 gradPosed(vec3 x, float s, vec4 A) {
+  const float e = .002;
+  return normalize(vec3(sdPosed(x + vec3(e, 0., 0.), s, A) - sdPosed(x - vec3(e, 0., 0.), s, A),
+                        sdPosed(x + vec3(0., e, 0.), s, A) - sdPosed(x - vec3(0., e, 0.), s, A),
+                        sdPosed(x + vec3(0., 0., e), s, A) - sdPosed(x - vec3(0., 0., e), s, A)));
+}
+vec3 armSnap(vec3 p) {
+  float w = abs(armW), s = sign(armW); if (w < 1e-4) return p;
+  vec4 A = s < 0. ? uArmL : uArmR; vec3 x = p;
+  for (int i = 0; i < 3; i++) x -= gradPosed(x, s, A) * sdPosed(x, s, A);
+  return x;   // snapped fully, even at the band's edge: a partial snap left a ridge there
+}
+vec3 armSnapN(vec3 n, vec3 p) {   // p: the snapped position
+  float w = abs(armW), s = sign(armW); if (w < 1e-4) return n;
+  return gradPosed(p, s, s < 0. ? uArmL : uArmR);
+}
+`;
+// patch a body material (colour pass or shadow depth) to bend the arms; u holds that jelly's arm uniforms
+function bendArms(mat, u) {
+  mat.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, u);
+    sh.vertexShader = ARM_GLSL + sh.vertexShader
+      .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\n  objectNormal = armSnapN(armBendN(objectNormal, position), armSnap(armBend(position)));\n#ifdef USE_TANGENT\n  objectTangent = armBendT(objectTangent, position);\n#endif')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n  transformed = armSnap(armBend(transformed));');
+    // a high raise crowds the shoulder into the small posed fillet and some triangles fold over. They lie on the right
+    // surface after the snap, so draw them (DoubleSide on the body) and light both sides with the outward normal.
+    sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>',
+      THREE.ShaderChunk.normal_fragment_begin.replace('gl_FrontFacing ? 1.0 : - 1.0', '1.0'));
+  };
+  mat.customProgramCacheKey = () => 'armbend';
+  return mat;
+}
 
 /* ---------- paint layer: every jelly gets its own canvas on the body and on the eyes ----------
-   Body canvas: u = .5 + angle/2pi (angle 0 = front, + toward +x), v from the profile index (0 = feet).
+   Body canvas: u = .5 + angle/2pi (angle 0 = front, + toward +x), v from the profile index (0 = base).
    Eye canvas: equirect on the eyeball, front centre at u = .25, v = .5. Pupils are paint, not geometry;
    looking around slides the texture. */
 const vAt = y => { for (let i = 1; i < profPts.length; i++) if (profPts[i].y >= y) return (i - 1 + (y - profPts[i - 1].y) / (profPts[i].y - profPts[i - 1].y || 1)) / (profPts.length - 1); return 1; };
@@ -160,10 +290,19 @@ function bodyMaterial(col, paints) {
   const cv = document.createElement('canvas'); cv.width = BW; cv.height = BH; const c = cv.getContext('2d');
   c.fillStyle = col; c.fillRect(0, 0, BW, BH);
   for (const p of paints) PAINT[p](c, col);
-  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; tex.wrapS = THREE.RepeatWrapping;
   const sc = new THREE.Color(col).lerp(new THREE.Color('#fff'), .55);
-  return new THREE.MeshPhysicalMaterial({ map: tex, roughness: .82, sheen: .55, sheenRoughness: .7, sheenColor: sc, bumpMap: BUMP, bumpScale: .55 });
+  // jelly, not clay: smooth and glossy, light passes part-way in and comes out tinted with the jelly's own colour
+  // The inside reads as the body colour, deeper and more saturated, never black: the map already tints the light
+  // once, so attenuation only adds a light saturated tint over a long distance, and a faint glow keeps the depths coloured.
+  const jc = new THREE.Color(col), deep = jc.clone().offsetHSL(0, .25, -.06);
+  return new THREE.MeshPhysicalMaterial({ map: tex, roughness: .16, clearcoat: 1, clearcoatRoughness: .06,
+    transmission: .55, thickness: 1.4, ior: 1.36, attenuationColor: deep.clone().lerp(new THREE.Color('#fff'), .45), attenuationDistance: 2.2,
+    emissive: deep, emissiveIntensity: .12,
+    sheen: .35, sheenRoughness: .35, sheenColor: sc, specularIntensity: 1,
+    side: THREE.DoubleSide, forceSinglePass: true });   // see bendArms: folded triangles stay visible; single pass keeps the inside out of the transmission
 }
+const EYE_TILT = .36;   // eyes lean back with the face; the painted pupils are shifted down by the same angle
 const EYE_STYLES = ['normal', 'normal', 'small pupils', 'big pupils', 'sleepy lids', 'mismatched'];
 function eyeMaterial(col, pupil, lid = 0) {
   const W = 256, H = 128, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d');
@@ -435,28 +574,28 @@ const jellies = [];
 function makeJelly(home, tier, spec = null) {
   const col = spec?.col ?? pick(JELLY_COLS), hair = spec?.hair ?? pick(HAIR_COLS);
   const size = spec ? .78 : tier === 'named' ? rand(.62, .82) : rand(.5, .68);
-  const w = spec ? 1 : rand(.94, 1.1), h = spec ? 1 : rand(.92, 1.14);
+  // every jelly has the same body proportions: variety comes from size, colour and accessories, never stretched shapes
+  const w = .88, h = 1.06;   // the reference proportions: narrower and taller than the raw clay3d lathe
   const root = new THREE.Group(); root.position.copy(home); root.rotation.y = 0; scene.add(root);
   const rig = new THREE.Group(); root.add(rig);
   const items = [];
   const paints = spec ? [] : tier === 'named' ? (chance(.75) ? shuffle(Object.keys(PAINT)).slice(0, chance(.3) ? 2 : 1) : []) : (chance(.3) ? [pick(Object.keys(PAINT))] : []);
-  const bodyMat = clay(col);
-  const body = mesh(bodyGeo, bodyMaterial(col, paints), rig);
-  const footMat = clay(new THREE.Color(col).offsetHSL(0, 0, -.12).getStyle());
-  const feet = [-.42, .42].map(sx => { const f = mesh(sph(.3, 16, 10), footMat, rig, sx, .1, .18); f.scale.set(1, .55, 1.15); return f; });
+  const armU = { uArmL: { value: new THREE.Vector4(0, 0, 1, 0) }, uArmR: { value: new THREE.Vector4(0, 0, 1, 0) } };
+  const body = mesh(bodyGeo, bendArms(bodyMaterial(col, paints), armU), rig);
+  body.customDepthMaterial = bendArms(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }), armU);
   const eyeStyle = spec ? 'normal' : tier === 'named' ? pick(EYE_STYLES) : chance(.8) ? 'normal' : pick(EYE_STYLES);
   const pr = { normal: 19, 'small pupils': 11, 'big pupils': 27, 'sleepy lids': 19, mismatched: 19 }[eyeStyle];
   const lid = eyeStyle === 'sleepy lids' ? .44 : 0;
   const eyeMats = eyeStyle === 'mismatched' ? [eyeMaterial(col, 26), eyeMaterial(col, 10)] : [eyeMaterial(col, pr, lid)];
-  const eyes = [-.24, .24].map((sx, i) => { const e = mesh(sph(.2, 32, 20), eyeMats[i % eyeMats.length], rig, sx, .78, .8); e.scale.set(1, 1.15, .6); return e; });
+  const eyes = [-.24, .24].map((sx, i) => { const e = mesh(sph(.2, 32, 20), eyeMats[i % eyeMats.length], rig, sx, .78, .83); e.scale.set(1, 1.15, .6); e.rotation.x = -EYE_TILT; return e; });   // tilted back to lie on the sloping face, so the lower edge doesn't sink in
   if (eyeStyle !== 'normal') items.push(eyeStyle);
   items.push(...paints);
-  // arm nubs: the clay3d ear, moved to the sides on a shoulder pivot
+  // arms are part of the body mesh; these groups only carry the shoulder pose for held props (the hand point)
   const arms = [-1, 1].map(side => {
-    const pivot = new THREE.Group(); pivot.position.set(side * .9, .68, .1); rig.add(pivot);
-    const nub = mesh(sph(.26, 18, 12), bodyMat, pivot, side * .1, -.16, 0); nub.scale.set(.85, 1.15, .9);
-    const hold = new THREE.Group(); hold.position.set(side * .12, -.36, .16); hold.rotation.order = 'ZYX'; pivot.add(hold);
-    return { side, pivot, nub, hold };
+    const pivot = new THREE.Group(); pivot.position.set(side * ARM.pivot[0], ARM.pivot[1], ARM.pivot[2]); rig.add(pivot);
+    const rest = new THREE.Vector3(side * (ARM.hold[0] - ARM.pivot[0]), ARM.hold[1] - ARM.pivot[1], ARM.hold[2] - ARM.pivot[2]);
+    const hold = new THREE.Group(); hold.position.copy(rest); hold.rotation.order = 'ZYX'; pivot.add(hold);
+    return { side, pivot, hold, rest, axis: ARM_AXIS.clone().multiply(new THREE.Vector3(side, 1, 1)), u: side < 0 ? armU.uArmL : armU.uArmR };
   });
   // accessories
   const acc = new THREE.Group(); rig.add(acc);
@@ -477,7 +616,7 @@ function makeJelly(home, tier, spec = null) {
   const sayEl = document.createElement('span'); sayEl.className = 'say'; labelsEl.appendChild(sayEl);
   lab.innerHTML = spec ? `<b>${spec.label}</b>` : `${tier === 'named' ? `<b>${pick(FIRST)} ${pick(LAST)}</b>` : ''}<i>${BEHAVIOURS[beh].label}</i>`;
   labelsEl.appendChild(lab);
-  const j = { root, rig, body, feet, eyes, eyeMats, arms, acc, home: home.clone(), size, w, h, col, hair, tier, items, beh, propName,
+  const j = { root, rig, body, eyes, eyeMats, arms, acc, home: home.clone(), size, w, h, col, hair, tier, items, beh, propName,
     ph: rand(0, 20), lab, say: sayEl, name: lab.querySelector('b')?.textContent ?? 'crowd jelly', nextFx: 0, sayT: 0, face0: 0 };
   root.traverse(o => { o.userData.j = j; });
   return j;
@@ -540,7 +679,7 @@ function select(j) {
   selected = j; jellies.forEach(o => o.lab.classList.toggle('sel', o === j));
   if (!j) { card.innerHTML = ''; return; }
   const sz = j.size > .74 ? 'big' : j.size > .6 ? 'medium' : 'small';
-  const shape = j.h > 1.07 ? ', tall' : j.h < .97 ? ', squat' : '';
+  const shape = '';
   card.innerHTML = `<h2>${j.name}</h2>
     <div><span class="sw" style="background:${j.col}"></span>${COL_NAMES[j.col]}, ${sz}${shape} · ${j.tier}</div>
     <ul>${j.items.map(i => `<li>${i}</li>`).join('') || '<li>no accessories</li>'}${j.propName ? `<li>holding a ${j.propName}</li>` : ''}<li><b>${BEHAVIOURS[j.beh].label}</b></li></ul>
@@ -581,17 +720,22 @@ function tickPuffs(dt) {
 
 /* ---------- animation ---------- */
 const v3 = new THREE.Vector3();
+// out keeps its old meaning (0 = hanging, + = raised to the side); the sculpt rests ARM.restOut above that,
+// so the shader turns by out - restOut, clamped so the shoulder never pinches
 function setArm(a, fwd, out, stretch = 1) {
-  a.pivot.rotation.set(-fwd, 0, a.side * out); a.pivot.scale.set(1, stretch, 1);
-  a.hold.rotation.set(fwd, 0, -a.side * out); a.hold.scale.set(1, 1 / stretch, 1);
+  const o = Math.max(-.95, Math.min(1.5, out - ARM.restOut)), f = Math.max(-.6, Math.min(1.7, fwd));
+  a.u.value.set(f, a.side * o, stretch, 0);
+  a.pivot.rotation.set(-f, 0, a.side * o);
+  a.hold.position.copy(a.rest).addScaledVector(a.axis, (stretch - 1) * Math.max(0, a.rest.dot(a.axis)));
+  a.hold.rotation.set(f, 0, -a.side * o);
 }
+const JIGGLE = 2;   // scales every squash-and-stretch (idle breathing, behaviours, pokes)
 function animate(j, t, dt) {
   const T = t + j.ph, [L, R] = j.arms;
   let bob = 0, q = Math.sin(T * 2.2) * .025, lean = 0, turn = 0, crouch = 0;
   let lf = 0, lo = .12, rf = 0, ro = .12, rs = 1;
   let look = [Math.sin(T * .7) * .03, 0], closed = false, say = '';
   j.root.position.copy(j.home); j.root.rotation.y = j.face0 + viewYaw;
-  j.feet.forEach((f, i) => f.position.set(i ? .42 : -.42, .1, .18));
   switch (j.beh) {
     case 'idle': lo = ro = .15 + Math.sin(T * 1.3) * .05; break;
     case 'waving': { ro = 2.5 + Math.sin(T * 12) * .35; rf = .3; lean = -.05; break; }
@@ -614,7 +758,6 @@ function animate(j, t, dt) {
       j.root.position.x = j.home.x + Math.cos(a) * rx; j.root.position.z = j.home.z + Math.sin(a) * rz;
       j.root.rotation.y = Math.atan2(-Math.sin(a) * rx, Math.cos(a) * rz) + viewYaw;
       bob = Math.abs(Math.sin(T * 18)) * .1; lean = .1;
-      j.feet.forEach((f, i) => { const s = Math.sin(T * 18 + i * Math.PI); f.position.z = .18 + s * .2; f.position.y = .1 + Math.max(0, s) * .1; });
       lf = Math.sin(T * 18) * .9; rf = -Math.sin(T * 18) * .9; lo = ro = .3;
       j.rig.scale.x = j.size * j.w * (.92 + Math.sin(T * 40) * .015);
       if (t > j.nextFx) { j.nextFx = t + .22; j.rig.localToWorld(v3.set(rand(-.5, .5), 1.2, .3)); puff(v3, '#8fd8ff', new THREE.Vector3(rand(-.8, .8), 1.2, rand(-.3, .3)), .6, .05); }
@@ -627,7 +770,6 @@ function animate(j, t, dt) {
     case 'sneaking': {
       crouch = .14; j.root.position.x = j.home.x + Math.sin(T * .9) * .7;
       bob = Math.abs(Math.sin(T * 7)) * .05; lf = rf = .6; lo = ro = 1.0;
-      j.feet.forEach((f, i) => { f.position.y = .1 + Math.max(0, Math.sin(T * 7 + i * Math.PI)) * .08; });
       look = [Math.sign(Math.sin(T * 1.7)) * .06, .01]; break; }
     case 'napping': {
       closed = true; q = Math.sin(T * 1.1) * .06; lean = .12; lo = ro = .05; say = 'z z z'; break; }
@@ -639,13 +781,14 @@ function animate(j, t, dt) {
   if (j.poke) { j.poke = Math.max(0, j.poke - dt * 1.6); q += Math.sin(j.poke * 18) * j.poke * .25; }
   j.rig.position.y = bob;
   j.rig.rotation.set(0, turn, lean);
+  q *= JIGGLE;
   const sy = j.size * j.h * (1 - q - crouch), sxz = j.size * j.w * (1 + q * .7 + crouch * .4);
   if (j.beh !== 'bathroom') j.rig.scale.set(sxz, sy, sxz); else j.rig.scale.y = sy;
   setArm(L, lf, lo); setArm(R, rf, ro, rs);
   const blink = closed || (T % 3.7) < .12;
   j.eyes.forEach(e => e.scale.y = blink ? .12 : 1.15);
   // painted pupils: slide the eye texture (look is in eye-radius-ish units)
-  for (const m of j.eyeMats) { m.map.offset.x = -(look[0] / .2) / (Math.PI * 2); m.map.offset.y = -(look[1] / .2) / Math.PI; }
+  for (const m of j.eyeMats) { m.map.offset.x = -(look[0] / .2) / (Math.PI * 2); m.map.offset.y = -(look[1] / .2 - EYE_TILT) / Math.PI; }
   if (j.acc.userData.spin) j.acc.userData.spin.rotation.y += dt * 14;
   j.say.textContent = say;
 }

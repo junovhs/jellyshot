@@ -1,0 +1,33 @@
+{
+ "file": "assets/jelly-body.bin",
+ "verts": 4551,
+ "tris": 9000,
+ "bytes": 326448,
+ "layout": "f32 position[3], f32 normal[3], f32 uv[2], f32 armW[1], f32 armG[3] per vertex, then u32 index",
+ "arm": {
+  "pivot": [
+   0.8,
+   0.66,
+   0.1
+  ],
+  "base": [
+   0.66,
+   0.68,
+   0.1
+  ],
+  "baseR": 0.3,
+  "tip": [
+   1.08,
+   0.6,
+   0.12
+  ],
+  "tipR": 0.23,
+  "blend": 0.16,
+  "hold": [
+   1.16,
+   0.56,
+   0.3
+  ],
+  "restOut": 0.38
+ }
+}
