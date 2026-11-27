@@ -17,9 +17,9 @@
 } }
 </script>
 <style>
-/* LVL-01 played top-down: the old 2D game's camera, raised into a steep three-quarter view (Cult of the Lamb,
-   Sneaky Sasquatch), with the DEC-08 jellies. The reticle sits in the middle; the world moves under it. */
-:root { --ink: #3a2550; --font: 'Baloo 2', ui-rounded, system-ui, sans-serif; --red: #ff3b5c; --cream: #fff6e4;
+/* LVL-01 in 2.5D: a flat painted world with standing cutouts (Don't Starve / Cult of the Lamb structure, no line art),
+   a fixed camera, and the 3D jellies. The reticle sits in the middle; the world moves under it. */
+:root { --ink: #3a2550; --font: 'Baloo 2', ui-rounded, system-ui, sans-serif; --red: #ff3b5c;
   --st: env(safe-area-inset-top, 0px); --sb: env(safe-area-inset-bottom, 0px); }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #2bb5c8; overscroll-behavior: none; }
@@ -28,87 +28,67 @@ body { font-family: var(--font); color: var(--ink); user-select: none; -webkit-u
 canvas#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .ui { position: absolute; inset: 0; pointer-events: none; }
 button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; pointer-events: auto; }
-
-/* slow motion: warm vignette and a faint grade, opacity driven by the time scale */
-#slow { position: absolute; inset: 0; opacity: 0; background:
-  radial-gradient(ellipse 70% 60% at 50% 50%, transparent 40%, rgba(70, 20, 70, .55) 100%), rgba(255, 190, 150, .08); mix-blend-mode: multiply; }
-#vig { position: absolute; inset: 0; background: radial-gradient(ellipse 85% 75% at 50% 48%, transparent 55%, rgba(30, 20, 60, .28) 100%); }
-
-/* clay pill chrome */
+#slow { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse 70% 60% at 50% 50%, transparent 38%, rgba(70, 20, 70, .5) 100%); }
+#vig { position: absolute; inset: 0; background: radial-gradient(ellipse 90% 80% at 50% 48%, transparent 58%, rgba(30, 20, 60, .22) 100%); }
 .pill { background: linear-gradient(180deg, #fffdf6, #fbeccb); border-radius: 999px;
   box-shadow: inset 0 2px 0 rgba(255,255,255,.9), inset 0 -3px 0 rgba(190, 140, 90, .35), 0 4px 10px rgba(30, 20, 60, .25); }
-
-/* top bar */
 #top { position: absolute; left: 10px; right: 10px; top: calc(var(--st) + 8px); display: flex; align-items: flex-start; gap: 8px; }
 #targets { display: flex; flex-direction: column; gap: 5px; }
-.chip { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px 0 4px; font-weight: 800; font-size: 14px; line-height: 1; pointer-events: auto; }
+.chip { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px 0 4px; font-weight: 800; font-size: 14px; line-height: 1; }
 .chip i { width: 22px; height: 22px; border-radius: 50% 50% 45% 45%; box-shadow: inset -3px -4px 0 rgba(0,0,0,.15), inset 2px 3px 0 rgba(255,255,255,.5); flex: none; }
 .chip.done { opacity: .55; text-decoration: line-through; }
 .chip.done i { background: #ccc !important; }
 #mid { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-#timer { padding: 3px 16px 0; font-weight: 800; font-size: 24px; letter-spacing: .02em; min-width: 92px; text-align: center; }
+#timer { padding: 3px 16px 0; font-weight: 800; font-size: 24px; min-width: 92px; text-align: center; }
 #sus { width: 120px; height: 14px; padding: 3px; }
 #sus b { display: block; height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, #ffc93c, #ff6b3a, #ff2a5c); transition: width .2s; }
 #susL { font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); margin-top: -4px; letter-spacing: .08em; }
 #right { width: 96px; display: flex; justify-content: flex-end; }
 #menuBtn { width: 40px; height: 40px; display: grid; place-items: center; font-size: 20px; font-weight: 800; }
 
-/* reticle */
-#ret { position: absolute; left: 50%; top: 50%; width: 76px; height: 76px; margin: -38px 0 0 -38px; transition: transform .14s ease-out; }
+/* reticle: white; yellow when a jelly is under it ("let go to shoot"); red with a closing ring during the countdown */
+#ret { position: absolute; left: 50%; top: 50%; width: 120px; height: 120px; margin: -60px 0 0 -60px; }
 #ret svg { width: 100%; height: 100%; overflow: visible; }
-#ret .ring { fill: none; stroke: #fff; stroke-width: 3; opacity: .9; }
-#ret .tick { stroke: #fff; stroke-width: 3.5; stroke-linecap: round; }
+#ret .ring, #ret .tick { fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; transition: stroke .1s; }
 #ret .dot { fill: #fff; }
-#ret .shadow { fill: none; stroke: rgba(40, 20, 60, .35); stroke-width: 6; }
-#ret.hover { transform: scale(.84); }
-#ret.hover .ring, #ret.hover .tick, #ret.hover .dot { stroke: #ffe066; fill: none; }
-#ret.hover .dot { fill: #ffe066; }
-#ret.lock { transform: scale(.62) rotate(45deg); }
-#ret.lock .ring, #ret.lock .tick { stroke: var(--red); }
-#ret.lock .dot { fill: var(--red); }
-#ret.kick { transform: scale(1.25); transition: transform .05s; }
-#meter { position: absolute; left: 50%; top: 50%; width: 110px; height: 110px; margin: -55px 0 0 -55px; opacity: 0; transition: opacity .2s; }
-#meter circle { fill: none; stroke-width: 5; stroke-linecap: round; }
-#meter .bg { stroke: rgba(255,255,255,.25); }
-#meter .fg { stroke: #9ff0ff; filter: drop-shadow(0 0 4px #7fe8ff); }
-
-/* lock card: who is under the reticle */
-#card { position: absolute; left: 50%; top: calc(50% + 62px); transform: translate(-50%, 6px); opacity: 0; transition: opacity .15s, transform .15s; padding: 6px 16px 4px; text-align: center; white-space: nowrap; border-radius: 18px; }
+#ret .sh { fill: none; stroke: rgba(40, 20, 60, .3); stroke-width: 6; }
+#ret .count { fill: none; stroke: var(--red); stroke-width: 5; stroke-linecap: round; opacity: 0; }
+#ret .inner { transition: transform .12s ease-out; transform-origin: 0 0; }
+#ret.armed .ring, #ret.armed .tick { stroke: #ffe066; }
+#ret.armed .dot { fill: #ffe066; }
+#ret.armed .inner { transform: scale(.85); }
+#ret.aim .ring, #ret.aim .tick { stroke: var(--red); }
+#ret.aim .dot { fill: var(--red); }
+#ret.aim .count { opacity: 1; }
+#ret.kick .inner { transform: scale(1.3); transition: transform .04s; }
+#card { position: absolute; left: 50%; top: calc(50% + 56px); transform: translate(-50%, 6px); opacity: 0; transition: opacity .15s, transform .15s; padding: 6px 16px 4px; text-align: center; white-space: nowrap; border-radius: 18px; }
 #card.on { opacity: 1; transform: translate(-50%, 0); }
 #card .n { font-weight: 800; font-size: 17px; line-height: 1.1; }
 #card .r { font-weight: 700; font-size: 12.5px; opacity: .75; line-height: 1.2; }
 #card .tg { display: inline-block; background: var(--red); color: #fff; border-radius: 99px; padding: 1px 8px 0; font-size: 11px; font-weight: 800; letter-spacing: .08em; margin-left: 4px; vertical-align: 2px; }
-#card .ok { background: #4fb04a; }
 #card .d { font-size: 12.5px; font-weight: 700; color: #b8233f; line-height: 1.2; margin-top: 1px; }
-
-/* fire button: optional second thumb */
 #fire { position: absolute; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(var(--sb) + 22px); width: 84px; height: 84px; border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #ff8aa0, #ff3b5c 55%, #c81e44); box-shadow: inset 0 3px 0 rgba(255,255,255,.5), inset 0 -5px 0 rgba(120, 0, 30, .35), 0 6px 14px rgba(40, 10, 40, .35);
-  color: #fff; font-weight: 800; font-size: 15px; letter-spacing: .08em; display: grid; place-items: center; opacity: .82; }
-#fire:active, #fire.down { transform: scale(.92); opacity: 1; }
+  color: #fff; font-weight: 800; font-size: 15px; letter-spacing: .08em; display: grid; place-items: center; opacity: .8; }
+#fire.down { transform: scale(.92); opacity: 1; }
 #fire.cool { filter: saturate(.3) brightness(.9); }
-#hint { position: absolute; left: 16px; right: 116px; bottom: calc(var(--sb) + 30px); color: #fff; font-weight: 800; font-size: 15px; line-height: 1.25;
-  text-shadow: 0 2px 4px rgba(30, 20, 60, .55); transition: opacity .5s; }
-
-/* world-anchored bits */
+#hint { position: absolute; left: 16px; right: 116px; bottom: calc(var(--sb) + 30px); color: #fff; font-weight: 800; font-size: 15px; line-height: 1.25; text-shadow: 0 2px 4px rgba(30, 20, 60, .55); transition: opacity .5s; }
 #tags { position: absolute; inset: 0; }
-.pin { position: absolute; transform: translate(-50%, -100%); width: 0; height: 0; border: 8px solid transparent; border-top: 11px solid var(--red); filter: drop-shadow(0 2px 2px rgba(0,0,0,.3)); }
+.pin { position: absolute; left: 0; top: 0; width: 0; height: 0; border: 8px solid transparent; border-top: 11px solid var(--red); filter: drop-shadow(0 2px 2px rgba(0,0,0,.3)); }
 .arrow { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; display: grid; place-items: center; border: 3px solid var(--red); background: rgba(255,255,255,.9); }
 .arrow::after { content: ''; position: absolute; right: -9px; top: 50%; margin-top: -6px; border: 6px solid transparent; border-left: 8px solid var(--red); }
 .arrow i { width: 18px; height: 18px; border-radius: 50% 50% 45% 45%; }
 .bub { position: absolute; transform: translate(-50%, -100%); background: #fff; border-radius: 12px; padding: 1px 8px 0; font-weight: 800; font-size: 15px; white-space: nowrap; box-shadow: 0 2px 5px rgba(30,20,60,.3); }
 .bub.alarm { background: #ffe066; color: #b8233f; font-size: 18px; padding: 0 7px; }
 .bub.whistle { background: var(--red); color: #fff; }
-.float { position: absolute; transform: translate(-50%, -50%); font-weight: 800; font-size: 22px; color: #fff; -webkit-text-stroke: 1px rgba(60, 20, 60, .5); text-shadow: 0 3px 0 rgba(60, 20, 60, .35); white-space: nowrap; }
-
-/* sheets */
+.float { position: absolute; transform: translate(-50%, -50%); font-weight: 800; font-size: 22px; color: #fff; text-shadow: 0 3px 0 rgba(60, 20, 60, .35), 0 0 8px rgba(60, 20, 60, .4); white-space: nowrap; }
 .sheet { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(30, 18, 60, .45); pointer-events: auto; padding: 20px; transition: opacity .3s; }
 .sheet.hide { opacity: 0; pointer-events: none; }
 .panel { width: min(360px, 100%); background: linear-gradient(180deg, #fffdf6, #fbeccb); border-radius: 26px; padding: 18px 20px 20px; box-shadow: inset 0 3px 0 #fff, inset 0 -5px 0 rgba(190, 140, 90, .35), 0 16px 40px rgba(20, 10, 40, .45); }
-.panel h1 { margin: 0; font-size: 30px; line-height: 1; letter-spacing: .01em; }
+.panel h1 { margin: 0; font-size: 30px; line-height: 1; }
 .panel h1 small { display: block; font-size: 13px; letter-spacing: .14em; opacity: .6; margin-bottom: 4px; }
 .panel p { margin: 8px 0; font-weight: 600; font-size: 14.5px; line-height: 1.3; }
-.panel .gig { background: #fff; border-radius: 14px; padding: 8px 12px; font-size: 13.5px; font-weight: 700; box-shadow: inset 0 0 0 2px rgba(58, 37, 80, .08); }
+.panel .gig { background: #fff; border-radius: 14px; padding: 8px 12px; font-size: 13.5px; font-weight: 700; }
 .how { display: grid; grid-template-columns: 34px 1fr; gap: 6px 10px; align-items: center; margin: 12px 0 4px; font-weight: 700; font-size: 14px; line-height: 1.2; }
 .how b { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #ffe066; font-size: 17px; }
 .go { display: block; width: 100%; margin-top: 14px; padding: 12px 0 9px; border-radius: 99px; background: linear-gradient(180deg, #ff6b8a, #ff3b5c); color: #fff; font-weight: 800; font-size: 20px; letter-spacing: .06em;
@@ -117,7 +97,8 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .stats { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-weight: 700; font-size: 15px; margin: 10px 0; }
 .stats span:nth-child(even) { text-align: right; font-weight: 800; }
 .rating { font-size: 22px; font-weight: 800; color: #ff3b5c; margin-top: 4px; }
-#fps { position: absolute; left: 8px; bottom: calc(var(--sb) + 4px); font: 600 11px ui-monospace, monospace; color: rgba(255,255,255,.8); text-shadow: 0 1px 1px #000; display: none; }
+#fps { position: absolute; left: 8px; bottom: calc(var(--sb) + 4px); font: 600 11px ui-monospace, monospace; color: rgba(255,255,255,.85); text-shadow: 0 1px 1px #000; display: none; }
+#loading { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 20px; background: #2bb5c8; transition: opacity .4s; }
 </style>
 </head>
 <body>
@@ -127,19 +108,19 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
     <div id="vig"></div>
     <div id="slow"></div>
     <div id="tags"></div>
-    <svg id="meter" viewBox="-55 -55 110 110"><circle class="bg" r="50"/><circle class="fg" r="50" transform="rotate(-90)"/></svg>
-    <div id="ret"><svg viewBox="-38 -38 76 76">
-      <circle class="shadow" r="22"/><circle class="ring" r="22"/>
-      <line class="tick shadow" x1="0" y1="-34" x2="0" y2="-26"/><line class="tick" x1="0" y1="-34" x2="0" y2="-26"/>
-      <line class="tick" x1="0" y1="34" x2="0" y2="26"/><line class="tick" x1="-34" y1="0" x2="-26" y2="0"/><line class="tick" x1="34" y1="0" x2="26" y2="0"/>
-      <circle class="dot" r="2.6"/></svg></div>
+    <div id="ret"><svg viewBox="-60 -60 120 120"><g class="inner">
+      <circle class="sh" r="22"/><circle class="ring" r="22"/>
+      <line class="tick" x1="0" y1="-34" x2="0" y2="-27"/><line class="tick" x1="0" y1="34" x2="0" y2="27"/>
+      <line class="tick" x1="-34" y1="0" x2="-27" y2="0"/><line class="tick" x1="34" y1="0" x2="27" y2="0"/>
+      <circle class="dot" r="2.6"/></g>
+      <circle class="count" r="44" transform="rotate(-90)"/></svg></div>
     <div id="card" class="pill"></div>
     <div id="top">
       <div id="targets"></div>
       <div id="mid"><div id="timer" class="pill">6:00</div><div id="sus" class="pill"><b></b></div><div id="susL">SUSPICION</div></div>
       <div id="right"><button id="menuBtn" class="pill" aria-label="Pause">Ⅱ</button></div>
     </div>
-    <div id="hint">Drag to look around. Let go on a jelly to slow time. Tap to shoot.</div>
+    <div id="hint">Drag to look around. Let go with a jelly in the sights to shoot.</div>
     <button id="fire" aria-label="Fire">FIRE</button>
     <div id="fps"></div>
   </div>
@@ -148,34 +129,34 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
     <div class="gig">Removal ×3. Surge pricing ×2.4.<br>Customer note: “These three ruined my retirement. make it look like an accident pls 🙏” — Doris</div>
     <div class="how">
       <b>☝</b><span>Drag to look. Flick to whip across the beach.</span>
-      <b>⏳</b><span>Let go on a jelly (or tap one) and time slows.</span>
-      <b>💥</b><span>Tap again to shoot. Drag to change your mind.</span>
+      <b>⏳</b><span>Let go with a jelly in the sights: time slows, a ring closes, the shot goes off. Keep it on them!</span>
+      <b>✋</b><span>Touch again before the ring closes to call it off.</span>
       <b>✌</b><span>Two thumbs? Aim with one, hit FIRE with the other.</span>
     </div>
-    <p>Red pins are targets. Pop anyone else, or get seen, and suspicion climbs. Lifeguards whistle.</p>
+    <p>Red pins are targets. Pop anyone else, or get seen, and suspicion climbs.</p>
     <button class="go" id="start">ACCEPT GIG</button>
   </div></div>
   <div id="pause" class="sheet hide"><div class="panel">
     <h1><small>PAUSED</small>Taking five</h1>
-    <p>Drag to look · let go on a jelly to slow time · tap to shoot · pinch to zoom. Mouse: drag, release, click; wheel zooms; Space fires; Esc lets go.</p>
+    <p>Drag to look · let go with a jelly in the sights to shoot · touch to call it off · pinch to zoom. Mouse: drag, release; wheel zooms; Space fires; Esc pauses.</p>
     <button class="go" id="resume">BACK TO IT</button>
     <button class="go alt" id="restart">Restart gig</button>
     <button class="go alt" id="classic">Play the old 2D game</button>
   </div></div>
   <div id="end" class="sheet hide"><div class="panel">
-    <h1 id="endT"><small>GIG COMPLETE</small>Five stars</h1>
+    <h1 id="endT"></h1>
     <div class="stats" id="endS"></div>
     <div class="rating" id="endR"></div>
     <button class="go" id="again">PLAY AGAIN</button>
   </div></div>
+  <div id="loading">Setting up the beach…</div>
 </div>
 
 <script type="module">
 import * as THREE from 'three';
-import { makeJelly, animate, QUALITY, mesh, clay, glossy, sph, G } from './jelly-rig.js';
-import * as K from './boardwalk-kit.js';
+import { makeJelly, animate, QUALITY, mesh, clay, glossy, sph } from './jelly-rig.js';
 import { BY_NAME, crowdSpec } from './cast-l1.js';
-import { buildMap, groundAt } from './palmetto-map.js';
+import { buildMap } from './palmetto-25d.js';
 import { Gesture } from './beach-gesture.js';
 
 const $ = id => document.getElementById(id);
@@ -185,325 +166,252 @@ let seed = 7; const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t
 const rand = (a, b) => a + rnd() * (b - a), pick = a => a[Math.floor(rnd() * a.length)];
 const clamp = THREE.MathUtils.clamp, damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
 const Q = new URLSearchParams(location.search);
+await Promise.race([document.fonts.load("800 40px 'Baloo 2'"), new Promise(r => setTimeout(r, 2500))]);   // the painted signs use the font
 
-/* ======================= renderer, light ======================= */
+/* ======================= renderer and light (the flat art is unlit; only the jellies are lit) ======================= */
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 let DPR = Math.min(devicePixelRatio, 2); renderer.setPixelRatio(DPR);
-renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08;
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
 const scene = new THREE.Scene(); scene.background = new THREE.Color('#2bb5c8');
-const hemi = new THREE.HemisphereLight('#d8ecff', '#f0d29a', 1.45); scene.add(hemi);
-const key = new THREE.DirectionalLight('#fff1dc', 2.6); key.castShadow = true;
-key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -.0005; key.shadow.normalBias = .04; key.shadow.radius = 3;
-scene.add(key, key.target);
-const SUN = V(-14, 30, 12).normalize();   // from the upper left, a little toward us: shadows fall right and away
+scene.add(new THREE.HemisphereLight('#e4f2ff', '#f0d29a', 1.6));
+const key = new THREE.DirectionalLight('#fff1dc', 2.4); key.position.set(-14, 30, 14); scene.add(key);
 const rim = new THREE.DirectionalLight('#ffd6ec', .5); rim.position.set(30, 16, -40); scene.add(rim);
 
-/* ======================= world ======================= */
-QUALITY.transmission = false;   // top-down at phone size: the cheaper glossy skin, no second pass
-const M = buildMap(scene, rnd);
+/* ======================= camera: fixed, like Don't Starve without the rotation ======================= */
+const PITCH = THREE.MathUtils.degToRad(50), FOV = 30;
+const cam = new THREE.PerspectiveCamera(FOV, 1, 1, 400);
+const view = { T: V(-4, 0, 8), vel: new THREE.Vector2(), d: 50, dUser: 50, shake: 0, whip: null };
+const D_MIN = 22, D_MAX = 95, BOUNDS = { x0: -42, x1: 34, z0: -52, z1: 30 };
+let W = 1, H = 1;
+function placeCamera(dt) {
+  const s = view.shake, sx = s ? (Math.random() - .5) * s : 0, sz = s ? (Math.random() - .5) * s : 0;
+  cam.position.set(view.T.x + sx, view.T.y + Math.sin(PITCH) * view.d, view.T.z + Math.cos(PITCH) * view.d + sz);
+  cam.lookAt(view.T.x + sx, view.T.y, view.T.z + sz); cam.updateMatrixWorld();
+  view.shake = Math.max(0, view.shake - dt * 3);
+}
+function resize() { W = app.clientWidth; H = app.clientHeight; renderer.setPixelRatio(DPR); renderer.setSize(W, H, false); cam.aspect = W / H; cam.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(app); resize();
 
-// umbrellas and palm crowns go see-through near the reticle, so nobody can hide from you under one
-const OCC = M.occluders.map(g => { const mats = []; g.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.transparent = true; mats.push(o.material); } }); return { g, mats, a: 1 }; });
+/* ======================= the world ======================= */
+QUALITY.transmission = false;
+const M = buildMap(scene, rnd, { tilt: PITCH });
+// standing cutouts near the reticle go see-through, so nobody hides under an umbrella or a palm
+const OCC = M.occluders.map(m => ({ m, a: 1 }));
 function updateOccluders(rdt) {
-  for (const o of OCC) { const d = Math.hypot(o.g.position.x - view.T.x, o.g.position.z - view.T.z), want = d < 4.5 ? .22 : 1;
-    if (Math.abs(o.a - want) < .01) continue; o.a = damp(o.a, want, 10, rdt); for (const m of o.mats) { m.opacity = o.a; m.depthWrite = o.a > .9; } o.g.traverse(x => { if (x.isMesh) x.castShadow = o.a > .5; }); }
+  for (const o of OCC) { const d = Math.hypot(o.m.position.x - view.T.x, o.m.position.z - view.T.z), want = d < 4.5 ? .28 : 1;
+    if (Math.abs(o.a - want) < .01) continue; o.a = damp(o.a, want, 10, rdt); const mt = o.m.material; mt.transparent = o.a < .99; mt.opacity = o.a; mt.depthWrite = o.a > .9; mt.alphaToCoverage = !mt.transparent; mt.needsUpdate = true; }
 }
 
 /* ======================= people ======================= */
 const people = [];
 const CROWD_ROLE = { beach: 'Beachgoer', boardwalk: 'Boardwalker', pier: 'Pier crowd', pool: 'Pool partier', swim: 'Swimmer' };
+const zoneOf = (x, z) => (Math.abs(z - M.PIER_Z) < 3.4 && x < M.BWX - M.BWW / 2 && x > M.BWX - M.PIER_LEN) ? 'pier' : x < M.shoreX(z) + .5 ? 'water' : 'land';
 function addJelly(spec, p, ry = 0, extra = {}) {
   const j = makeJelly(spec); j.root.position.copy(p); j.root.rotation.y = ry; scene.add(j.root);
-  j.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
   const o = { j, base: p.clone(), ry, alive: true, name: spec.name ?? null, role: spec.role ?? CROWD_ROLE[extra.zone] ?? 'Local', target: !!spec.target, guard: /lifeguard|patrol/.test(spec.role ?? ''), beh0: j.beh, ...extra };
+  if (p.y > -.1) { o.shadow = new THREE.Mesh(M.blobGeo, M.shadowMat); o.shadow.renderOrder = -2; o.shadow.scale.set(j.size * 1.5, 1, j.size * 1.1); scene.add(o.shadow); }
   people.push(o); return o;
 }
 const cast = (name, p, ry = 0, extra) => addJelly(BY_NAME[name], p, ry, extra);
 const off = (p, dx, dy, dz) => p.clone().add(V(dx, dy, dz));
-const bw = (z, dx = 0) => V(M.BWX + dx, M.BWY, z);
-const towerTop = t => off(t.position, 0, 3.3 * 1.1 * .75 + .2, 0);
-const SEA = -Math.PI / 2, BOARD = Math.PI / 2;
+const bw = (z, dx = 0) => V(M.BWX + dx, 0, z);
 const { onPier, booth, court, castle, poolP, djP, tikiP, gateP, dockEnd, beachSpots, shoreX } = M;
-
-// targets walk loops of stops: { p, wait, beh }
 const TARGET_INFO = {
   'Brayden "Moonboy" Kessler': { short: 'Brayden', deed: 'Selling $JIGGLE to retirees' },
   'Skylar Lux': { short: 'Skylar', deed: 'Shoving kids out of her shot' },
   '"Big" Rick Gillis': { short: 'Rick', deed: 'Collecting “fees” from vendors' },
 };
 const brayden = cast('Brayden "Moonboy" Kessler', off(booth, 0, 0, .9), 0, { route: [
-  { p: off(booth, 0, 0, .9), wait: 9, beh: 'phone' }, { p: onPier(16, 1.6), wait: 6, beh: 'cheering' }, { p: onPier(43, 2.2), wait: 7, beh: 'phone' }, { p: onPier(26, -1.6), wait: 5, beh: 'chatting' }] });
-const skylar = cast('Skylar Lux', off(court, 2.2, 0, 4.2), 0, { route: [
-  { p: off(court, 2.2, 0, 4.2), wait: 8, beh: 'selfie' }, { p: V(shoreX(4) + 3, 0, 4), wait: 7, beh: 'selfie' }, { p: off(castle, 1.5, 0, 2.4), wait: 6, beh: 'selfie' }, { p: V(-2, 0, 18), wait: 7, beh: 'waving' }, { p: V(shoreX(-14) + 3.5, 0, -14), wait: 6, beh: 'selfie' }] });
-const rick = cast('"Big" Rick Gillis', bw(10, -1), 0, { route: [
+  { p: off(booth, 0, 0, .9), wait: 9, beh: 'phone' }, { p: onPier(16, 1.6), wait: 6, beh: 'cheering' }, { p: onPier(43, 2.2), wait: 7, beh: 'phone' }, { p: onPier(26, -1.2), wait: 5, beh: 'chatting' }] });
+const skylar = cast('Skylar Lux', off(court, 3, 0, 6.5), 0, { route: [
+  { p: off(court, 3, 0, 6.5), wait: 8, beh: 'selfie' }, { p: V(shoreX(4) + 3.5, 0, 4), wait: 7, beh: 'selfie' }, { p: off(castle, 1.5, 0, 2.4), wait: 6, beh: 'selfie' }, { p: V(-2, 0, 18), wait: 7, beh: 'waving' }, { p: V(shoreX(-14) + 4, 0, -14), wait: 6, beh: 'selfie' }] });
+const rick = cast('"Big" Rick Gillis', bw(19, 2), 0, { route: [
   { p: bw(19, 2), wait: 8, beh: 'smoking' }, { p: bw(11, 2.2), wait: 6, beh: 'chatting' }, { p: bw(-1, -1.5), wait: 7, beh: 'smoking' }, { p: bw(-17, 2.4), wait: 7, beh: 'chatting' }, { p: bw(-26, 2.5), wait: 5, beh: 'smoking' }] });
 const TARGETS = [brayden, skylar, rick];
-// client and guards
-cast('Doris Pembrook', onPier(27, 2), Math.PI / 2);
-cast('Chip', towerTop(M.towerA), SEA); cast('Marisol', towerTop(M.towerB), SEA);
+cast('Doris Pembrook', onPier(27, 2.2), Math.PI / 2);
+cast('Chip', M.towerTop(M.towerA), 0); cast('Marisol', M.towerTop(M.towerB), 0);
 cast('Trent', off(poolP, 7, 0, 1), -Math.PI / 2);
 cast('Officer Gary Plunk', V(-4, 0, -14), 1.2, { walk: { ax: 'z', amp: 14, speed: .02 } });
-cast('Big Moe', off(gateP, -1.2, 0, -1.5), -Math.PI / 2); cast('Little Moe', off(gateP, -1.2, 0, 1.8), -Math.PI / 2);
-const tank = cast('Tank', off(booth, 2, 0, .8), 0, { follow: brayden, followOff: V(1.4, 0, .7) });
-// pier
-cast('Earl Bassmeyer', onPier(M.PIER_LEN - 1.5, 2.6), SEA); cast('Lorna', onPier(12, 1.4), .3); cast('Chet', onPier(32, -2.6), -1.2);
-cast('Walt Hutchins', onPier(26, -.8), Math.PI / 2); cast('Bev Hutchins', onPier(26, .4), Math.PI / 2); cast('Sal Trombetta', onPier(25, 1.6), Math.PI / 2);
-cast('Kazoo Kevin', onPier(38, 2), Math.PI); cast('Jaxon', off(booth, -2, 0, 1), .3, { follow: brayden, followOff: V(-1.3, 0, .5) });
-// boardwalk
-cast('Rosa', off(M.rosa.position, -1.8, 0, .4), -Math.PI / 2); cast('Hot Dog Hal', off(M.halCart.position, .2, 0, 1.4)); cast('Vinnie Spray', off(M.vinnie.position, -2, 0, .4), -Math.PI / 2);
-cast('Tyler', off(M.arcade.position, -3, 0, 1), -Math.PI / 2); cast('Gator Gus', off(M.golf.position, -4.5, 0, 0), -Math.PI / 2); cast('Pam', off(M.pam.position, -1.8, 0, .4), -Math.PI / 2);
-cast('Silver Steve', bw(6, 1.5).setY(M.BWY + .5), 0);
+cast('Big Moe', off(gateP, -1.6, 0, .6), 0); cast('Little Moe', off(gateP, 1.6, 0, .6), 0);
+cast('Tank', off(booth, 2, 0, 1.4), 0, { follow: brayden, followOff: V(1.4, 0, .7) });
+cast('Earl Bassmeyer', onPier(M.PIER_LEN - 1.5, 2.6), 0); cast('Lorna', onPier(12, 1.4), .3); cast('Chet', onPier(33, -2.4), -.6);
+cast('Walt Hutchins', onPier(26, .6), Math.PI / 2); cast('Bev Hutchins', onPier(26, 1.6), Math.PI / 2); cast('Sal Trombetta', onPier(25, 2.6), Math.PI / 2);
+cast('Kazoo Kevin', onPier(38, 2), 0); cast('Jaxon', off(booth, -2, 0, 1), .3, { follow: brayden, followOff: V(-1.3, 0, .5) });
+cast('Rosa', off(M.rosa.position, -1, 0, 1), 0); cast('Hot Dog Hal', off(M.halCart.position, .2, 0, 1)); cast('Vinnie Spray', off(M.vinnie.position, -1, 0, 1), 0);
+cast('Tyler', off(M.arcade.position, -1, 0, 1.2), 0); cast('Gator Gus', off(M.golf.position, -1.5, 0, 1), 0); cast('Pam', off(M.pam.position, -1, 0, 1), 0);
+cast('Silver Steve', bw(6, 1.5).setY(.45), 0);
 for (const [n, o] of [['Craig Feldman', 0], ['Linda Feldman', 1.2], ['Mason Feldman', -.9], ['Ava Feldman', 2.1]]) cast(n, bw(22 - Math.abs(o) * .3, o), 0, { walk: { ax: 'z', amp: 12, speed: .02, phase: 0 } });
-cast('Kayden', off(gateP, -3, 0, 5), -1.2);
-// beach
-for (const [n, dx, dz, r] of [['Brock', -2.4, -1.5, BOARD], ['Duke', -2.4, 1.6, BOARD], ['Jess', 2.4, -1.5, -BOARD], ['Bree', 2.4, 1.6, -BOARD]]) cast(n, off(court, dx, 0, dz), r);
-cast('Ref Dennis', off(court, 0, 0, 5.2), 0); cast('Glenda', V(beachSpots[1][0], 0, beachSpots[1][1]), 0);
+cast('Kayden', off(gateP, -3, 0, 4), -1.2);
+for (const [n, dx, dz, r] of [['Brock', -2, -2.4, 0], ['Duke', 2, -2.4, 0], ['Jess', -2, 2.4, Math.PI], ['Bree', 2, 2.4, Math.PI]]) cast(n, off(court, dx, 0, dz), r);
+cast('Ref Dennis', off(court, -5.4, 0, .4), Math.PI / 2); cast('Glenda', V(beachSpots[1][0], 0, beachSpots[1][1]), 0);
 cast('Ronnie Fitch', V(-9, 0, -8), 0, { walk: { ax: 'z', amp: 8, speed: .05 } });
 cast('Lily', off(castle, -1.5, 0, 1.2), -.4); cast('Ollie', off(castle, 1.5, 0, 1.3), -.6); cast('Marcus', V(beachSpots[3][0], 0, beachSpots[3][1]));
-cast('Devin', V(shoreX(-18) + 2, 0, -18), 0, { walk: { ax: 'z', amp: 10, speed: .03 } }); cast('Priya', V(shoreX(-18) + 3, 0, -18.5), 0, { walk: { ax: 'z', amp: 10, speed: .03 } });
+cast('Devin', V(shoreX(-18) + 2.5, 0, -18), 0, { walk: { ax: 'z', amp: 10, speed: .03 } }); cast('Priya', V(shoreX(-18) + 3.5, 0, -18.5), 0, { walk: { ax: 'z', amp: 10, speed: .03 } });
 cast('Tony', V(-1, 0, 12), -.8); cast('Gina', V(.2, 0, 11), 2.2); cast('Uncle Rudy', V(beachSpots[5][0], 0, beachSpots[5][1]));
-cast('Kai', V(-22, -.35, -12), SEA); cast('Frosty Frank', off(M.frank, .8, 0, 1.4), -.4);
-// pool deck
-cast('DJ Turbo Splash', off(djP, 0, 0, -1)); cast('Tiki Tom', off(tikiP, 0, 0, -1.2), .5); cast('Floatie Phil', off(poolP, -2, .3, 0), .4);
+cast('Kai', V(-22, -.35, -12), 0); cast('Frosty Frank', off(M.frank, .8, 0, 1.2), -.4);
+cast('DJ Turbo Splash', off(djP, 0, 0, .3)); cast('Tiki Tom', off(tikiP, 0, 0, .3), 0); cast('Floatie Phil', off(poolP, -2, -.25, 0), .4);
 cast('Madison', off(poolP, -3, 0, 5), -.4); cast('Brody', off(poolP, -1, 0, 5.4)); cast('Zack', off(poolP, 1, 0, 5.6), -.3);
-cast('Felicia', off(poolP, -7, 0, 2), 0, { walk: { ax: 'z', amp: 4, speed: .06 } }); cast('Benny', off(poolP, 5, 0, 5), 0, { walk: { ax: 'x', amp: 3, speed: .05 } });
-// water
-cast('Darnell', off(dockEnd, 1, .2, 0), SEA); cast('Captain Lou', off(M.psBoat.position, 0, 1, 0), Math.PI * .5);
-M.moon.updateMatrixWorld(true); cast('Pierre', M.moon.localToWorld(V(8.2, 2.15, -1)), .45 + Math.PI / 2); cast('Ziggy', M.moon.localToWorld(V(-6.8, 2.15, 1.2)), .45);
-M.barge.updateMatrixWorld(true); cast('Sparky', M.barge.localToWorld(V(3.5, .6, 0)), -.2);
+cast('Felicia', off(poolP, -7.5, 0, 2), 0, { walk: { ax: 'z', amp: 4, speed: .06 } }); cast('Benny', off(poolP, 5, 0, 5), 0, { walk: { ax: 'x', amp: 3, speed: .05 } });
+cast('Darnell', off(dockEnd, 3, 0, 0), 0);
 cast('Stan', M.kay.position.clone(), .7, { ride: M.kay });
-// the crowd
 const crowd = (zone, n, where, beh, face = () => rand(-1, 1), z2 = zone) => { for (let i = 0; i < n; i++) { const p = where(i), s = crowdSpec(zone); s.beh = pick(beh); if (s.prop && s.beh === 'phone') s.beh = 'eating'; addJelly(s, p, face(p), { zone: z2 }); } };
-crowd('beach', 30, () => { const [x, z] = pick(beachSpots); return V(x + rand(-1.2, 1.2), 0, z + rand(-1, 1)); }, ['sunbathing', 'sunbathing', 'idle', 'chatting', 'phone', 'napping', 'waving']);
-crowd('beach', 12, () => { const z = rand(-44, 26); return V(rand(shoreX(z) + 4, 3), 0, z); }, ['walking', 'idle', 'chatting', 'eating']);
+crowd('beach', 30, () => { const [x, z] = pick(beachSpots); return V(x + rand(-1, 1), 0, z + rand(-.6, 1.2)); }, ['sunbathing', 'sunbathing', 'idle', 'chatting', 'phone', 'napping', 'waving']);
+crowd('beach', 12, () => { const z = rand(-44, 26); return V(rand(shoreX(z) + 4.5, 3), 0, z); }, ['walking', 'idle', 'chatting', 'eating']);
 crowd('beach', 9, () => { const z = rand(-40, 26); return V(shoreX(z) - rand(2, 9), -.35, z); }, ['floating'], undefined, 'swim');
 crowd('boardwalk', 24, () => bw(rand(-46, 28), rand(-3, 3)), ['walking', 'walking', 'idle', 'eating', 'chatting', 'phone']);
-crowd('pier', 12, () => onPier(rand(23, 33), rand(-2.6, 2.6)), ['cheering', 'idle', 'phone', 'waving'], p => Math.atan2(booth.x - p.x, booth.z - p.z));
-crowd('pier', 4, () => onPier(rand(40, 48), pick([-2.8, 2.8])), ['fishing', 'idle'], p => p.z > M.PIER_Z ? 0 : Math.PI);
+crowd('pier', 12, () => onPier(rand(23, 33), rand(-2.4, 2.8)), ['cheering', 'idle', 'phone', 'waving'], () => rand(-.5, .5));
+crowd('pier', 4, () => onPier(rand(40, 48), pick([-2.6, 2.8])), ['fishing', 'idle'], () => 0);
 crowd('pool', 18, () => off(poolP, rand(-9, 8), 0, rand(4.5, 8.5)), ['dancing', 'dancing', 'cheering', 'dancing', 'chatting'], () => rand(-.6, .6) + Math.PI);
-crowd('pool', 4, () => off(poolP, rand(-4, 4), .2, rand(-2, 2)), ['floating'], undefined, 'swim');
+crowd('pool', 4, () => off(poolP, rand(-4, 4), -.25, rand(-2, 2)), ['floating'], undefined, 'swim');
 for (const p of people) if (!p.walk && !p.route && !p.follow && p.j.beh === 'walking') p.walk = { ax: Math.abs(p.base.x - M.BWX) < 4 ? 'z' : pick(['x', 'z']), amp: rand(3, 9), speed: rand(.02, .05) };
 for (const p of TARGETS) { p.stop = 0; p.waitT = rand(0, 3); }
-const GUARDS = people.filter(p => p.guard);
 
-/* ======================= camera: steep three-quarter, the reticle's ground point in the middle ======================= */
-const PITCH = THREE.MathUtils.degToRad(54), FOV = 30;
-const cam = new THREE.PerspectiveCamera(FOV, 1, 1, 400);
-const view = { T: V(-4, .5, 8), vel: new THREE.Vector2(), d: 56, dUser: 56, zoomK: 1, shake: 0, whip: null };
-const D_MIN = 24, D_MAX = 110;
-const BOUNDS = { x0: -42, x1: 34, z0: -52, z1: 32 };
-let W = 1, H = 1;
-const wpp = () => 2 * view.d * Math.tan(THREE.MathUtils.degToRad(FOV / 2)) / H;   // world units per screen px at the reticle
-function placeCamera(dt) {
-  const s = view.shake > 0 ? view.shake : 0;
-  const sx = s ? (Math.random() - .5) * s : 0, sz = s ? (Math.random() - .5) * s : 0;
-  cam.position.set(view.T.x + sx, view.T.y + Math.sin(PITCH) * view.d, view.T.z + Math.cos(PITCH) * view.d + sz);
-  cam.lookAt(view.T.x + sx, view.T.y, view.T.z + sz);
-  view.shake = Math.max(0, view.shake - dt * 3);
-}
-function resize() {
-  W = app.clientWidth; H = app.clientHeight;
-  renderer.setPixelRatio(DPR); renderer.setSize(W, H, false);
-  cam.aspect = W / H; cam.fov = FOV; cam.updateProjectionMatrix();
-}
-new ResizeObserver(resize).observe(app); resize();
-
-// move the view so the ground point that was under screen point (x0, y0) ends up under (x1, y1): the world sticks to the finger
-const panPlane = new THREE.Plane(V(0, 1, 0), 0), gp0 = V(0, 0, 0), gp1 = V(0, 0, 0), pray = new THREE.Raycaster();
-function groundUnder(x, y, out) { pray.setFromCamera({ x: x / W * 2 - 1, y: 1 - y / H * 2 }, cam); return pray.ray.intersectPlane(panPlane, out); }
+/* ======================= screen <-> world ======================= */
+const panPlane = new THREE.Plane(V(0, 1, 0), 0), gp0 = V(0, 0, 0), gp1 = V(0, 0, 0), ray = new THREE.Raycaster();
+function groundUnder(x, y, out) { ray.setFromCamera({ x: x / W * 2 - 1, y: 1 - y / H * 2 }, cam); return ray.ray.intersectPlane(panPlane, out); }
+// move the view so the ground under screen point (x0, y0) ends up under (x1, y1): the world sticks to the finger
 function shiftView(x0, y0, x1, y1) {
-  panPlane.constant = -view.T.y; cam.updateMatrixWorld();
   if (!groundUnder(x0, y0, gp0) || !groundUnder(x1, y1, gp1)) return;
-  view.T.x += gp0.x - gp1.x; view.T.z += gp0.z - gp1.z;
-  view.T.x = clamp(view.T.x, BOUNDS.x0, BOUNDS.x1); view.T.z = clamp(view.T.z, BOUNDS.z0, BOUNDS.z1);
+  view.T.x = clamp(view.T.x + gp0.x - gp1.x, BOUNDS.x0, BOUNDS.x1); view.T.z = clamp(view.T.z + gp0.z - gp1.z, BOUNDS.z0, BOUNDS.z1);
   placeCamera(0);
 }
-
-/* ======================= picking: who is under a screen point ======================= */
-const v3 = V(0, 0, 0), ray = new THREE.Raycaster();
+const v3 = V(0, 0, 0), cv = V(0, 0, 0), sp = { x: 0, y: 0, z: 0 };
 const bodyC = (p, out = V(0, 0, 0)) => out.set(p.j.root.position.x, p.j.root.position.y + p.j.rig.position.y + p.j.size * .72, p.j.root.position.z);
 const toScreen = (w, out = { x: 0, y: 0, z: 0 }) => { v3.copy(w).project(cam); out.x = (v3.x + 1) / 2 * W; out.y = (1 - v3.y) / 2 * H; out.z = v3.z; return out; };
-const pxPerWorld = () => 1 / wpp();
-// nearest living jelly to a screen point, within its own on-screen radius plus `slack` px
-const sp = { x: 0, y: 0, z: 0 }, cv = V(0, 0, 0);
-function nearestAt(x, y, slack) {
-  let best = null, bd = Infinity; const ppw = pxPerWorld();
+const pxPerUnit = () => H / (2 * view.d * Math.tan(THREE.MathUtils.degToRad(FOV / 2)));
+// the jelly nearest the reticle, within its own on-screen radius plus `slack` px
+function nearCenter(slack) {
+  let best = null, bd = Infinity; const ppu = pxPerUnit();
   for (const p of people) {
     if (!p.alive) continue;
-    const r = Math.max(10, p.j.size * .8 * ppw);
+    const r = Math.max(10, p.j.size * .75 * ppu);
     toScreen(bodyC(p, cv), sp); if (sp.z > 1) continue;
-    const d = Math.hypot(sp.x - x, sp.y - y);
-    if (d < r + slack && d - r * .5 < bd) { bd = d - r * .5; best = p; }
+    const d = Math.hypot(sp.x - W / 2, sp.y - H / 2);
+    if (d < r + slack && d < bd) { bd = d; best = p; }
   }
   return best;
 }
-const reticleTarget = () => nearestAt(W / 2, H / 2, 14);
 
 /* ======================= gestures ======================= */
-const gesture = new Gesture({ overTarget: () => hover, pickAt: (x, y) => nearestAt(x, y, 26) });
-let hover = null, locked = null, fingerDown = false, fingerSpeed = 0, lastPanT = 0;
+const gesture = new Gesture({ armed: () => !!hover });
+let hover = null, fingerDown = false, fingerSpeed = 0, lastPanT = 0, aim = null;
+const AIM_TIME = .8;   // real seconds from letting go to the shot
 function applyActions(acts) {
   for (const a of acts) switch (a.type) {
     case 'hold': view.vel.set(0, 0); view.whip = null; break;
-    case 'pan': {
-      const now = performance.now(), dtp = Math.max(1, now - lastPanT) / 1000; lastPanT = now;
-      fingerSpeed = damp(fingerSpeed, Math.hypot(a.dx, a.dy) / dtp, 18, dtp);
-      // aim friction: over a jelly with a slow finger, the view moves less (never stops)
-      const fr = hover && fingerSpeed < 700 ? .55 : 1;
-      shiftView(a.x - a.dx * fr, a.y - a.dy * fr, a.x, a.y);
-      hint(1); break;
-    }
-    case 'glide': view.vel.set(a.vx, a.vy); break;   // px/s on screen
+    case 'cancel': aim = null; audio.cancel(); break;
+    case 'pan': { const now = performance.now(), dtp = Math.max(4, now - lastPanT) / 1000; lastPanT = now;
+      fingerSpeed = damp(fingerSpeed, Math.hypot(a.dx, a.dy) / dtp, 12, dtp); shiftView(a.x - a.dx, a.y - a.dy, a.x, a.y); hint(1); break; }
+    case 'glide': view.vel.set(a.vx, a.vy); break;
     case 'zoom': view.dUser = clamp(view.dUser / a.factor, D_MIN, D_MAX); break;
-    case 'acquire': acquire(a.j, a.how); break;
-    case 'abort': release(); break;
-    case 'fire': fire(); break;
+    case 'release': aim = { t: 0 }; audio.lock(); buzz(10); hint(2); break;
   }
 }
 app.addEventListener('pointerdown', e => {
   if (e.target.closest('button') || ended || paused) return;
-  try { app.setPointerCapture(e.pointerId); } catch {} fingerDown = true; audio.unlock();
+  try { app.setPointerCapture(e.pointerId); } catch {}
+  fingerDown = true; fingerSpeed = 0; lastPanT = performance.now(); audio.unlock();
   applyActions(gesture.down(e.pointerId, e.clientX, e.clientY, e.timeStamp));
 });
-app.addEventListener('pointermove', e => applyActions(gesture.move(e.pointerId, e.clientX, e.clientY, e.timeStamp)));
+app.addEventListener('pointermove', e => { if (!paused) applyActions(gesture.move(e.pointerId, e.clientX, e.clientY, e.timeStamp)); });
 const lift = e => { applyActions(gesture.up(e.pointerId, e.clientX, e.clientY, e.timeStamp)); fingerDown = gesture.ptrs.size > 0; };
 app.addEventListener('pointerup', lift);
 app.addEventListener('pointercancel', e => { gesture.cancel(e.pointerId); fingerDown = gesture.ptrs.size > 0; });
 app.addEventListener('wheel', e => { e.preventDefault(); view.dUser = clamp(view.dUser * Math.exp(e.deltaY * .0015), D_MIN, D_MAX); }, { passive: false });
 app.addEventListener('contextmenu', e => e.preventDefault());
-// the second thumb: FIRE fires the moment it is touched
 const fireBtn = $('fire');
-fireBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); audio.unlock(); fireBtn.classList.add('down'); fire(); });
+fireBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); audio.unlock(); fireBtn.classList.add('down'); aim = null; gesture.done(); fire(); });
 for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) fireBtn.addEventListener(ev, () => fireBtn.classList.remove('down'));
 addEventListener('keydown', e => {
-  if (e.code === 'Space') { e.preventDefault(); fire(); }
-  else if (e.code === 'Escape') { if (locked) { gesture.unlock(); release(); } else togglePause(); }
+  if (e.code === 'Space') { e.preventDefault(); aim = null; gesture.done(); fire(); }
+  else if (e.code === 'Escape') togglePause();
   else if (e.key === '=' || e.key === '+') view.dUser = clamp(view.dUser / 1.2, D_MIN, D_MAX);
   else if (e.key === '-') view.dUser = clamp(view.dUser * 1.2, D_MIN, D_MAX);
 });
 
-function acquire(p, how) {
-  if (!p?.alive) { gesture.unlock(); return; }
-  locked = p; view.vel.set(0, 0);
-  if (how === 'tap') view.whip = null;   // the lock pulls the camera over; a tap is a fast whip to it
-  buzz(12); audio.lock();
-  hint(2);
-}
-function release() { locked = null; }
-
-/* ======================= time ======================= */
-let ts = 1, gameT = 0, hitStop = 0, jellyTime = 1;
-const LOCK_TS = .12, LOCK_TS_EMPTY = .45, HOVER_TS = .55;
-
 /* ======================= shooting ======================= */
-const PERCH = V(20, 24, 52);   // the Sea Breeze Motor Inn roof, behind us
-let cool = 0, queued = false; const COOL = .55;
+const PERCH = V(20, 26, 56);   // the Sea Breeze Motor Inn roof, behind the camera
+let cool = 0; const COOL = .5;
 const shots = [];
-const tracerMat = new THREE.MeshBasicMaterial({ color: '#fff7c8', transparent: true, opacity: .95, depthWrite: false });
+const tracerMat = new THREE.MeshBasicMaterial({ color: '#fff7c8', transparent: true, opacity: .95, depthWrite: false, toneMapped: false });
 const tracerGeo = new THREE.CylinderGeometry(.06, .06, 1, 6, 1, true).translate(0, .5, 0).rotateX(Math.PI / 2);
+const stats = { targets: 0, innocents: 0, seen: 0, peakSus: 0, shots: 0, misses: 0 };
 function fire() {
-  if (ended || paused) return;
-  if (cool > 0) { queued = true; return; }
-  cool = COOL; queued = false;
-  // aim: the reticle ray against the jellies' bodies, else the ground
+  if (ended || paused || cool > 0) return;
+  cool = COOL; stats.shots++;
   ray.setFromCamera({ x: 0, y: 0 }, cam);
-  let hit = null, at = null, best = Infinity;
+  let hit = null, at = null, best = Infinity; const s = new THREE.Sphere();
   for (const p of people) {
     if (!p.alive) continue;
-    const c = bodyC(p, V(0, 0, 0)), r = p.j.size * .8, s = new THREE.Sphere(c, r);
+    s.set(bodyC(p, V(0, 0, 0)), p.j.size * .7);
     const pt = ray.ray.intersectSphere(s, V(0, 0, 0));
-    if (pt) { const d = pt.distanceTo(ray.ray.origin) - (p === locked ? 1e3 : 0); if (d < best) { best = d; hit = p; at = pt; } }   // the one you locked wins any overlap
+    if (pt) { const d = pt.distanceTo(ray.ray.origin); if (d < best) { best = d; hit = p; at = pt; } }
   }
-  if (!hit && locked?.alive && nearestAt(W / 2, H / 2, 4) === locked) { hit = locked; at = bodyC(locked); }   // a lock never misses by a hair
-  if (!at) { const t = (0 - ray.ray.origin.y) / ray.ray.direction.y; at = ray.ray.origin.clone().addScaledVector(ray.ray.direction, t); at.y = groundAt(M, at.x, at.z); }
+  if (!at) at = ray.ray.intersectPlane(panPlane, V(0, 0, 0)) ?? view.T.clone();
   const tr = new THREE.Mesh(tracerGeo, tracerMat); scene.add(tr);
-  shots.push({ from: PERCH.clone(), to: at.clone(), hit, t: 0, dur: .11, tr });
-  view.shake = .35; kick(); buzz(18); audio.shot();
-  hint(3);
+  shots.push({ from: PERCH.clone(), to: at.clone(), hit, t: 0, dur: .1, tr });
+  view.shake = .3; kick(); buzz(18); audio.shot(); hint(3);
 }
-function kick() { const r = $('ret'); r.classList.add('kick'); setTimeout(() => r.classList.remove('kick'), 70); }
+function kick() { retEl.classList.add('kick'); setTimeout(() => retEl.classList.remove('kick'), 70); }
 function updateShots(rdt) {
   for (let i = shots.length - 1; i >= 0; i--) {
-    const s = shots[i]; s.t += rdt;   // bullets fly in real time, so slow motion never makes you wait for one
+    const s = shots[i]; s.t += rdt;
     const k = Math.min(1, s.t / s.dur), head = s.from.clone().lerp(s.to, k), tail = s.from.clone().lerp(s.to, Math.max(0, k - .35));
     s.tr.position.copy(tail); s.tr.lookAt(head); s.tr.scale.set(1, 1, Math.max(.01, tail.distanceTo(head)));
-    if (k >= 1) { scene.remove(s.tr); shots.splice(i, 1); land(s); }
+    if (k >= 1) { scene.remove(s.tr); shots.splice(i, 1); if (s.hit?.alive) pop(s.hit); else { stats.misses++; puff(s.to); noise(s.to); } }
   }
-}
-function land(s) {
-  if (s.hit?.alive) pop(s.hit);
-  else { puff(s.to); noise(s.to); }
-  if (locked) { gesture.unlock(); release(); }
 }
 
 /* ======================= pops, puddles, panic ======================= */
-const fx = [];   // flying bits, in game time
-const puddleGeo = new THREE.CircleGeometry(1, 28).rotateX(-Math.PI / 2);
-const dropGeo = sph(1, 12, 8);
-const stats = { targets: 0, innocents: 0, seen: 0, peakSus: 0, shots: 0 };
+const fx = [];
+const puddleGeo = new THREE.CircleGeometry(1, 28).rotateX(-Math.PI / 2), dropGeo = sph(1, 12, 8);
 function pop(p) {
-  p.alive = false; const j = p.j, c = bodyC(p), g = groundAt(M, c.x, c.z), col = new THREE.Color(j.col);
-  const mat = glossy(j.col, { roughness: .1, clearcoat: 1 });
-  for (let i = 0; i < 18; i++) {
-    const d = mesh(dropGeo, mat, scene, c.x, c.y, c.z); const r = j.size * rand(.08, .2); d.scale.setScalar(r); d.castShadow = false;
-    const a = rand(0, Math.PI * 2), v = rand(2, 6);
-    fx.push({ o: d, v: V(Math.cos(a) * v, rand(3, 8), Math.sin(a) * v), g, r, splat: true });
-  }
-  // the outfit goes flying
+  p.alive = false; const j = p.j, c = bodyC(p), g = 0, mat = glossy(j.col, { roughness: .1, clearcoat: 1 });
+  for (let i = 0; i < 18; i++) { const d = mesh(dropGeo, mat, scene, c.x, c.y, c.z), r = j.size * rand(.08, .2); d.scale.setScalar(r);
+    const a = rand(0, Math.PI * 2), v = rand(2, 6); fx.push({ o: d, v: V(Math.cos(a) * v, rand(3, 8), Math.sin(a) * v), g, r, splat: true }); }
   if (j.acc.children.length) { scene.attach(j.acc); fx.push({ o: j.acc, v: V(rand(-2, 2), 7, rand(-2, 2)), spin: V(rand(-8, 8), rand(-8, 8), rand(-8, 8)), g }); }
   for (const e of j.eyes) { scene.attach(e); fx.push({ o: e, v: V(rand(-3, 3), rand(5, 8), rand(-3, 3)), spin: V(rand(-9, 9), 0, rand(-9, 9)), g }); }
-  scene.remove(j.root);
-  const pud = new THREE.Mesh(puddleGeo, glossy(j.col, { roughness: .06, clearcoat: 1, transparent: true, opacity: .92 }));
-  pud.position.set(c.x, g + .04, c.z); pud.scale.setScalar(.01); pud.receiveShadow = true; scene.add(pud);
-  fx.push({ o: pud, grow: j.size * 1.5, t: 0 });
+  scene.remove(j.root); if (p.shadow) scene.remove(p.shadow);
+  const pud = new THREE.Mesh(puddleGeo, glossy(j.col, { roughness: .06, clearcoat: 1 })); pud.position.set(c.x, .03, c.z); pud.scale.setScalar(.01); scene.add(pud);
+  fx.push({ o: pud, grow: j.size * 1.4, t: 0 });
   hitStop = .07; buzz([10, 30, 25]); audio.pop(p.target);
   const sx = toScreen(c);
-  if (p.target) { stats.targets++; floatText(sx.x, sx.y - 30, pick(['POPPED!', 'GIG ✓', 'SPLORT!'])); markTarget(p); }
+  if (p.target) { stats.targets++; floatText(sx.x, sx.y - 30, pick(['POPPED!', 'GIG ✓', 'SPLORT!'])); p.chip.classList.add('done'); }
   else { stats.innocents++; floatText(sx.x, sx.y - 30, 'innocent… −★'); addSus(8); }
   witness(c, p.target ? .7 : 1.2);
   if (TARGETS.every(t => !t.alive)) setTimeout(() => finish(true), 1400);
 }
 function puff(at) {
   const mat = clay('#f8e4b8', .3);
-  for (let i = 0; i < 8; i++) { const d = mesh(dropGeo, mat, scene, at.x, at.y + .1, at.z); d.scale.setScalar(rand(.08, .16)); d.castShadow = false;
-    const a = rand(0, Math.PI * 2), v = rand(1, 2.5); fx.push({ o: d, v: V(Math.cos(a) * v, rand(2, 4), Math.sin(a) * v), g: at.y, fade: 1 }); }
+  for (let i = 0; i < 8; i++) { const d = mesh(dropGeo, mat, scene, at.x, at.y + .1, at.z); d.scale.setScalar(rand(.08, .16));
+    const a = rand(0, Math.PI * 2), v = rand(1, 2.5); fx.push({ o: d, v: V(Math.cos(a) * v, rand(2, 4), Math.sin(a) * v), g: 0, fade: 1 }); }
+  floatText(toScreen(at).x, toScreen(at).y - 20, 'miss');
 }
-// whoever sees a pop panics; lifeguards and the patrol whistle
 function witness(c, k) {
   let n = 0, whistled = false;
-  for (const p of people) {
-    if (!p.alive) continue; const d = Math.hypot(p.j.root.position.x - c.x, p.j.root.position.z - c.z);
-    if (d < 7) { n++; alarm(p, c, p.guard ? 'whistle' : 'alarm'); }
-    else if (p.guard && d < 15) { alarm(p, c, 'whistle'); whistled = true; }
-  }
-  if (whistled || people.some(p => p.guard && p.alive && Math.hypot(p.j.root.position.x - c.x, p.j.root.position.z - c.z) < 7)) { addSus(10); audio.whistle(); }
+  for (const p of people) { if (!p.alive) continue; const d = Math.hypot(p.j.root.position.x - c.x, p.j.root.position.z - c.z);
+    if (d < 7) { n++; alarm(p, c, p.guard ? 'whistle' : 'alarm'); if (p.guard) whistled = true; }
+    else if (p.guard && d < 15) { alarm(p, c, 'whistle'); whistled = true; } }
+  if (whistled) { addSus(10); audio.whistle(); }
   addSus(Math.min(24, n * 2.5 * k)); stats.seen += n;
 }
-function noise(c) {   // a miss: people nearby look up, a little suspicion
-  let n = 0; for (const p of people) if (p.alive && Math.hypot(p.j.root.position.x - c.x, p.j.root.position.z - c.z) < 4.5) { n++; alarm(p, c, 'alarm', true); }
-  addSus(2 + n * 2);
-}
+function noise(c) { let n = 0; for (const p of people) if (p.alive && Math.hypot(p.j.root.position.x - c.x, p.j.root.position.z - c.z) < 4.5) { n++; alarm(p, c, 'alarm', true); } addSus(2 + n * 2); }
 function alarm(p, c, kind, mild = false) {
   const away = V(p.j.root.position.x - c.x, 0, p.j.root.position.z - c.z); if (away.lengthSq() < .01) away.set(rand(-1, 1), 0, rand(-1, 1)); away.normalize();
-  p.flee = mild ? null : { dir: away, t: rand(2.2, 3.5) };
-  if (p.flee || mild) p.lookAt = c.clone();
-  bubble(p, kind === 'whistle' ? 'TWEET!' : '!', kind, 2.4);
+  if (!mild && !p.ride) p.flee = { dir: away, t: rand(2.2, 3.5) };
+  p.lookAt = c.clone(); bubble(p, kind === 'whistle' ? 'TWEET!' : '!', kind, 2.4);
 }
 let sus = 0;
 function addSus(x) { sus = clamp(sus + x, 0, 100); stats.peakSus = Math.max(stats.peakSus, sus); if (sus >= 100) setTimeout(() => finish(false, 'lockdown'), 600); }
 function updateFx(gdt) {
-  for (let i = fx.length - 1; i >= 0; i--) {
-    const f = fx[i];
+  for (let i = fx.length - 1; i >= 0; i--) { const f = fx[i];
     if (f.grow) { f.t += gdt; const k = Math.min(1, f.t / .5); f.o.scale.setScalar(f.grow * (1 - (1 - k) ** 3)); if (k >= 1) fx.splice(i, 1); continue; }
     f.v.y -= 22 * gdt; f.o.position.addScaledVector(f.v, gdt);
     if (f.spin) { f.o.rotation.x += f.spin.x * gdt; f.o.rotation.y += f.spin.y * gdt; f.o.rotation.z += f.spin.z * gdt; }
     if (f.o.position.y <= f.g + .02 && f.v.y < 0) {
       if (f.splat) { f.o.position.y = f.g + .03; f.o.scale.set(f.r * 1.8, f.r * .25, f.r * 1.8); fx.splice(i, 1); }
       else if (f.fade) { scene.remove(f.o); fx.splice(i, 1); }
-      else { f.o.position.y = f.g + .05; f.v.multiplyScalar(.35); f.v.y = Math.abs(f.v.y) > 2 ? -f.v.y * .3 : 0; if (f.v.lengthSq() < .3) { f.spin = null; fx.splice(i, 1); } }
-    }
-  }
+      else { f.o.position.y = f.g + .05; f.v.multiplyScalar(.35); f.v.y = Math.abs(f.v.y) > 2 ? -f.v.y * .3 : 0; if (f.v.lengthSq() < .3) fx.splice(i, 1); } } }
 }
 
 /* ======================= people over time ======================= */
@@ -516,50 +424,47 @@ function updatePeople(gt, gdt) {
     if (p.flee) {
       p.flee.t -= gdt; j.beh = 'cheering';
       const nx = pos.x + p.flee.dir.x * 3.2 * gdt, nz = pos.z + p.flee.dir.z * 3.2 * gdt;
-      if (Math.abs(groundAt(M, nx, nz) - groundAt(M, pos.x, pos.z)) < .3 && !p.ride) { pos.x = nx; pos.z = nz; }
+      if (zoneOf(nx, nz) === zoneOf(pos.x, pos.z)) { pos.x = nx; pos.z = nz; }
       j.root.rotation.y = Math.atan2(p.flee.dir.x, p.flee.dir.z);
-      if (p.flee.t <= 0) { p.flee = null; p.walk = null; p.route = p.route ?? null; p.base.copy(pos); j.beh = 'idle'; if (p.lookAt) j.root.rotation.y = Math.atan2(p.lookAt.x - pos.x, p.lookAt.z - pos.z); }
+      if (p.flee.t <= 0) { p.flee = null; p.walk = null; p.base.copy(pos); j.beh = 'idle'; j.root.rotation.y = Math.atan2(p.lookAt.x - pos.x, p.lookAt.z - pos.z); }
     } else if (p.route) {
       const s = p.route[p.stop], dx = s.p.x - pos.x, dz = s.p.z - pos.z, dist = Math.hypot(dx, dz);
-      if (dist > .15) { const st = Math.min(dist, SPEED * gdt); pos.x += dx / dist * st; pos.z += dz / dist * st; pos.y = s.p.y; j.beh = 'walking';
-        j.root.rotation.y = damp(j.root.rotation.y, Math.atan2(dx, dz), 8, gdt); }
+      if (dist > .15) { const st = Math.min(dist, SPEED * gdt); pos.x += dx / dist * st; pos.z += dz / dist * st; j.beh = 'walking'; j.root.rotation.y = damp(j.root.rotation.y, Math.atan2(dx, dz), 8, gdt); }
       else { j.beh = s.beh; p.waitT += gdt; j.root.rotation.y = damp(j.root.rotation.y, 0, 3, gdt); if (p.waitT > s.wait) { p.waitT = 0; p.stop = (p.stop + 1) % p.route.length; } }
     } else if (p.follow) {
       const f = p.follow.j.root.position, tx = f.x + p.followOff.x, tz = f.z + p.followOff.z, dx = tx - pos.x, dz = tz - pos.z, dist = Math.hypot(dx, dz);
       if (!p.follow.alive) { p.follow = null; j.beh = 'idle'; }
-      else if (dist > .5) { const st = Math.min(dist, SPEED * 1.15 * gdt); pos.x += dx / dist * st; pos.z += dz / dist * st; pos.y = f.y; j.beh = 'walking'; j.root.rotation.y = Math.atan2(dx, dz); }
+      else if (dist > .5) { const st = Math.min(dist, SPEED * 1.15 * gdt); pos.x += dx / dist * st; pos.z += dz / dist * st; j.beh = 'walking'; j.root.rotation.y = Math.atan2(dx, dz); }
       else j.beh = p.beh0;
     } else if (p.walk) {
       const w = p.walk, ph = (w.phase ?? j.ph) + gt * w.speed, s = Math.sin(ph * Math.PI * 2), c = Math.cos(ph * Math.PI * 2);
       pos.copy(p.base); pos[w.ax] += s * w.amp; const dv = Math.sign(c) || 1;
       j.root.rotation.y = w.ax === 'x' ? (dv > 0 ? Math.PI / 2 : -Math.PI / 2) : (dv > 0 ? 0 : Math.PI);
-    } else if (p.ride) { pos.copy(p.ride.position); pos.y += .1; j.root.rotation.y = p.ride.rotation.y; }
-    // only pose the ones near the view
+    } else if (p.ride) { pos.set(p.ride.position.x, 0, p.ride.position.z); j.root.rotation.y = p.ride.rotation.y; }
+    if (p.shadow) p.shadow.position.set(pos.x, .01, pos.z);
     if (Math.abs(pos.x - T.x) < near && Math.abs(pos.z - T.z) < near * 1.2) animate(j, gt);
   }
 }
 
-/* ======================= DOM overlays: pins, arrows, bubbles ======================= */
+/* ======================= overlays ======================= */
 const tagsEl = $('tags');
 const mk = (cls, html = '') => { const e = document.createElement('div'); e.className = cls; e.innerHTML = html; tagsEl.appendChild(e); return e; };
 for (const t of TARGETS) { t.pin = mk('pin'); t.arrow = mk('arrow', `<i style="background:${t.j.col}"></i>`); }
 const bubbles = [];
-function bubble(p, text, kind, life) { const e = mk('bub ' + kind, text); bubbles.push({ p, e, life }); }
+function bubble(p, text, kind, life) { bubbles.push({ p, e: mk('bub ' + kind, text), life }); }
 function floatText(x, y, text) { const e = mk('float', text); e.style.left = x + 'px'; e.style.top = y + 'px';
   e.animate([{ transform: 'translate(-50%,-50%) scale(.6)', opacity: 0 }, { transform: 'translate(-50%,-90%) scale(1.1)', opacity: 1, offset: .2 }, { transform: 'translate(-50%,-220%) scale(1)', opacity: 0 }], { duration: 1400, easing: 'ease-out' }).onfinish = () => e.remove(); }
 const hd = { x: 0, y: 0, z: 0 };
 function updateOverlays(rdt) {
-  const m = 30, topM = 120, botM = 120;
   for (const t of TARGETS) {
     if (!t.alive) { t.pin.style.display = t.arrow.style.display = 'none'; continue; }
     toScreen(v3.set(t.j.root.position.x, t.j.root.position.y + t.j.size * 1.55 + .25, t.j.root.position.z), hd);
     const on = hd.z < 1 && hd.x > 0 && hd.x < W && hd.y > 0 && hd.y < H;
     t.pin.style.display = on ? '' : 'none'; t.arrow.style.display = on ? 'none' : '';
-    if (on) t.pin.style.transform = `translate(${hd.x}px, ${hd.y}px) translate(-50%, -100%)`, t.pin.style.left = t.pin.style.top = '0';
+    if (on) t.pin.style.transform = `translate(${hd.x}px, ${hd.y}px) translate(-50%, -100%)`;
     else { const cx = W / 2, cy = H / 2, dx = hd.x - cx, dy = hd.y - cy, a = Math.atan2(dy, dx);
-      const kx = (W / 2 - m) / Math.abs(Math.cos(a) || 1e-6), ky = ((dy < 0 ? H / 2 - topM : H / 2 - botM)) / Math.abs(Math.sin(a) || 1e-6), k = Math.min(kx, ky);
-      t.arrow.style.left = cx + Math.cos(a) * k + 'px'; t.arrow.style.top = cy + Math.sin(a) * k + 'px'; t.arrow.style.transform = `rotate(${a}rad)`;
-      t.arrow.firstChild.style.transform = `rotate(${-a}rad)`; }
+      const k = Math.min((W / 2 - 30) / Math.abs(Math.cos(a) || 1e-6), (H / 2 - 120) / Math.abs(Math.sin(a) || 1e-6));
+      t.arrow.style.left = cx + Math.cos(a) * k + 'px'; t.arrow.style.top = cy + Math.sin(a) * k + 'px'; t.arrow.style.transform = `rotate(${a}rad)`; t.arrow.firstChild.style.transform = `rotate(${-a}rad)`; }
   }
   for (let i = bubbles.length - 1; i >= 0; i--) { const b = bubbles[i]; b.life -= rdt;
     if (b.life <= 0 || !b.p.alive) { b.e.remove(); bubbles.splice(i, 1); continue; }
@@ -568,68 +473,52 @@ function updateOverlays(rdt) {
 }
 
 /* ======================= HUD ======================= */
-const targetsEl = $('targets');
 for (const t of TARGETS) {
-  const b = document.createElement('button'); b.className = 'chip pill';
-  b.innerHTML = `<i style="background:${t.j.col}"></i>${TARGET_INFO[t.name].short}`;
-  b.onclick = e => { e.stopPropagation(); if (!t.alive) return; view.whip = t; view.vel.set(0, 0); if (locked) { gesture.unlock(); release(); } };
-  targetsEl.appendChild(b); t.chip = b;
+  const b = document.createElement('button'); b.className = 'chip pill'; b.innerHTML = `<i style="background:${t.j.col}"></i>${TARGET_INFO[t.name].short}`;
+  b.onclick = e => { e.stopPropagation(); if (t.alive) { view.whip = t; view.vel.set(0, 0); } };
+  $('targets').appendChild(b); t.chip = b;
 }
-function markTarget(t) { t.chip.classList.add('done'); }
-const retEl = $('ret'), cardEl = $('card'), slowEl = $('slow'), meterEl = $('meter'), meterFg = meterEl.querySelector('.fg');
-const CIRC = 2 * Math.PI * 50; meterFg.style.strokeDasharray = CIRC;
+const retEl = $('ret'), cardEl = $('card'), slowEl = $('slow'), countEl = retEl.querySelector('.count');
+const CIRC = 2 * Math.PI * 44; countEl.style.strokeDasharray = CIRC;
 let cardFor = null;
 function updateHud() {
-  retEl.classList.toggle('lock', !!locked); retEl.classList.toggle('hover', !locked && !!hover);
-  const who = locked ?? (fingerDown || view.vel.lengthSq() < .1 ? hover : null);
-  if (who !== cardFor) {
-    cardFor = who;
+  retEl.classList.toggle('aim', !!aim); retEl.classList.toggle('armed', !aim && !!hover);
+  if (aim) countEl.style.strokeDashoffset = CIRC * Math.min(1, aim.t / AIM_TIME);
+  const who = hover;
+  if (who !== cardFor) { cardFor = who;
     if (who) { const ti = TARGET_INFO[who.name];
-      cardEl.innerHTML = `<div class="n">${who.name ? who.name.replace(/".*" /, '') : who.role}${who.target ? '<span class="tg">TARGET</span>' : ''}</div>` +
-        (ti ? `<div class="d">${ti.deed}</div>` : `<div class="r">${who.name ? who.role : 'innocent'}</div>`); }
-    cardEl.classList.toggle('on', !!who);
-  }
-  slowEl.style.opacity = clamp((1 - ts) / (1 - LOCK_TS), 0, 1);
-  meterEl.style.opacity = locked ? 1 : 0; meterFg.style.strokeDashoffset = CIRC * (1 - jellyTime);
+      cardEl.innerHTML = `<div class="n">${who.name ? who.name.replace(/".*" /, '') : who.role}${who.target ? '<span class="tg">TARGET</span>' : ''}</div>` + (ti ? `<div class="d">${ti.deed}</div>` : `<div class="r">${who.name ? who.role : 'innocent'}</div>`); }
+    cardEl.classList.toggle('on', !!who); }
+  slowEl.style.opacity = clamp((1 - ts) / .85, 0, 1);
   fireBtn.classList.toggle('cool', cool > 0);
   $('sus').firstChild.style.width = sus + '%';
-  const left = Math.max(0, TIME - gameT), mm = Math.floor(left / 60), ss = Math.floor(left % 60);
-  $('timer').textContent = `${mm}:${String(ss).padStart(2, '0')}`;
+  const left = Math.max(0, TIME - gameT); $('timer').textContent = `${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`;
 }
 let hintStage = 0;
-function hint(stage) {   // the first-run hint follows what you have done so far
-  if (stage <= hintStage) return; hintStage = stage; const h = $('hint');
-  h.textContent = ['', 'Let go on a jelly — or tap one — to slow time.', 'Tap to shoot. Drag to let go.', ''][stage];
-  h.style.opacity = stage >= 3 ? 0 : 1;
-}
+function hint(stage) { if (stage <= hintStage) return; hintStage = stage; const h = $('hint');
+  h.textContent = ['', 'Let go with a jelly in the sights to shoot.', 'Keep them in the ring… touch to call it off.', ''][stage]; h.style.opacity = stage >= 3 ? 0 : 1; }
 
-/* ======================= audio (tiny synth) ======================= */
+/* ======================= audio ======================= */
 const audio = (() => {
-  let ac = null;
+  let ac = null, nb = null;
   const env = (g, t, a, d, v) => { g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + a); g.gain.exponentialRampToValueAtTime(.001, t + a + d); };
-  const noiseBuf = () => { const b = ac.createBuffer(1, ac.sampleRate * .4, ac.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return b; };
-  let nb = null;
+  const tone = (type, f0, f1, dur, vol) => { if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur); env(g, t, .005, dur, vol); o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + .05); };
   return {
-    unlock() { if (!ac) { try { ac = new AudioContext(); nb = noiseBuf(); } catch { return; } } if (ac.state === 'suspended') ac.resume(); },
+    unlock() { if (!ac) { try { ac = new AudioContext(); const b = ac.createBuffer(1, ac.sampleRate * .4, ac.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; nb = b; } catch { return; } } if (ac.state === 'suspended') ac.resume(); },
     shot() { if (!ac) return; const t = ac.currentTime, s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
-      s.buffer = nb; f.type = 'lowpass'; f.frequency.setValueAtTime(3000, t); f.frequency.exponentialRampToValueAtTime(200, t + .25); env(g, t, .002, .28, .7);
-      s.connect(f).connect(g).connect(ac.destination); s.start(t); s.stop(t + .35); },
-    pop(big) { if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
-      o.type = 'sine'; o.frequency.setValueAtTime(big ? 520 : 700, t); o.frequency.exponentialRampToValueAtTime(90, t + .22); env(g, t, .005, .3, .6);
-      o.connect(g).connect(ac.destination); o.start(t); o.stop(t + .35); },
-    lock() { if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
-      o.type = 'triangle'; o.frequency.setValueAtTime(330, t); o.frequency.exponentialRampToValueAtTime(140, t + .3); env(g, t, .01, .3, .18);
-      o.connect(g).connect(ac.destination); o.start(t); o.stop(t + .35); },
+      s.buffer = nb; f.type = 'lowpass'; f.frequency.setValueAtTime(3000, t); f.frequency.exponentialRampToValueAtTime(200, t + .25); env(g, t, .002, .28, .7); s.connect(f).connect(g).connect(ac.destination); s.start(t); s.stop(t + .35); },
+    pop(big) { tone('sine', big ? 520 : 700, 90, .3, .6); },
+    lock() { tone('triangle', 330, 140, .3, .18); },
+    cancel() { tone('triangle', 200, 320, .12, .1); },
     whistle() { if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), l = ac.createOscillator(), lg = ac.createGain(), g = ac.createGain();
-      o.type = 'square'; o.frequency.value = 2400; l.frequency.value = 28; lg.gain.value = 180; l.connect(lg).connect(o.frequency); env(g, t, .01, .45, .07);
-      o.connect(g).connect(ac.destination); o.start(t); l.start(t); o.stop(t + .5); l.stop(t + .5); },
+      o.type = 'square'; o.frequency.value = 2400; l.frequency.value = 28; lg.gain.value = 180; l.connect(lg).connect(o.frequency); env(g, t, .01, .45, .07); o.connect(g).connect(ac.destination); o.start(t); l.start(t); o.stop(t + .5); l.stop(t + .5); },
   };
 })();
 const buzz = p => { try { navigator.vibrate?.(p); } catch {} };
 
 /* ======================= flow ======================= */
 const TIME = 6 * 60;
-let started = false, paused = true, ended = false;
+let started = false, paused = true, ended = false, ts = 1, gameT = 0, hitStop = 0;
 $('start').onclick = () => { audio.unlock(); $('intro').classList.add('hide'); started = true; paused = false; };
 function togglePause() { if (!started || ended) return; paused = !paused; $('pause').classList.toggle('hide', !paused); }
 $('menuBtn').onclick = e => { e.stopPropagation(); togglePause(); };
@@ -637,74 +526,64 @@ $('resume').onclick = togglePause;
 $('restart').onclick = $('again').onclick = () => location.reload();
 $('classic').onclick = () => { location.href = new URL('../classic.html', document.baseURI).href; };
 function finish(win, why) {
-  if (ended) return; ended = true; if (locked) { gesture.unlock(); release(); }
+  if (ended) return; ended = true; aim = null;
   const left = Math.max(0, TIME - gameT), mm = Math.floor(left / 60), ss = Math.floor(left % 60);
   $('endT').innerHTML = win ? '<small>GIG COMPLETE</small>Doris says thank u 🙏' : `<small>GIG FAILED</small>${why === 'lockdown' ? 'Beach lockdown' : 'They sailed off on the Moonshot'}`;
-  $('endS').innerHTML = `<span>Targets popped</span><span>${stats.targets} / 3</span><span>Innocents popped</span><span>${stats.innocents}</span><span>Witnesses</span><span>${stats.seen}</span><span>Peak suspicion</span><span>${Math.round(stats.peakSus)}%</span><span>Time left</span><span>${mm}:${String(ss).padStart(2, '0')}</span>`;
-  const stars = !win ? 1 : Math.max(1, 5 - stats.innocents - (stats.peakSus > 60 ? 1 : 0) - (stats.seen > 12 ? 1 : 0));
-  $('endR').textContent = '★'.repeat(stars) + '☆'.repeat(5 - stars) + (win ? (stars === 5 ? '  Silent Jelly' : '') : '');
+  $('endS').innerHTML = `<span>Targets popped</span><span>${stats.targets} / 3</span><span>Innocents popped</span><span>${stats.innocents}</span><span>Shots / misses</span><span>${stats.shots} / ${stats.misses}</span><span>Peak suspicion</span><span>${Math.round(stats.peakSus)}%</span><span>Time left</span><span>${mm}:${String(ss).padStart(2, '0')}</span>`;
+  const stars = !win ? 1 : Math.max(1, 5 - stats.innocents - (stats.peakSus > 60 ? 1 : 0) - (stats.misses > 3 ? 1 : 0));
+  $('endR').textContent = '★'.repeat(stars) + '☆'.repeat(5 - stars) + (win && stars === 5 ? '  Silent Jelly' : '');
   setTimeout(() => $('end').classList.remove('hide'), win ? 300 : 900);
 }
 
 /* ======================= loop ======================= */
+const PULL = 1.4, PULL_AIM = 2.2;   // how fast the reticle eases toward a jelly under it (a help, not a lock)
 const clock = new THREE.Clock(); let fr = 0, ft = 0, slowFrames = 0;
 const showFps = Q.has('fps'); if (showFps) $('fps').style.display = 'block';
 const tmpC = V(0, 0, 0);
+placeCamera(0);
 renderer.setAnimationLoop(() => {
   const rdt = Math.min(clock.getDelta(), .05);
-  // time scale: locked = deep slow motion (weaker once Jelly Time runs out); a finger resting on a jelly = a gentle slow
-  const want = paused || ended ? 1 : locked ? (jellyTime > 0 ? LOCK_TS : LOCK_TS_EMPTY) : fingerDown && hover && fingerSpeed < 700 ? HOVER_TS : 1;
-  ts = damp(ts, want, want < ts ? 14 : 5, rdt);
-  if (locked) jellyTime = Math.max(0, jellyTime - rdt / 5); else jellyTime = Math.min(1, jellyTime + rdt / 9);
-  let gdt = paused ? 0 : rdt * ts;
-  if (hitStop > 0) { hitStop -= rdt; gdt = 0; }
+  ts = damp(ts, paused || ended ? 1 : aim ? .15 : 1, aim ? 14 : 5, rdt);
+  let gdt = paused ? 0 : rdt * ts; if (hitStop > 0) { hitStop -= rdt; gdt = 0; }
   if (!ended) gameT += gdt;
   if (started && !ended && gameT >= TIME) finish(false, 'time');
-  cool = Math.max(0, cool - rdt); if (queued && cool === 0) fire();
+  cool = Math.max(0, cool - rdt);
 
-  // camera: whip to a chip's target, hold a lock, or glide with inertia (and a magnet as the glide dies)
-  if (locked && !locked.alive) { gesture.unlock(); release(); }
   const T = view.T;
-  if (locked) { bodyC(locked, tmpC); T.x = damp(T.x, tmpC.x, 14, rdt); T.z = damp(T.z, tmpC.z, 14, rdt); T.y = damp(T.y, tmpC.y, 14, rdt); }
-  else {
-    if (view.whip) { const p = view.whip.j.root.position; T.x = damp(T.x, p.x, 7, rdt); T.z = damp(T.z, p.z, 7, rdt); if (Math.hypot(T.x - p.x, T.z - p.z) < .3 || !view.whip.alive) view.whip = null; }
-    const spd = view.vel.length();   // px/s on screen
-    if (spd > 1) {
-      shiftView(W / 2 - view.vel.x * rdt, H / 2 - view.vel.y * rdt, W / 2, H / 2);
-      if (T.x <= BOUNDS.x0 || T.x >= BOUNDS.x1 || T.z <= BOUNDS.z0 || T.z >= BOUNDS.z1) view.vel.multiplyScalar(Math.exp(-14 * rdt));   // the edge of the map soaks it up
-      view.vel.multiplyScalar(Math.exp(-3.4 * rdt));
-      if (hover && spd < 520) { bodyC(hover, tmpC); view.vel.multiplyScalar(Math.exp(-6 * rdt)); T.x = damp(T.x, tmpC.x, 5, rdt); T.z = damp(T.z, tmpC.z, 5, rdt); }
-      if (spd < 70) { view.vel.set(0, 0); if (hover && !fingerDown) { gesture.lock(hover); acquire(hover, 'glide'); } }
-    }
-    T.y = damp(T.y, .5, 4, rdt);
+  if (view.whip) { const p = view.whip.j.root.position; T.x = damp(T.x, p.x, 6, rdt); T.z = damp(T.z, p.z, 6, rdt); if (Math.hypot(T.x - p.x, T.z - p.z) < .3 || !view.whip.alive) view.whip = null; }
+  const spd = view.vel.length();
+  if (spd > 1) {
+    shiftView(W / 2 - view.vel.x * rdt, H / 2 - view.vel.y * rdt, W / 2, H / 2);
+    view.vel.multiplyScalar(Math.exp(-3.2 * rdt));
+    if (T.x <= BOUNDS.x0 || T.x >= BOUNDS.x1 || T.z <= BOUNDS.z0 || T.z >= BOUNDS.z1) view.vel.multiplyScalar(Math.exp(-14 * rdt));
+    if (spd < 25) view.vel.set(0, 0);
   }
-  T.x = clamp(T.x, BOUNDS.x0, BOUNDS.x1); T.z = clamp(T.z, BOUNDS.z0, BOUNDS.z1);
-  view.d = damp(view.d, view.dUser * (locked ? .72 : 1), locked ? 9 : 5, rdt);
+  view.d = damp(view.d, view.dUser * (aim ? .85 : 1), 6, rdt);
   placeCamera(rdt);
-  hover = locked ? locked : reticleTarget();
+  hover = paused || ended ? null : nearCenter(12);
+  // the gentle pull: a slow finger, or the countdown, eases the reticle toward the jelly under it
+  if (hover && !view.whip && (aim || (fingerDown && fingerSpeed < 260))) {
+    bodyC(hover, tmpC); const k = aim ? PULL_AIM : PULL;
+    T.x = damp(T.x, tmpC.x, k, rdt); T.z = damp(T.z, tmpC.z - tmpC.y / Math.tan(PITCH), k, rdt);   // the ground point behind the body centre, so the body sits under the reticle
+    placeCamera(0);
+  }
+  if (aim) { aim.t += rdt; if (aim.t >= AIM_TIME) { aim = null; gesture.done(); fire(); } }
 
-  // the sun follows the view so its shadow map only covers what you see
-  const sh = view.d * .75 + 6; Object.assign(key.shadow.camera, { left: -sh, right: sh, top: sh, bottom: -sh, near: 1, far: 140 }); key.shadow.camera.updateProjectionMatrix();
-  const snap = sh * 2 / 2048, cx = Math.round(T.x / snap) * snap, cz = Math.round((T.z - 4) / snap) * snap;
-  key.target.position.set(cx, 0, cz); key.position.set(cx, 0, cz).addScaledVector(SUN, 60);
-
-  for (const g of M.animated) K.tickPiece(g, gameT);
-  M.foam.position.x = Math.sin(gameT * .7) * .5;
-  M.kay.position.set(M.kayHome.x + Math.sin(gameT * .1) * 4, M.kayHome.y, M.kayHome.z + Math.cos(gameT * .1) * 3); M.kay.rotation.y = -gameT * .1;
-  M.brayJet.position.set(M.jetHome.x + Math.sin(gameT * .25) * 6, M.jetHome.y, M.jetHome.z + Math.cos(gameT * .25) * 10); M.brayJet.rotation.y = -gameT * .25;
-  updatePeople(gameT, gdt);
-  updateShots(rdt); updateFx(gdt); updateOccluders(rdt);
+  for (const f of M.tick) f(gameT);
+  M.kay.position.set(M.kayHome.x + Math.sin(gameT * .1) * 4, 0, M.kayHome.z + Math.cos(gameT * .1) * 3); M.kay.rotation.y = -gameT * .1;
+  M.brayJet.position.set(M.jetHome.x + Math.sin(gameT * .25) * 6, .005, M.jetHome.z + Math.cos(gameT * .25) * 10); M.brayJet.rotation.y = -gameT * .25 + Math.PI / 2;
+  updatePeople(gameT, gdt); updateShots(rdt); updateFx(gdt); updateOccluders(rdt);
   if (!paused) sus = Math.max(0, sus - gdt * 1.2);
   renderer.render(scene, cam);
   updateOverlays(rdt); updateHud();
-
   fr++; ft += rdt;
   if (ft > 1.5) { const fps = fr / ft;
     if (showFps) $('fps').textContent = `${Math.round(fps)} fps · dpr ${DPR.toFixed(2)} · ${renderer.info.render.calls} calls`;
     if (fps < 42 && DPR > 1.25) { if (++slowFrames >= 2) { DPR = Math.max(1.25, DPR - .35); resize(); slowFrames = 0; } } else slowFrames = 0;
     fr = 0; ft = 0; }
 });
-window.__beach = { scene, cam, view, people, gesture, TARGETS, get locked() { return locked; }, get hover() { return hover; }, get ts() { return ts; }, fire, M };
+$('loading').style.opacity = 0; setTimeout(() => $('loading').remove(), 500);
+window.__beach = { scene, cam, view, people, gesture, TARGETS, M, get hover() { return hover; }, get aim() { return aim; }, get ts() { return ts; }, fire };
 </script>
 </body>
 </html>
